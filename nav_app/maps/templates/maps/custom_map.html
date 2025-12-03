@@ -1,0 +1,147 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Map Graticule Overlay</title>
+    <link rel="stylesheet" href="{% static 'maps/css/custom_map.css' %}">
+</head>
+<body>
+    <div class="navbar">
+        <a href="{% url 'maps:index' %}" class="nav-btn">← Back to Home</a>
+        <h1>📸 Custom Map Graticule</h1>
+        <div></div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="panel">
+                <h3>1. Upload Map</h3>
+                <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg,application/pdf">
+                <div id="imageInfo" class="info-box" style="display:none;">
+                    <strong>Map loaded:</strong>
+                    <div id="imageDimensions"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>2. Define Coordinate Range</h3>
+                <p class="hint">Set the geographical bounds of your map</p>
+                <div class="form-group">
+                    <label>Min Latitude:</label>
+                    <input type="text" id="minLat" placeholder="54°00'N or 54.0">
+                </div>
+                <div class="form-group">
+                    <label>Max Latitude:</label>
+                    <input type="text" id="maxLat" placeholder="55°00'N or 55.0">
+                </div>
+                <div class="form-group">
+                    <label>Min Longitude:</label>
+                    <input type="text" id="minLon" placeholder="018°00'E or 18.0">
+                </div>
+                <div class="form-group">
+                    <label>Max Longitude:</label>
+                    <input type="text" id="maxLon" placeholder="019°00'E or 19.0">
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>3. Grid Settings</h3>
+                <div class="form-group">
+                    <label>Grid Interval (minutes):</label>
+                    <select id="gridInterval">
+                        <option value="1">1 minute</option>
+                        <option value="2">2 minutes</option>
+                        <option value="5">5 minutes</option>
+                        <option value="10">10 minutes</option>
+                        <option value="15">15 minutes</option>
+                        <option value="30" selected>30 minutes (0.5°)</option>
+                        <option value="60">1 degree (60 minutes)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="showMinuteLines">
+                        Show minute interval lines
+                    </label>
+                    <small>By default: edge lines + whole degree lines. Check to show all minute intervals.</small>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>4. Plot Points</h3>
+                <p class="hint">Click on map or enter coordinates</p>
+                <div class="form-group">
+                    <label>Point Latitude:</label>
+                    <input type="text" id="pointLat" placeholder="54°30'N or 54.5">
+                </div>
+                <div class="form-group">
+                    <label>Point Longitude:</label>
+                    <input type="text" id="pointLon" placeholder="018°30'E or 18.5">
+                </div>
+                <div class="form-group">
+                    <label>Point Label (optional):</label>
+                    <input type="text" id="pointLabel" placeholder="e.g., Point A">
+                </div>
+                <button id="addPointBtn" class="btn-tertiary">Add Point</button>
+                <button id="clearPointsBtn" class="btn-tertiary">Clear All Points</button>
+                <div id="pointsList" class="points-list"></div>
+            </div>
+
+            <div class="panel">
+                <button id="generateBtn" class="btn-primary" disabled>Generate Graticule</button>
+                <button id="clearBtn" class="btn-secondary">Clear All</button>
+            </div>
+
+            <div class="panel" id="coordinateDisplay" style="display:none;">
+                <h3>📍 Cursor Position</h3>
+                <div class="info-box">
+                    <div id="cursorCoords" style="font-family: monospace; font-size: 0.95em;">
+                        Move mouse over map...
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Instructions</h3>
+                <ol class="instructions">
+                    <li>Upload a PDF or image map</li>
+                    <li>Define the coordinate range (min/max lat/lon)</li>
+                    <li>Choose the grid interval in minutes</li>
+                    <li>Click "Generate Graticule"</li>
+                    <li>Click on map to plot points</li>
+                    <li>Or enter coordinates to add points</li>
+                </ol>
+                <div class="info-box" style="margin-top:15px; background:#fff3cd; border-left-color:#ffc107;">
+                    <strong>💡 Tips:</strong>
+                    <p style="margin:5px 0 0 0; font-size:0.85em;">
+                        • PDF files are automatically converted to images<br>
+                        • Coordinates are shown as you move the cursor<br>
+                        • Use minute intervals for nautical charts<br>
+                        • Enter coordinates in decimal or DMS format
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-area">
+            <div id="mapContainer">
+                <div id="placeholder">
+                    <div class="placeholder-content">
+                        <div style="font-size: 4em; margin-bottom: 20px;">📸</div>
+                        <h2>Upload a Map Image</h2>
+                        <p>Click "Choose File" to upload your PNG or JPG map</p>
+                    </div>
+                </div>
+                <canvas id="mapCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load utilities first -->
+    <script src="{% static 'maps/js/graticule_formatter.js' %}"></script>
+    <!-- Then load custom map script -->
+    <script src="{% static 'maps/js/custom_map.js' %}"></script>
+</body>
+</html>

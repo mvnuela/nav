@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: nav_app
+    command: gunicorn --bind 0.0.0.0:8000 --workers 3 nav_app.wsgi:application
+    volumes:
+      - ./nav_app:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=0
+      - SECRET_KEY=your-secret-key-here-change-in-production
+      - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+    restart: unless-stopped
+
+volumes:
+  static_volume:
+  media_volume:

@@ -1,0 +1,159 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sea Navigation Learning - Home</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        .card-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .card h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .card p {
+            color: #666;
+            line-height: 1.6;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .card-features {
+            list-style: none;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .card-features li {
+            padding: 8px 0;
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .card-features li:before {
+            content: "✓ ";
+            color: #4CAF50;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 50px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚓ Sea Navigation Learning</h1>
+            <p>Choose your navigation tool</p>
+        </div>
+
+        <div class="cards">
+            <a href="{% url 'maps:sea_map' %}" class="card">
+                <div class="card-icon">🗺️</div>
+                <h2>Interactive Sea Map</h2>
+                <p>Explore nautical charts with real-time coordinates and navigation tools</p>
+                <ul class="card-features">
+                    <li>OpenStreetMap with Mercator projection</li>
+                    <li>Nautical coordinate grid (graticule)</li>
+                    <li>Course plotter with bearing & distance</li>
+                    <li>Dead reckoning calculator</li>
+                    <li>Real-time coordinate display</li>
+                </ul>
+            </a>
+
+            <a href="{% url 'maps:custom_map' %}" class="card">
+                <div class="card-icon">📸</div>
+                <h2>Custom Map Graticule</h2>
+                <p>Upload your own map and overlay a precise nautical graticule</p>
+                <ul class="card-features">
+                    <li>Upload PNG/JPG map images</li>
+                    <li>Set reference coordinates</li>
+                    <li>Auto-generated graticule overlay</li>
+                    <li>Scalable grid system</li>
+                    <li>Perfect for chart practice</li>
+                </ul>
+            </a>
+        </div>
+
+        <div class="footer">
+            <p>© 2025 Sea Navigation Learning Platform</p>
+        </div>
+    </div>
+</body>
+</html>
