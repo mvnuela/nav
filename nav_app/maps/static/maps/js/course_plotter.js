@@ -12,6 +12,7 @@
     let tempLine = null;
     let outputElement = null;
     let courseLayer = null;
+    let plotterModeActive = false;
 
     /**
      * Initialize course plotter on the map
@@ -40,9 +41,9 @@
                     <div style="margin-bottom: 8px;">
                         <strong>📐 Course Plotter</strong>
                     </div>
-                    <button id="coursePlotBtn"
-                            style="width:100%; padding:6px; cursor:pointer; background:#2196F3; color:white; border:none; border-radius:3px; font-weight:bold; margin-bottom:5px;">
-                        Start Plotting
+                    <button id="togglePlotterMode"
+                            style="width:100%; padding:8px; cursor:pointer; background:#6c757d; color:white; border:none; border-radius:3px; font-weight:bold; margin-bottom:5px;">
+                        📐 Plotter Mode: OFF
                     </button>
                     <button id="clearCoursesBtn"
                             style="width:100%; padding:6px; cursor:pointer; background:#dc3545; color:white; border:none; border-radius:3px; font-weight:bold;">
@@ -50,7 +51,7 @@
                     </button>
                     <div id="courseOutput"
                          style="margin-top:10px; font-size:12px; font-family:monospace; line-height:1.6; min-height:60px; color:#333;">
-                        Click "Start Plotting" to begin
+                        Enable Plotter Mode to begin
                     </div>
                 `;
 
@@ -58,12 +59,12 @@
 
                 // Initialize buttons after DOM is ready
                 setTimeout(() => {
-                    const plotBtn = document.getElementById('coursePlotBtn');
+                    const toggleBtn = document.getElementById('togglePlotterMode');
                     const clearBtn = document.getElementById('clearCoursesBtn');
                     outputElement = document.getElementById('courseOutput');
                     
-                    if (plotBtn && outputElement) {
-                        plotBtn.onclick = startPlotting;
+                    if (toggleBtn && outputElement) {
+                        toggleBtn.onclick = togglePlotterMode;
                     }
                     
                     if (clearBtn) {
@@ -83,15 +84,35 @@
     };
 
     /**
-     * Start the plotting process
+     * Toggle plotter mode on/off
      */
-    function startPlotting() {
-        startPoint = null;
-        if (tempLine) {
-            courseLayer.removeLayer(tempLine);
-            tempLine = null;
+    function togglePlotterMode() {
+        plotterModeActive = !plotterModeActive;
+        const btn = document.getElementById('togglePlotterMode');
+        
+        if (plotterModeActive) {
+            // Mode is now ON
+            btn.style.background = '#28a745';
+            btn.textContent = '✓ Plotter Mode: ON';
+            map.getContainer().style.cursor = 'crosshair';
+            startPoint = null;
+            if (tempLine) {
+                courseLayer.removeLayer(tempLine);
+                tempLine = null;
+            }
+            updateOutput('Click on the map to select<br><strong>first point</strong>');
+        } else {
+            // Mode is now OFF
+            btn.style.background = '#6c757d';
+            btn.textContent = '📐 Plotter Mode: OFF';
+            map.getContainer().style.cursor = '';
+            startPoint = null;
+            if (tempLine) {
+                courseLayer.removeLayer(tempLine);
+                tempLine = null;
+            }
+            updateOutput('Enable Plotter Mode to begin');
         }
-        updateOutput('Click on the map to select<br><strong>first point</strong>');
     }
 
     /**
@@ -105,14 +126,18 @@
         if (tempLine) {
             tempLine = null;
         }
-        updateOutput('All courses cleared.<br>Click "Start Plotting" to begin');
+        if (plotterModeActive) {
+            updateOutput('All courses cleared.<br>Click to select <strong>first point</strong>');
+        } else {
+            updateOutput('All courses cleared.<br>Enable Plotter Mode to begin');
+        }
     }
 
     /**
      * Handle map click events for course plotting
      */
     function handleMapClick(e) {
-        if (!outputElement) return;
+        if (!outputElement || !plotterModeActive) return;
 
         // First point selection
         if (!startPoint) {
