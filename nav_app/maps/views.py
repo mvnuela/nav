@@ -26,6 +26,11 @@ def custom_map(request):
     return render(request, "maps/custom_map.html")
 
 
+def enhanced_graticule(request):
+    """Enhanced interactive graticule with region fitting"""
+    return render(request, "maps/enhanced_graticule.html")
+
+
 @csrf_exempt
 def convert_pdf_to_image(request):
     """Convert uploaded PDF to image for map overlay"""

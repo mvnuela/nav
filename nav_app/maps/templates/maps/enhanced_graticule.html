@@ -1,0 +1,755 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Interactive Graticule System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #0078A8 0%, #005F87 100%);
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .navbar h1 {
+            font-size: 1.5em;
+            font-weight: 600;
+        }
+
+        .nav-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .sidebar {
+            width: 350px;
+            background: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        }
+
+        .panel {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .panel h3 {
+            color: #0078A8;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 500;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background: #0078A8;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #005F87;
+        }
+
+        .btn-secondary {
+            background: #FF5722;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #E64A19;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #45a049;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #e0e0e0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            background: white;
+            padding: 10px 20px;
+            display: flex;
+            gap: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .toolbar button {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .toolbar button.active {
+            background: #0078A8;
+            color: white;
+            border-color: #0078A8;
+        }
+
+        .toolbar button:hover:not(.active) {
+            background: #f5f5f5;
+        }
+
+        #mapContainer {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        #mapCanvas {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            background: white;
+            cursor: default;
+        }
+
+        .info-box {
+            background: #E3F2FD;
+            border-left: 4px solid #0078A8;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .hint {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 10px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-indicator.ready {
+            background: #4CAF50;
+        }
+
+        .status-indicator.pending {
+            background: #FFC107;
+        }
+
+        .mode-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .mode-badge.fit {
+            background: #FF5722;
+            color: white;
+        }
+
+        .mode-badge.view {
+            background: #4CAF50;
+            color: white;
+        }
+
+        #placeholder {
+            text-align: center;
+            color: #999;
+        }
+
+        #placeholder .placeholder-content {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+
+        .instructions {
+            list-style-position: inside;
+            font-size: 0.9em;
+            line-height: 1.8;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .export-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .export-group .btn {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="{% url 'maps:index' %}" class="nav-btn">← Back to Home</a>
+        <h1>🗺️ Enhanced Interactive Graticule System</h1>
+        <div></div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="panel">
+                <h3>📁 1. Upload Map Image</h3>
+                <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg">
+                <div id="imageInfo" class="info-box" style="display:none; margin-top:10px;">
+                    <strong>Image Loaded:</strong><br>
+                    <span id="imageDimensions"></span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>🎯 2. Define Map Region</h3>
+                <p class="hint">Select the area containing actual map (excluding margins/legends)</p>
+                <button id="fitModeBtn" class="btn btn-secondary" disabled>
+                    Enter Fit Mode
+                </button>
+                <div id="regionInfo" class="info-box" style="display:none; margin-top:10px;">
+                    <strong>Region:</strong> <span id="regionDims"></span><br>
+                    <small>Drag handles to adjust region boundaries</small>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>🌍 3. Geographic Bounds</h3>
+                <p class="hint">Set coordinates of the selected map region</p>
+                <div class="form-group">
+                    <label>Min Latitude (South):</label>
+                    <input type="text" id="minLat" placeholder="54.0 or 54°00'N">
+                </div>
+                <div class="form-group">
+                    <label>Max Latitude (North):</label>
+                    <input type="text" id="maxLat" placeholder="55.0 or 55°00'N">
+                </div>
+                <div class="form-group">
+                    <label>Min Longitude (West):</label>
+                    <input type="text" id="minLon" placeholder="18.0 or 018°00'E">
+                </div>
+                <div class="form-group">
+                    <label>Max Longitude (East):</label>
+                    <input type="text" id="maxLon" placeholder="19.0 or 019°00'E">
+                </div>
+                <button id="applyBoundsBtn" class="btn btn-success" disabled>
+                    Apply Geographic Bounds
+                </button>
+            </div>
+
+            <div class="panel" style="display:none;">
+                <h3>⚙️ 4. Grid Settings</h3>
+                <div class="form-group">
+                    <label>Latitude Interval:</label>
+                    <select id="latInterval">
+                        <option value="0.05">3 arcminutes (0.05°)</option>
+                        <option value="0.1">6 arcminutes (0.1°)</option>
+                        <option value="0.25">15 arcminutes (0.25°)</option>
+                        <option value="0.5" selected>30 arcminutes (0.5°)</option>
+                        <option value="1">1 degree</option>
+                        <option value="2">2 degrees</option>
+                        <option value="5">5 degrees</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Longitude Interval:</label>
+                    <select id="lonInterval">
+                        <option value="0.05">3 arcminutes (0.05°)</option>
+                        <option value="0.1">6 arcminutes (0.1°)</option>
+                        <option value="0.25">15 arcminutes (0.25°)</option>
+                        <option value="0.5" selected>30 arcminutes (0.5°)</option>
+                        <option value="1">1 degree</option>
+                        <option value="2">2 degrees</option>
+                        <option value="5">5 degrees</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="panel" id="coordinateDisplay" style="display:none;">
+                <h3>📍 Cursor Position</h3>
+                <div class="info-box">
+                    <div id="cursorCoords" style="font-family: monospace;">
+                        Move mouse over map...
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" id="trianglesPanel" style="display:none;">
+                <h3>📐 Navigation Triangles</h3>
+                <p class="hint">Professional maritime navigation triangles for course plotting</p>
+                
+                <button id="toggleTrianglesBtn" class="btn btn-primary">
+                    Show Triangles
+                </button>
+                
+                <div id="trianglesInfo" style="display:none; background:#e3f2fd; border:1px solid #0078A8; border-radius:4px; padding:10px; margin-top:10px; font-size:0.9em;">
+                    <strong>Instructions:</strong>
+                    <ul style="margin:8px 0 0 20px; padding:0;">
+                        <li>Drag triangle body to move</li>
+                        <li>Drag center point to rotate</li>
+                        <li>Index line shows current bearing</li>
+                        <li>Degree scale: 0°-180° on hypotenuse</li>
+                    </ul>
+                </div>
+                
+                <div id="triangleAngles" style="display:none; background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px; margin-top:10px; font-family:monospace; font-size:0.9em;">
+                    <strong>Current Angles:</strong>
+                    <div id="portAngle" style="margin-top:5px;">Port: 0°</div>
+                    <div id="starboardAngle" style="margin-top:5px;">Starboard: 0°</div>
+                </div>
+            </div>
+
+            <div class="panel" id="coursePanel" style="display:none;">
+                <h3>🧭 Course Plotting</h3>
+                <p class="hint">Click on map to add waypoints</p>
+                <div id="currentCourseInfo" style="display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:8px; margin-bottom:10px; font-size:0.9em;">
+                    <strong>Current Course:</strong>
+                    <div id="currentCoursePoints">0 waypoints</div>
+                </div>
+                <button id="completeCourseBtn" class="btn btn-success" style="display:none;">
+                    Complete Course
+                </button>
+                <button id="cancelCourseBtn" class="btn btn-secondary" style="display:none;">
+                    Cancel
+                </button>
+                <div id="coursesList" style="margin-top:15px;"></div>
+                <button id="clearCoursesBtn" class="btn btn-secondary" style="display:none; margin-top:10px;">
+                    Clear All Courses
+                </button>
+            </div>
+
+            <div class="panel" id="exportPanel" style="display:none;">
+                <h3>💾 Export</h3>
+                <div class="export-group">
+                    <button id="exportSVGBtn" class="btn btn-primary">
+                        SVG
+                    </button>
+                    <button id="exportPNGBtn" class="btn btn-primary">
+                        High-Res PNG
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>📖 Instructions</h3>
+                <ol class="instructions">
+                    <li>Upload your map image (may include margins)</li>
+                    <li>Click "Enter Fit Mode" to define map region</li>
+                    <li>Drag handles to select actual map content area</li>
+                    <li>Enter geographic bounds for that region</li>
+                    <li>Click "Apply" to generate accurate Mercator graticule</li>
+                    <li>Export as SVG or high-resolution PNG</li>
+                </ol>
+                <div class="info-box" style="margin-top:15px; background:#fff3cd; border-left-color:#ffc107;">
+                    <strong>💡 Key Features:</strong>
+                    <p style="margin:5px 0 0 0; font-size:0.85em;">
+                        • Proper Mercator projection (not linear)<br>
+                        • Interactive region fitting for images with margins<br>
+                        • Drag corners/edges to resize region<br>
+                        • Geographic accuracy preserved at all scales
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-area">
+            <div class="toolbar">
+                <div style="flex:1; display:flex; align-items:center; gap:10px;">
+                    <strong>Mode:</strong>
+                    <span id="modeIndicator" class="mode-badge view">VIEW</span>
+                </div>
+                <button id="viewModeBtn" class="btn-toolbar active" disabled>View Mode</button>
+                <button id="fitModeBtn2" class="btn-toolbar" disabled>Fit Mode</button>
+                <button id="courseModeBtn" class="btn-toolbar" disabled>Course Mode</button>
+            </div>
+            
+            <div id="mapContainer">
+                <div id="placeholder">
+                    <div class="placeholder-content">
+                        <div style="font-size: 4em; margin-bottom: 20px;">🗺️</div>
+                        <h2>Upload a Map Image</h2>
+                        <p>Select a PNG or JPG file to get started</p>
+                        <p style="margin-top:10px; color:#999;">The image may include margins, legends, or labels</p>
+                    </div>
+                </div>
+                <canvas id="mapCanvas" style="display:none;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load utilities first -->
+    <script src="{% static 'maps/js/graticule_formatter.js' %}"></script>
+    <!-- Then load enhanced graticule -->
+    <script src="{% static 'maps/js/enhanced_graticule.js' %}"></script>
+    <!-- Load course plotting extension -->
+    <script src="{% static 'maps/js/course_plotter_enhanced.js' %}"></script>
+    <!-- Load nautical triangles component -->
+    <script src="{% static 'maps/js/nautical_triangles.js' %}"></script>
+    
+    <script>
+        // Make graticule system globally accessible
+        window.graticuleSystem = null;
+
+        function init() {
+            window.graticuleSystem = new EnhancedGraticuleSystem('mapCanvas');
+            
+            // Event listeners
+            document.getElementById('mapUpload').addEventListener('change', handleFileUpload);
+            document.getElementById('fitModeBtn').addEventListener('click', () => setMode('fit'));
+            document.getElementById('fitModeBtn2').addEventListener('click', () => setMode('fit'));
+            document.getElementById('viewModeBtn').addEventListener('click', () => setMode('view'));
+            document.getElementById('courseModeBtn').addEventListener('click', () => setMode('course'));
+            document.getElementById('toggleTrianglesBtn').addEventListener('click', toggleTriangles);
+            document.getElementById('applyBoundsBtn').addEventListener('click', applyBounds);
+            document.getElementById('latInterval').addEventListener('change', updateLatInterval);
+            document.getElementById('lonInterval').addEventListener('change', updateLonInterval);
+            document.getElementById('completeCourseBtn').addEventListener('click', completeCourse);
+            document.getElementById('cancelCourseBtn').addEventListener('click', cancelCourse);
+            document.getElementById('clearCoursesBtn').addEventListener('click', clearCourses);
+            document.getElementById('exportSVGBtn').addEventListener('click', exportSVG);
+            document.getElementById('exportPNGBtn').addEventListener('click', exportPNG);
+            
+            // Enter key on inputs
+            ['minLat', 'maxLat', 'minLon', 'maxLon'].forEach(id => {
+                document.getElementById(id).addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') applyBounds();
+                });
+            });
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    await graticuleSystem.loadImage(e.target.result);
+                    
+                    const img = graticuleSystem.uploadedImage;
+                    document.getElementById('imageDimensions').textContent =
+                        `${img.width} × ${img.height} pixels`;
+                    document.getElementById('imageInfo').style.display = 'block';
+                    document.getElementById('placeholder').style.display = 'none';
+                    document.getElementById('mapCanvas').style.display = 'block';
+                    
+                    // Render again now that canvas is visible
+                    graticuleSystem.render();
+                    
+                    document.getElementById('fitModeBtn').disabled = false;
+                    document.getElementById('fitModeBtn2').disabled = false;
+                    
+                    updateRegionInfo();
+                } catch (error) {
+                    alert('Error loading image: ' + error.message);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function setMode(mode) {
+            graticuleSystem.setMode(mode);
+            
+            const indicator = document.getElementById('modeIndicator');
+            const viewBtn = document.getElementById('viewModeBtn');
+            const fitBtn = document.getElementById('fitModeBtn2');
+            const courseBtn = document.getElementById('courseModeBtn');
+            
+            // Reset all buttons
+            viewBtn.classList.remove('active');
+            fitBtn.classList.remove('active');
+            courseBtn.classList.remove('active');
+            
+            // Hide all panels first
+            document.getElementById('regionInfo').style.display = 'none';
+            document.getElementById('coordinateDisplay').style.display = 'none';
+            document.getElementById('coursePanel').style.display = 'none';
+            document.getElementById('trianglesPanel').style.display = 'none';
+            
+            if (mode === 'fit') {
+                indicator.textContent = 'FIT MODE';
+                indicator.className = 'mode-badge fit';
+                fitBtn.classList.add('active');
+                document.getElementById('regionInfo').style.display = 'block';
+            } else if (mode === 'course') {
+                indicator.textContent = 'COURSE MODE';
+                indicator.className = 'mode-badge fit';
+                courseBtn.classList.add('active');
+                document.getElementById('coordinateDisplay').style.display = 'block';
+                document.getElementById('coursePanel').style.display = 'block';
+                updateCourseUI();
+            } else {
+                indicator.textContent = 'VIEW MODE';
+                indicator.className = 'mode-badge view';
+                viewBtn.classList.add('active');
+                if (graticuleSystem.mapper) {
+                    document.getElementById('coordinateDisplay').style.display = 'block';
+                    document.getElementById('trianglesPanel').style.display = 'block';
+                }
+                if (graticuleSystem.trianglesVisible) {
+                    updateTriangleAngles();
+                }
+            }
+            
+            updateRegionInfo();
+        }
+
+        function updateCourseUI() {
+            const hasCurrentCourse = graticuleSystem.currentCourse &&
+                                   graticuleSystem.currentCourse.points.length > 0;
+            const hasCourses = graticuleSystem.courses && graticuleSystem.courses.length > 0;
+            
+            document.getElementById('currentCourseInfo').style.display = hasCurrentCourse ? 'block' : 'none';
+            document.getElementById('completeCourseBtn').style.display = hasCurrentCourse ? 'block' : 'none';
+            document.getElementById('cancelCourseBtn').style.display = hasCurrentCourse ? 'block' : 'none';
+            document.getElementById('clearCoursesBtn').style.display = hasCourses ? 'block' : 'none';
+            
+            if (hasCurrentCourse) {
+                const points = graticuleSystem.currentCourse.points.length;
+                const totalText = graticuleSystem.currentCourse.totalDistance ?
+                    ` (${graticuleSystem.currentCourse.totalDistance.toFixed(1)} nm)` : '';
+                document.getElementById('currentCoursePoints').textContent =
+                    `${points} waypoint${points !== 1 ? 's' : ''}${totalText}`;
+            }
+        }
+
+        function completeCourse() {
+            graticuleSystem.completeCourse();
+            updateCourseUI();
+        }
+
+        function cancelCourse() {
+            graticuleSystem.cancelCourse();
+            updateCourseUI();
+        }
+
+        function clearCourses() {
+            if (confirm('Clear all plotted courses?')) {
+                graticuleSystem.clearAllCourses();
+                updateCourseUI();
+            }
+        }
+
+        function updateRegionInfo() {
+            if (graticuleSystem.mapRegion) {
+                const r = graticuleSystem.mapRegion;
+                document.getElementById('regionDims').textContent = 
+                    `${Math.round(r.width)} × ${Math.round(r.height)} px at (${Math.round(r.x)}, ${Math.round(r.y)})`;
+                
+                document.getElementById('applyBoundsBtn').disabled = false;
+            }
+        }
+
+        function applyBounds() {
+            const minLat = parseCoordinate(document.getElementById('minLat').value);
+            const maxLat = parseCoordinate(document.getElementById('maxLat').value);
+            const minLon = parseCoordinate(document.getElementById('minLon').value);
+            const maxLon = parseCoordinate(document.getElementById('maxLon').value);
+            
+            if (isNaN(minLat) || isNaN(maxLat) || isNaN(minLon) || isNaN(maxLon)) {
+                alert('Please enter valid coordinates');
+                return;
+            }
+            
+            if (minLat >= maxLat || minLon >= maxLon) {
+                alert('Invalid bounds: min values must be less than max values');
+                return;
+            }
+            
+            graticuleSystem.setGeographicBounds(minLat, maxLat, minLon, maxLon);
+            
+            // Initialize course plotting
+            if (!graticuleSystem.courses) {
+                graticuleSystem.initCoursePlotting();
+            }
+            
+            setMode('view');
+            
+            document.getElementById('viewModeBtn').disabled = false;
+            document.getElementById('courseModeBtn').disabled = false;
+            document.getElementById('exportPanel').style.display = 'block';
+        }
+        
+        function toggleTriangles() {
+            const isVisible = graticuleSystem.toggleTriangles();
+            const btn = document.getElementById('toggleTrianglesBtn');
+            const info = document.getElementById('trianglesInfo');
+            const angles = document.getElementById('triangleAngles');
+            
+            if (isVisible) {
+                btn.textContent = 'Hide Triangles';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+                info.style.display = 'block';
+                angles.style.display = 'block';
+                updateTriangleAngles();
+            } else {
+                btn.textContent = 'Show Triangles';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary');
+                info.style.display = 'none';
+                angles.style.display = 'none';
+            }
+        }
+        
+        function updateTriangleAngles() {
+            const angles = graticuleSystem.getTriangleAngles();
+            if (angles) {
+                document.getElementById('portAngle').textContent =
+                    `Port: ${Math.round(angles.port)}°`;
+                document.getElementById('starboardAngle').textContent =
+                    `Starboard: ${Math.round(angles.starboard)}°`;
+            }
+        }
+        
+        // Update triangle angles periodically when visible
+        setInterval(() => {
+            if (graticuleSystem.trianglesVisible && graticuleSystem.mode === 'view') {
+                updateTriangleAngles();
+            }
+        }, 100);
+
+        function parseCoordinate(input) {
+            input = input.trim();
+            if (input.includes('°') || input.includes('\'')) {
+                return nauticalToDecimal(input);
+            }
+            return parseFloat(input);
+        }
+
+        function updateLatInterval(event) {
+            graticuleSystem.latInterval = parseFloat(event.target.value);
+            graticuleSystem.render();
+        }
+
+        function updateLonInterval(event) {
+            graticuleSystem.lonInterval = parseFloat(event.target.value);
+            graticuleSystem.render();
+        }
+
+        function exportSVG() {
+            const svg = graticuleSystem.exportSVG();
+            if (!svg) {
+                alert('Please apply geographic bounds first');
+                return;
+            }
+            
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'graticule.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportPNG() {
+            const dataUrl = graticuleSystem.exportHighResPNG(2);
+            if (!dataUrl) {
+                alert('Please apply geographic bounds first');
+                return;
+            }
+            
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = 'graticule-highres.png';
+            a.click();
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
