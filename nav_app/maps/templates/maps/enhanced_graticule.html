@@ -386,6 +386,132 @@
                     <div id="starboardAngle" style="margin-top:5px;">Starboard: 0°</div>
                 </div>
             </div>
+            
+            <div class="panel" id="dividerPanel" style="display:none;">
+                <h3>📏 Nautical Divider</h3>
+                <p class="hint">Professional chart divider for measuring distances</p>
+                
+                <button id="toggleDividerBtn" class="btn btn-primary">
+                    Show Divider Tool
+                </button>
+                
+                <div id="dividerControls" style="display:none; margin-top:10px;">
+                    <button id="addDividerBtn" class="btn btn-success">
+                        ➕ Add New Divider
+                    </button>
+                    
+                    <button id="deleteDividerBtn" class="btn btn-secondary" style="display:none;">
+                        🗑️ Delete Selected
+                    </button>
+                    
+                    <button id="clearDividersBtn" class="btn btn-secondary" style="display:none;">
+                        Clear All Dividers
+                    </button>
+                </div>
+                
+                <div id="dividerInfo" style="display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:10px; margin-top:10px; font-size:0.9em;">
+                    <strong>Instructions:</strong>
+                    <ul style="margin:8px 0 0 20px; padding:0;">
+                        <li>Click "Add New Divider"</li>
+                        <li>Click two points on the map</li>
+                        <li>Distance is locked between points</li>
+                        <li>Drag center (blue) to move</li>
+                        <li>Drag rotation handle (green) to rotate</li>
+                        <li>Drag endpoints (orange) to pivot</li>
+                    </ul>
+                </div>
+                
+                <div id="selectedDividerInfo" style="display:none; background:#e3f2fd; border:1px solid #0078A8; border-radius:4px; padding:10px; margin-top:10px; font-family:monospace; font-size:0.9em;">
+                    <strong>Selected Divider:</strong>
+                    <div id="dividerDistance" style="margin-top:5px;">Distance: --</div>
+                    <div id="dividerBearing" style="margin-top:5px;">Bearing: --</div>
+                </div>
+            </div>
+
+            <div class="panel" id="courseCalculatorPanel" style="display:none;">
+                <h3>🧭 Course Calculator & DR</h3>
+                <p class="hint">Calculate compass course and dead reckoning position</p>
+                
+                <div style="background:#fff3cd; padding:8px; border-radius:4px; margin-bottom:10px; font-size:0.85em;">
+                    <strong>Two modes:</strong><br>
+                    <small>1️⃣ Course Only: Calculate compass course<br>
+                    2️⃣ DR Full: Course + position calculation</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Start Latitude:</label>
+                    <input type="text" id="drCalcStartLat" placeholder="54.5 or 54°30.0'N">
+                    <small>Optional for course-only mode</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Start Longitude:</label>
+                    <input type="text" id="drCalcStartLon" placeholder="18.5 or 018°30.0'E">
+                    <small>Optional for course-only mode</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Course Over Ground (COG):</label>
+                    <input type="number" id="cogInput" min="0" max="360" step="0.1" placeholder="e.g., 045.0">
+                    <small>True course made good (0-360°)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Drift / Leeway:</label>
+                    <input type="number" id="driftInput" step="0.1" placeholder="e.g., 5.0 or -3.0">
+                    <small>+ = starboard drift, - = port drift</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Magnetic Declination (Variation):</label>
+                    <input type="number" id="declinationInput" step="0.1" placeholder="e.g., 8.5 or -12.0">
+                    <small>+ = East, - = West</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Compass Deviation:</label>
+                    <input type="number" id="deviationInput" step="0.1" placeholder="e.g., 2.0 or -1.5">
+                    <small>From deviation table for heading</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Speed (knots):</label>
+                    <input type="number" id="drCalcSpeed" min="0" step="0.1" placeholder="e.g., 6.0">
+                    <small>Optional for course-only mode</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Time (hours):</label>
+                    <input type="number" id="drCalcTime" min="0" step="0.5" placeholder="e.g., 2.0">
+                    <small>Optional for course-only mode</small>
+                </div>
+                
+                <button id="calculateCourseBtn" class="btn btn-primary">
+                    Calculate Course & DR
+                </button>
+                
+                <button id="reverseCalculateBtn" class="btn btn-tertiary" style="display:none;">
+                    🔄 Reverse (C→COG)
+                </button>
+                
+                <div id="courseResults" style="display:none; margin-top:15px;">
+                    <div style="background:#e8f5e9; border-left:4px solid #4CAF50; padding:12px; border-radius:4px; margin-bottom:10px;">
+                        <strong>Results:</strong>
+                        <div id="courseResultsText" style="margin-top:8px; font-family:monospace; font-size:0.95em;"></div>
+                    </div>
+                    
+                    <div style="background:#fff; border:1px solid #ddd; border-radius:4px; padding:12px; margin-bottom:10px;">
+                        <strong>Calculation Steps:</strong>
+                        <div id="calculationSteps" style="margin-top:8px; font-size:0.9em;"></div>
+                    </div>
+                    
+                    <div style="background:#e3f2fd; border-left:4px solid #0078A8; padding:10px; border-radius:4px; font-size:0.85em;">
+                        <strong>Memory Aid:</strong>
+                        <div style="margin-top:5px;">"<em>True Virgins Make Dull Company</em>"</div>
+                        <div style="margin-top:3px; color:#666;">True → Variation (−) → Magnetic → Deviation (−) → Compass</div>
+                    </div>
+                </div>
+            </div>
 
             <div class="panel" id="coursePanel" style="display:none;">
                 <h3>🧭 Course Plotting</h3>
@@ -467,6 +593,10 @@
 
     <!-- Load utilities first -->
     <script src="{% static 'maps/js/graticule_formatter.js' %}"></script>
+    <!-- Load course calculator -->
+    <script src="{% static 'maps/js/course_calculator.js' %}"></script>
+    <!-- Load nautical divider -->
+    <script src="{% static 'maps/js/nautical_divider.js' %}"></script>
     <!-- Then load enhanced graticule -->
     <script src="{% static 'maps/js/enhanced_graticule.js' %}"></script>
     <!-- Load course plotting extension -->
@@ -488,6 +618,12 @@
             document.getElementById('viewModeBtn').addEventListener('click', () => setMode('view'));
             document.getElementById('courseModeBtn').addEventListener('click', () => setMode('course'));
             document.getElementById('toggleTrianglesBtn').addEventListener('click', toggleTriangles);
+            document.getElementById('toggleDividerBtn').addEventListener('click', toggleDivider);
+            document.getElementById('addDividerBtn').addEventListener('click', addDivider);
+            document.getElementById('deleteDividerBtn').addEventListener('click', deleteSelectedDivider);
+            document.getElementById('clearDividersBtn').addEventListener('click', clearAllDividers);
+            document.getElementById('calculateCourseBtn').addEventListener('click', calculateCourse);
+            document.getElementById('reverseCalculateBtn').addEventListener('click', reverseCalculateCourse);
             document.getElementById('applyBoundsBtn').addEventListener('click', applyBounds);
             document.getElementById('latInterval').addEventListener('change', updateLatInterval);
             document.getElementById('lonInterval').addEventListener('change', updateLonInterval);
@@ -553,6 +689,8 @@
             document.getElementById('coordinateDisplay').style.display = 'none';
             document.getElementById('coursePanel').style.display = 'none';
             document.getElementById('trianglesPanel').style.display = 'none';
+            document.getElementById('dividerPanel').style.display = 'none';
+            document.getElementById('courseCalculatorPanel').style.display = 'none';
             
             if (mode === 'fit') {
                 indicator.textContent = 'FIT MODE';
@@ -573,9 +711,14 @@
                 if (graticuleSystem.mapper) {
                     document.getElementById('coordinateDisplay').style.display = 'block';
                     document.getElementById('trianglesPanel').style.display = 'block';
+                    document.getElementById('dividerPanel').style.display = 'block';
+                    document.getElementById('courseCalculatorPanel').style.display = 'block';
                 }
                 if (graticuleSystem.trianglesVisible) {
                     updateTriangleAngles();
+                }
+                if (graticuleSystem.dividerVisible) {
+                    updateDividerUI();
                 }
             }
             
@@ -695,7 +838,308 @@
             if (graticuleSystem.trianglesVisible && graticuleSystem.mode === 'view') {
                 updateTriangleAngles();
             }
+            if (graticuleSystem.dividerVisible && graticuleSystem.mode === 'view') {
+                updateDividerUI();
+            }
         }, 100);
+        
+        function toggleDivider() {
+            const isVisible = graticuleSystem.toggleDivider();
+            const btn = document.getElementById('toggleDividerBtn');
+            const controls = document.getElementById('dividerControls');
+            const info = document.getElementById('dividerInfo');
+            
+            if (isVisible) {
+                btn.textContent = 'Hide Divider Tool';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+                controls.style.display = 'block';
+                info.style.display = 'block';
+            } else {
+                btn.textContent = 'Show Divider Tool';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary');
+                controls.style.display = 'none';
+                info.style.display = 'none';
+                document.getElementById('selectedDividerInfo').style.display = 'none';
+            }
+        }
+        
+        function addDivider() {
+            graticuleSystem.startDividerPlacement();
+            updateDividerUI();
+        }
+        
+        function deleteSelectedDivider() {
+            const deleted = graticuleSystem.deleteSelectedDivider();
+            if (deleted) {
+                updateDividerUI();
+            }
+        }
+        
+        function clearAllDividers() {
+            if (confirm('Clear all dividers?')) {
+                graticuleSystem.clearAllDividers();
+                updateDividerUI();
+            }
+        }
+        
+        function updateDividerUI() {
+            if (!graticuleSystem.dividerManager) return;
+            
+            const hasSelected = graticuleSystem.dividerManager.selectedDivider !== null;
+            const hasDividers = graticuleSystem.dividerManager.dividers.length > 0;
+            const inPlacement = graticuleSystem.dividerManager.placementMode;
+            
+            // Show/hide buttons
+            document.getElementById('deleteDividerBtn').style.display = hasSelected ? 'block' : 'none';
+            document.getElementById('clearDividersBtn').style.display = hasDividers ? 'block' : 'none';
+            
+            // Update selected divider info
+            const selectedInfo = document.getElementById('selectedDividerInfo');
+            if (hasSelected && !inPlacement) {
+                const info = graticuleSystem.getSelectedDividerInfo();
+                if (info) {
+                    document.getElementById('dividerDistance').textContent =
+                        `Distance: ${info.distance.toFixed(2)} NM`;
+                    document.getElementById('dividerBearing').textContent =
+                        `Bearing: ${Math.round(info.bearing)}°`;
+                    selectedInfo.style.display = 'block';
+                }
+            } else {
+                selectedInfo.style.display = 'none';
+            }
+            
+            // Change button text during placement
+            const addBtn = document.getElementById('addDividerBtn');
+            if (inPlacement) {
+                addBtn.textContent = '⏳ Click two points on map...';
+                addBtn.disabled = true;
+            } else {
+                addBtn.textContent = '➕ Add New Divider';
+                addBtn.disabled = false;
+            }
+        }
+        
+        // Course Calculator Functions
+        let courseCalculator = null;
+        let drMarkers = [];
+        
+        function calculateCourse() {
+            try {
+                if (!courseCalculator) {
+                    courseCalculator = new CourseCalculator();
+                }
+                
+                // Get course calculation inputs
+                const cog = parseFloat(document.getElementById('cogInput').value);
+                const drift = parseFloat(document.getElementById('driftInput').value);
+                const declination = parseFloat(document.getElementById('declinationInput').value);
+                const deviation = parseFloat(document.getElementById('deviationInput').value);
+                
+                // Validate course inputs
+                const validation = CourseCalculator.validateInputs(cog, drift, declination, deviation);
+                if (!validation.valid) {
+                    alert('Input validation errors:\n' + validation.errors.join('\n'));
+                    return;
+                }
+                
+                // Calculate courses
+                const results = courseCalculator.calculate(cog, drift, declination, deviation);
+                
+                // Check if DR calculation is requested (needs position, speed, time)
+                const startLatInput = document.getElementById('drCalcStartLat').value.trim();
+                const startLonInput = document.getElementById('drCalcStartLon').value.trim();
+                const speed = parseFloat(document.getElementById('drCalcSpeed').value);
+                const time = parseFloat(document.getElementById('drCalcTime').value);
+                
+                let drResults = null;
+                
+                if (startLatInput && startLonInput && !isNaN(speed) && speed > 0 && !isNaN(time) && time > 0) {
+                    // Parse start position
+                    const startLat = startLatInput.includes('°') || startLatInput.includes('\'') ?
+                        nauticalToDecimal(startLatInput) : parseFloat(startLatInput);
+                    const startLon = startLonInput.includes('°') || startLonInput.includes('\'') ?
+                        nauticalToDecimal(startLonInput) : parseFloat(startLonInput);
+                    
+                    if (!isNaN(startLat) && !isNaN(startLon)) {
+                        // Use the calculated COG (which includes drift) for DR
+                        drResults = courseCalculator.calculateDRPosition(startLat, startLon, cog, speed, time);
+                    }
+                }
+                
+                // Display results
+                displayCourseResults(results, drResults);
+                
+            } catch (error) {
+                alert('Calculation error: ' + error.message);
+            }
+        }
+        
+        function reverseCalculateCourse() {
+            alert('Reverse calculation (Compass → COG) coming soon!');
+        }
+        
+        function displayCourseResults(results, drResults) {
+            // Show results section
+            document.getElementById('courseResults').style.display = 'block';
+            
+            // Build results HTML
+            let resultsHtml = `
+                <div style="line-height:1.8;">
+                    <div><strong>Input:</strong> COG ${results.input.cog.display}</div>
+                    <div style="margin-top:8px; padding-top:8px; border-top:1px solid #ddd;">
+                        <strong>True Course:</strong> ${results.output.trueCourse.display}<br>
+                        <strong>Magnetic Course:</strong> ${results.output.magneticCourse.display}<br>
+                        <strong>Compass Course:</strong> ${results.output.compassCourse.display}
+                    </div>
+                    <div style="margin-top:8px; padding-top:8px; border-top:1px solid #ddd; background:#fffde7; padding:8px; border-radius:4px;">
+                        <strong style="color:#F57C00;">⚓ Steer: ${results.output.compassCourse.formatted}</strong>
+                    </div>
+            `;
+            
+            // Add DR results if available
+            if (drResults) {
+                const startPos = formatCoordPair(drResults.startPosition.lat, drResults.startPosition.lon);
+                const drPos = formatCoordPair(drResults.drPosition.lat, drResults.drPosition.lon);
+                
+                resultsHtml += `
+                    <div style="margin-top:12px; padding-top:12px; border-top:2px solid #ddd; background:#e8f5e9; padding:10px; border-radius:4px;">
+                        <strong style="color:#2E7D32;">📍 Dead Reckoning Position:</strong>
+                        <div style="margin-top:6px; font-size:0.9em;">
+                            <strong>Start:</strong> ${startPos}<br>
+                            <strong>DR Pos:</strong> ${drPos}<br>
+                            <strong>Distance:</strong> ${drResults.distance.toFixed(2)} NM<br>
+                            <strong>Time:</strong> ${drResults.time.toFixed(1)}h @ ${drResults.speed.toFixed(1)} kts
+                        </div>
+                    </div>
+                `;
+                
+                // Draw DR on canvas if mapper available
+                drawDROnCanvas(drResults);
+            }
+            
+            resultsHtml += '</div>';
+            document.getElementById('courseResultsText').innerHTML = resultsHtml;
+            
+            // Display calculation steps
+            let stepsHtml = '<div style="line-height:2;">';
+            results.steps.forEach((step, index) => {
+                stepsHtml += `
+                    <div style="margin-bottom:12px; padding:10px; background:#f9f9f9; border-radius:4px;">
+                        <div style="font-weight:600; color:#0078A8; margin-bottom:4px;">
+                            Step ${index + 1}: ${step.name}
+                        </div>
+                        <div style="font-family:monospace; font-size:0.9em; margin-bottom:2px;">
+                            ${step.formula}
+                        </div>
+                        <div style="font-size:0.9em; color:#666;">
+                            ${step.calculation}
+                        </div>
+                        ${step.normalized ? `<div style="font-size:0.85em; color:#F57C00; margin-top:2px;">${step.normalized}</div>` : ''}
+                        <div style="font-size:0.85em; color:#666; font-style:italic; margin-top:4px;">
+                            ${step.description}
+                        </div>
+                    </div>
+                `;
+            });
+            stepsHtml += '</div>';
+            document.getElementById('calculationSteps').innerHTML = stepsHtml;
+        }
+        
+        function formatCoordPair(lat, lon) {
+            if (typeof decimalToNautical === 'function') {
+                return decimalToNautical(lat, true) + ', ' + decimalToNautical(lon, false);
+            }
+            return `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
+        }
+        
+        function drawDROnCanvas(drResults) {
+            // Clear previous DR markers
+            clearDRMarkers();
+            
+            if (!graticuleSystem || !graticuleSystem.mapper) return;
+            
+            // Store for later clearing
+            drMarkers.push({
+                start: drResults.startPosition,
+                dr: drResults.drPosition
+            });
+            
+            // Trigger render to show updated canvas
+            graticuleSystem.render();
+            
+            // Draw start and DR positions on canvas
+            const ctx = graticuleSystem.ctx;
+            const startScreen = graticuleSystem.mapper.geographicToScreen(
+                drResults.startPosition.lat,
+                drResults.startPosition.lon
+            );
+            const drScreen = graticuleSystem.mapper.geographicToScreen(
+                drResults.drPosition.lat,
+                drResults.drPosition.lon
+            );
+            
+            ctx.save();
+            
+            // Draw track line
+            ctx.strokeStyle = 'rgba(40, 167, 69, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(startScreen.x, startScreen.y);
+            ctx.lineTo(drScreen.x, drScreen.y);
+            ctx.stroke();
+            
+            // Draw start marker
+            ctx.fillStyle = 'rgba(23, 162, 184, 0.9)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(startScreen.x, startScreen.y, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw DR marker
+            ctx.fillStyle = 'rgba(255, 193, 7, 0.9)';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(drScreen.x, drScreen.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw label at DR position
+            const label = `DR ${drResults.time.toFixed(1)}h`;
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            
+            const metrics = ctx.measureText(label);
+            const padding = 4;
+            const labelWidth = metrics.width + padding * 2;
+            const labelHeight = 18;
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.fillRect(drScreen.x - labelWidth/2, drScreen.y - labelHeight - 15, labelWidth, labelHeight);
+            
+            ctx.strokeStyle = 'rgba(255, 193, 7, 0.9)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(drScreen.x - labelWidth/2, drScreen.y - labelHeight - 15, labelWidth, labelHeight);
+            
+            ctx.fillStyle = '#333';
+            ctx.fillText(label, drScreen.x, drScreen.y - 18);
+            
+            ctx.restore();
+        }
+        
+        function clearDRMarkers() {
+            drMarkers = [];
+            if (graticuleSystem) {
+                graticuleSystem.render();
+            }
+        }
 
         function parseCoordinate(input) {
             input = input.trim();

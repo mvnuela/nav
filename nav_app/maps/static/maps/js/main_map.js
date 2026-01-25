@@ -48,6 +48,12 @@
         if (typeof initMaritimeObjects === 'function') {
             initMaritimeObjects(map);
         }
+        if (typeof initNauticalTriangles === 'function') {
+            initNauticalTriangles(map);
+        }
+        if (typeof initNauticalDivider === 'function') {
+            initNauticalDivider(map);
+        }
         
         console.log('✓ Nautical map initialized successfully');
     }

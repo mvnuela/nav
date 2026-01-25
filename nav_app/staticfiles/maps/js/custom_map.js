@@ -21,10 +21,6 @@
     let plottedPoints = [];
     let pointIdCounter = 0;
     
-    // Map area selection
-    let mapArea = null; // {x1, y1, x2, y2} or null for full image
-    let selectingArea = false;
-    let areaCorner1 = null;
 
     /**
      * Initialize the application
@@ -39,8 +35,6 @@
         document.getElementById('clearBtn').addEventListener('click', clearAll);
         document.getElementById('gridInterval').addEventListener('change', updateGridInterval);
         document.getElementById('showMinuteLines').addEventListener('change', updateShowMinuteLines);
-        document.getElementById('selectAreaBtn').addEventListener('click', startAreaSelection);
-        document.getElementById('clearAreaBtn').addEventListener('click', clearMapArea);
         document.getElementById('addPointBtn').addEventListener('click', addPointFromInput);
         document.getElementById('clearPointsBtn').addEventListener('click', clearAllPoints);
 
@@ -116,7 +110,6 @@
                         `${img.width} × ${img.height} pixels (converted from PDF)`;
                     document.getElementById('imageInfo').style.display = 'block';
                     document.getElementById('placeholder').style.display = 'none';
-                    document.getElementById('selectAreaBtn').disabled = false;
                     canvas.classList.add('active');
                     checkGenerateReady();
                 };
@@ -144,7 +137,6 @@
                     `${img.width} × ${img.height} pixels`;
                 document.getElementById('imageInfo').style.display = 'block';
                 document.getElementById('placeholder').style.display = 'none';
-                document.getElementById('selectAreaBtn').disabled = false;
                 canvas.classList.add('active');
                 checkGenerateReady();
             };
@@ -160,6 +152,33 @@
         canvas.width = img.width;
         canvas.height = img.height;
         drawImage();
+        // Don't fit to window yet - wait for graticule generation
+    }
+
+    /**
+     * Fit canvas to window using CSS scaling
+     */
+    function fitToWindow() {
+        if (!uploadedImage) return;
+        
+        const container = document.getElementById('mapContainer');
+        const containerWidth = container.clientWidth - 40; // padding
+        const containerHeight = container.clientHeight - 40; // padding
+        
+        const imageWidth = uploadedImage.width;
+        const imageHeight = uploadedImage.height;
+        
+        // Calculate scale to fit
+        const scaleX = containerWidth / imageWidth;
+        const scaleY = containerHeight / imageHeight;
+        const scale = Math.min(scaleX, scaleY, 1.0); // Don't zoom in beyond 100%
+        
+        // Apply CSS scaling
+        const newWidth = imageWidth * scale;
+        const newHeight = imageHeight * scale;
+        
+        canvas.style.width = newWidth + 'px';
+        canvas.style.height = newHeight + 'px';
     }
 
     /**
@@ -237,59 +256,6 @@
         }
     }
 
-    /**
-     * Start map area selection
-     */
-    function startAreaSelection() {
-        selectingArea = true;
-        areaCorner1 = null;
-        canvas.style.cursor = 'crosshair';
-        alert('Click two opposite corners to define the map area');
-    }
-
-    /**
-     * Clear map area selection
-     */
-    function clearMapArea() {
-        mapArea = null;
-        document.getElementById('areaInfo').style.display = 'none';
-        if (graticuleGenerated) {
-            redrawAll();
-        }
-    }
-
-    /**
-     * Get map area bounds (with fallback to full canvas)
-     */
-    function getMapBounds() {
-        if (mapArea) {
-            return mapArea;
-        }
-        return {
-            x1: 0,
-            y1: 0,
-            x2: canvas.width,
-            y2: canvas.height
-        };
-    }
-
-    /**
-     * Draw map area selection rectangle
-     */
-    function drawMapAreaBox() {
-        if (!mapArea) return;
-        
-        ctx.save();
-        ctx.strokeStyle = '#FF5722';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([10, 5]);
-        
-        const width = mapArea.x2 - mapArea.x1;
-        const height = mapArea.y2 - mapArea.y1;
-        
-        ctx.strokeRect(mapArea.x1, mapArea.y1, width, height);
-        ctx.restore();
-    }
 
     /**
      * Generate and draw graticule
@@ -308,6 +274,9 @@
         graticuleGenerated = true;
         redrawAll();
         
+        // Fit image to window after graticule is generated
+        fitToWindow();
+        
         // Show coordinate display
         document.getElementById('coordinateDisplay').style.display = 'block';
 
@@ -324,9 +293,6 @@
         if (!uploadedImage || !graticuleGenerated) return;
         
         drawImage();
-        if (mapArea) {
-            drawMapAreaBox();
-        }
         drawGraticuleGrid();
         redrawAllPoints();
     }
@@ -445,45 +411,66 @@
     }
 
     /**
+     * Convert latitude/longitude to pixel coordinates
+     */
+    function latLonToPixel(lat, lon) {
+        const latRange = maxLat - minLat;
+        const lonRange = maxLon - minLon;
+        const pixelHeight = canvas.height;
+        const pixelWidth = canvas.width;
+        
+        const x = pixelWidth * (lon - minLon) / lonRange;
+        const y = pixelHeight * (1 - (lat - minLat) / latRange);
+        
+        return { x, y };
+    }
+
+    /**
      * Convert latitude to pixel Y coordinate
      */
     function latToPixel(lat) {
-        const bounds = getMapBounds();
         const latRange = maxLat - minLat;
-        const pixelHeight = bounds.y2 - bounds.y1;
+        const pixelHeight = canvas.height;
         
         // Invert Y axis (top = max lat, bottom = min lat)
-        return bounds.y1 + pixelHeight * (1 - (lat - minLat) / latRange);
+        return pixelHeight * (1 - (lat - minLat) / latRange);
     }
 
     /**
      * Convert longitude to pixel X coordinate
      */
     function lonToPixel(lon) {
-        const bounds = getMapBounds();
         const lonRange = maxLon - minLon;
-        const pixelWidth = bounds.x2 - bounds.x1;
+        const pixelWidth = canvas.width;
         
-        return bounds.x1 + pixelWidth * (lon - minLon) / lonRange;
+        return pixelWidth * (lon - minLon) / lonRange;
+    }
+
+    /**
+     * Convert pixel coordinates to lat/lon
+     */
+    function pixelToLatLon(x, y) {
+        return {
+            lat: pixelToLat(y),
+            lon: pixelToLon(x)
+        };
     }
 
     /**
      * Convert pixel X coordinate to longitude
      */
     function pixelToLon(x) {
-        const bounds = getMapBounds();
         const lonRange = maxLon - minLon;
-        return minLon + ((x - bounds.x1) / (bounds.x2 - bounds.x1)) * lonRange;
+        return minLon + (x / canvas.width) * lonRange;
     }
 
     /**
      * Convert pixel Y coordinate to latitude
      */
     function pixelToLat(y) {
-        const bounds = getMapBounds();
         const latRange = maxLat - minLat;
         // Invert Y axis
-        return maxLat - ((y - bounds.y1) / (bounds.y2 - bounds.y1)) * latRange;
+        return maxLat - (y / canvas.height) * latRange;
     }
 
     /**
@@ -560,19 +547,21 @@
     }
 
     /**
-     * Handle canvas click to plot point
+     * Handle canvas click for point plotting
      */
     function handleCanvasClick(event) {
+        const rect = canvas.getBoundingClientRect();
+        // Account for CSS scaling: convert from displayed pixels to canvas pixels
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+
+        // Handle point plotting (only after graticule is generated)
         if (!graticuleGenerated) return;
 
-        const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        const lat = pixelToLat(y);
-        const lon = pixelToLon(x);
-
-        addPoint(lat, lon, `Point ${pointIdCounter + 1}`);
+        const coords = pixelToLatLon(x, y);
+        addPoint(coords.lat, coords.lon, `Point ${pointIdCounter + 1}`);
     }
 
     /**
@@ -582,8 +571,11 @@
         if (!graticuleGenerated) return;
 
         const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        // Account for CSS scaling: convert from displayed pixels to canvas pixels
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
 
         const lat = pixelToLat(y);
         const lon = pixelToLon(x);
@@ -591,7 +583,7 @@
         const latStr = decimalToNautical(lat, true);
         const lonStr = decimalToNautical(lon, false);
 
-        document.getElementById('cursorCoords').innerHTML = 
+        document.getElementById('cursorCoords').innerHTML =
             `<strong>Lat:</strong> ${latStr}<br><strong>Lon:</strong> ${lonStr}`;
     }
 

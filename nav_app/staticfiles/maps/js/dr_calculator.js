@@ -33,17 +33,21 @@
                 container.style.width = '280px';
 
                 container.innerHTML = `
-                    <div style="margin-bottom: 8px;">
+                    <div style="margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
                         <strong>⚓ Dead Reckoning</strong>
+                        <button id="drToggle" style="background:none; border:none; cursor:pointer; font-size:14px; padding:0 4px;" title="Hide/Show Panel">
+                            ▼
+                        </button>
                     </div>
+                    <div id="drPanelContent">
                     <table style="width:100%; font-size:12px;">
                         <tr>
                             <td style="padding:4px 0;">Start Latitude:</td>
                         </tr>
                         <tr>
                             <td>
-                                <input id="drStartLat" 
-                                       type="text" 
+                                <input id="drStartLat"
+                                       type="text"
                                        placeholder="54.5 or 54°22.5'N"
                                        style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-size:11px;" />
                             </td>
@@ -53,24 +57,79 @@
                         </tr>
                         <tr>
                             <td>
-                                <input id="drStartLon" 
-                                       type="text" 
+                                <input id="drStartLon"
+                                       type="text"
                                        placeholder="18.5 or 018°34.2'E"
                                        style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-size:11px;" />
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding:4px 0;">Course (°):</td>
+                            <td style="padding:4px 0;">
+                                <label>
+                                    <input type="radio" name="courseType" value="compass" checked style="margin-right:4px;" />
+                                    Compass Course (°):
+                                </label>
+                            </td>
                         </tr>
                         <tr>
                             <td>
-                                <input id="drCourse" 
-                                       type="number" 
-                                       min="0" 
-                                       max="360" 
-                                       step="1"
+                                <input id="drCourse"
+                                       type="number"
+                                       min="0"
+                                       max="360"
+                                       step="0.1"
                                        placeholder="045"
                                        style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:2px 0; font-size:10px;">
+                                <label>
+                                    <input type="radio" name="courseType" value="true" style="margin-right:4px;" />
+                                    True Course
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0;">Magnetic Declination (°):</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input id="drDeclination"
+                                       type="number"
+                                       step="0.1"
+                                       placeholder="0.0 (+E, -W)"
+                                       value="0"
+                                       style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
+                                <small style="color:#666; font-size:10px;">+East / -West</small>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0;">Compass Deviation (°):</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input id="drDeviation"
+                                       type="number"
+                                       step="0.1"
+                                       placeholder="0.0 (+E, -W)"
+                                       value="0"
+                                       style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
+                                <small style="color:#666; font-size:10px;">From deviation table</small>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0;">Leeway/Drift (°):</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input id="drLeeway"
+                                       type="number"
+                                       step="0.1"
+                                       placeholder="0.0 (+stbd, -port)"
+                                       value="0"
+                                       style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
+                                <small style="color:#666; font-size:10px;">+Starboard / -Port</small>
                             </td>
                         </tr>
                         <tr>
@@ -78,9 +137,9 @@
                         </tr>
                         <tr>
                             <td>
-                                <input id="drSpeed" 
-                                       type="number" 
-                                       min="0" 
+                                <input id="drSpeed"
+                                       type="number"
+                                       min="0"
                                        step="0.1"
                                        placeholder="5.0"
                                        style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
@@ -91,9 +150,9 @@
                         </tr>
                         <tr>
                             <td>
-                                <input id="drTime" 
-                                       type="number" 
-                                       min="0" 
+                                <input id="drTime"
+                                       type="number"
+                                       min="0"
                                        step="0.5"
                                        placeholder="2.0"
                                        style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
@@ -111,8 +170,9 @@
                     <div id="drOut" 
                          style="margin-top:10px; font-size:12px; font-family:monospace; line-height:1.6; min-height:40px; padding:8px; background:#f5f5f5; border-radius:3px; color:#333;">
                         Enter values and calculate
-                    </div>
-                `;
+                   </div>
+                   </div>
+               `;
 
                 L.DomEvent.disableClickPropagation(container);
 
@@ -120,6 +180,8 @@
                 setTimeout(() => {
                     const calcBtn = document.getElementById('drCalc');
                     const clearBtn = document.getElementById('drClear');
+                    const toggleBtn = document.getElementById('drToggle');
+                    const panelContent = document.getElementById('drPanelContent');
                     
                     if (calcBtn) {
                         calcBtn.onclick = calculateDeadReckoning;
@@ -128,9 +190,24 @@
                     if (clearBtn) {
                         clearBtn.onclick = clearDR;
                     }
+                    
+                    // Toggle panel visibility
+                    if (toggleBtn && panelContent) {
+                        toggleBtn.onclick = function() {
+                            if (panelContent.style.display === 'none') {
+                                panelContent.style.display = 'block';
+                                toggleBtn.textContent = '▼';
+                                toggleBtn.title = 'Hide Panel';
+                            } else {
+                                panelContent.style.display = 'none';
+                                toggleBtn.textContent = '▶';
+                                toggleBtn.title = 'Show Panel';
+                            }
+                        };
+                    }
 
                     // Allow Enter key to trigger calculation
-                    ['drStartLat', 'drStartLon', 'drCourse', 'drSpeed', 'drTime'].forEach(id => {
+                    ['drStartLat', 'drStartLon', 'drCourse', 'drDeclination', 'drDeviation', 'drLeeway', 'drSpeed', 'drTime'].forEach(id => {
                         const input = document.getElementById(id);
                         if (input) {
                             input.addEventListener('keypress', function(e) {
@@ -160,9 +237,15 @@
             // Get input values
             const latInput = document.getElementById('drStartLat').value.trim();
             const lonInput = document.getElementById('drStartLon').value.trim();
-            const course = parseFloat(document.getElementById('drCourse').value);
+            const courseInput = parseFloat(document.getElementById('drCourse').value);
+            const declination = parseFloat(document.getElementById('drDeclination').value) || 0;
+            const deviation = parseFloat(document.getElementById('drDeviation').value) || 0;
+            const leeway = parseFloat(document.getElementById('drLeeway').value) || 0;
             const speed = parseFloat(document.getElementById('drSpeed').value);
             const time = parseFloat(document.getElementById('drTime').value);
+            
+            // Get course type
+            const courseType = document.querySelector('input[name="courseType"]:checked').value;
 
             // Validate inputs
             if (!latInput || !lonInput) {
@@ -170,7 +253,7 @@
                 return;
             }
 
-            if (isNaN(course) || course < 0 || course > 360) {
+            if (isNaN(courseInput) || courseInput < 0 || courseInput > 360) {
                 outputElement.innerHTML = '<span style="color:#f44336;">⚠ Course must be 0-360°</span>';
                 return;
             }
@@ -184,6 +267,38 @@
                 outputElement.innerHTML = '<span style="color:#f44336;">⚠ Time must be positive</span>';
                 return;
             }
+            
+            // Calculate true course from compass or use true course directly
+            let trueCourse, magneticCourse, compassCourse;
+            let courseSteps = [];
+            
+            if (courseType === 'compass') {
+                // Compass → Magnetic → True
+                compassCourse = courseInput;
+                magneticCourse = normalize(compassCourse + deviation);
+                trueCourse = normalize(magneticCourse + declination);
+                
+                courseSteps.push(`Compass: ${compassCourse.toFixed(1)}°`);
+                if (deviation !== 0) {
+                    courseSteps.push(`+ Deviation ${deviation.toFixed(1)}° = Magnetic ${magneticCourse.toFixed(1)}°`);
+                }
+                if (declination !== 0) {
+                    courseSteps.push(`+ Declination ${declination.toFixed(1)}° = True ${trueCourse.toFixed(1)}°`);
+                }
+            } else {
+                // Already true course
+                trueCourse = courseInput;
+                courseSteps.push(`True Course: ${trueCourse.toFixed(1)}°`);
+            }
+            
+            // Calculate COG (Course Over Ground) by adding leeway
+            const cog = normalize(trueCourse + leeway);
+            if (leeway !== 0) {
+                courseSteps.push(`+ Leeway ${leeway.toFixed(1)}° = COG ${cog.toFixed(1)}°`);
+            }
+            
+            // Use COG for actual movement calculation
+            const course = cog;
 
             // Parse starting position - accept both decimal and nautical formats
             let lat, lon;
@@ -269,7 +384,8 @@
             }).addTo(drLayer);
 
             const bearingFormatted = formatBearing(course);
-            courseLine.bindPopup(`<b>DR Track</b><br>Course: ${bearingFormatted}<br>Speed: ${speed} kts<br>Time: ${time.toFixed(1)}h<br>Distance: ${distance.toFixed(2)} NM`);
+            const courseInfo =courseSteps.length > 1 ? courseSteps.join('<br>') : `COG: ${course.toFixed(1)}°`;
+            courseLine.bindPopup(`<b>DR Track</b><br>${courseInfo}<br>Speed: ${speed} kts<br>Time: ${time.toFixed(1)}h<br>Distance: ${distance.toFixed(2)} NM`);
 
             // DR position marker
             const drMarker = L.circleMarker(drPosition, {
@@ -285,11 +401,16 @@
             drMarker.bindPopup(`<b>DR Position</b><br>${newPosition}<br><small>${time.toFixed(1)}h at ${speed} kts</small>`);
 
             // Display result
+            const courseDisplay = courseSteps.length > 1 ?
+                '<div style="font-size:10px; margin:4px 0; padding:4px; background:#e3f2fd; border-radius:2px;">' +
+                courseSteps.join('<br>') + '</div>' :
+                `<b>COG:</b> ${bearingFormatted}<br>`;
+            
             outputElement.innerHTML = `
                 <div style="color:#155724;"><b>DR Position:</b></div>
                 <div><b>New Pos:</b> ${newPosition}</div>
                 <div style="margin-top:6px; padding-top:6px; border-top:1px solid #ddd;">
-                    <b>Course:</b> ${bearingFormatted}<br>
+                    ${courseDisplay}
                     <b>Distance:</b> ${distance.toFixed(2)} NM<br>
                     <b>Time:</b> ${time.toFixed(1)}h @ ${speed} kts
                 </div>
@@ -315,6 +436,17 @@
         document.getElementById('drStartLat').value = '';
         document.getElementById('drStartLon').value = '';
         console.log('DR cleared');
+    }
+    
+    /**
+     * Normalize angle to 0-360 range
+     */
+    function normalize(angle) {
+        angle = angle % 360;
+        if (angle < 0) {
+            angle += 360;
+        }
+        return angle;
     }
 
 })();

@@ -21,10 +21,16 @@
             7
         );
 
-        // Add OpenStreetMap tile layer
+        // Add OpenStreetMap tile layer (base layer)
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add OpenSeaMap overlay (nautical charts with buoys, lighthouses, etc.)
+        L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: 'Map data: © <a href="http://www.openseamap.org">OpenSeaMap</a> contributors'
         }).addTo(map);
 
         // Initialize all map features
@@ -38,6 +44,15 @@
         }
         if (typeof initDeadReckoning === 'function') {
             initDeadReckoning(map);
+        }
+        if (typeof initMaritimeObjects === 'function') {
+            initMaritimeObjects(map);
+        }
+        if (typeof initNauticalTriangles === 'function') {
+            initNauticalTriangles(map);
+        }
+        if (typeof initNauticalDivider === 'function') {
+            initNauticalDivider(map);
         }
         
         console.log('✓ Nautical map initialized successfully');
