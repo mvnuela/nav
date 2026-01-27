@@ -54,6 +54,9 @@
         if (typeof initNauticalDivider === 'function') {
             initNauticalDivider(map);
         }
+        if (typeof initGPXRoutes === 'function') {
+            initGPXRoutes(map);
+        }
         
         console.log('✓ Nautical map initialized successfully');
     }
@@ -179,14 +182,17 @@
             onAdd: function() {
                 const container = L.DomUtil.create('div', 'leaflet-control-coordinate-input');
                 container.style.background = 'white';
-                container.style.padding = '10px';
                 container.style.borderRadius = '4px';
                 container.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
                 container.style.marginTop = '10px';
+                container.style.cursor = 'pointer';
 
                 container.innerHTML = `
-                    <div style="margin-bottom: 8px; font-weight: bold; font-size: 12px;">Go to Position:</div>
-                    <input type="text" id="latInput" placeholder="Latitude (e.g. 54.5 or 54°30'N)"
+                    <div id="coordInputToggle" style="padding: 8px 10px; background: white; border-radius: 4px; font-weight: bold; font-size: 12px;">
+                        🧭 Go to Position
+                    </div>
+                    <div id="coordInputPanel" style="display: none; padding: 10px; padding-top: 0;">
+                        <input type="text" id="latInput" placeholder="Latitude (e.g. 54.5 or 54°30'N)"
                            style="width: 100%; padding: 5px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px;">
                     <input type="text" id="lonInput" placeholder="Longitude (e.g. 18.5 or 018°30'E)"
                            style="width: 100%; padding: 5px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px;">
@@ -201,7 +207,8 @@
                     <button id="goButton" style="width: 100%; padding: 6px; background: #0078A8; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 12px;">
                         Navigate
                     </button>
-                    <div id="inputError" style="color: red; font-size: 10px; margin-top: 5px; display: none;"></div>
+                        <div id="inputError" style="color: red; font-size: 10px; margin-top: 5px; display: none;"></div>
+                    </div>
                 `;
 
                 L.DomEvent.disableClickPropagation(container);
@@ -217,7 +224,22 @@
 
         // Add event listener for the navigate button
         setTimeout(() => {
-            document.getElementById('goButton').addEventListener('click', function() {
+            const panelToggle = document.getElementById('coordInputToggle');
+            const panel = document.getElementById('coordInputPanel');
+            
+            // Toggle panel visibility
+            if (panelToggle && panel) {
+                panelToggle.onclick = function(e) {
+                    e.stopPropagation();
+                    const isVisible = panel.style.display !== 'none';
+                    panel.style.display = isVisible ? 'none' : 'block';
+                    panelToggle.style.background = isVisible ? 'white' : '#e8f5e9';
+                };
+            }
+            
+            const goButton = document.getElementById('goButton');
+            if (goButton) {
+                goButton.addEventListener('click', function() {
                 const latInput = document.getElementById('latInput').value.trim();
                 const lonInput = document.getElementById('lonInput').value.trim();
                 const zoom = parseInt(document.getElementById('zoomLevel').value);
@@ -277,7 +299,8 @@
                     errorDiv.textContent = 'Error: ' + error.message;
                     console.error('Navigation error:', error);
                 }
-            });
+                });
+            }
 
             // Allow Enter key to trigger navigation
             ['latInput', 'lonInput'].forEach(id => {

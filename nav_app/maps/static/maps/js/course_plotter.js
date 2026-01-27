@@ -31,17 +31,17 @@
             onAdd: function() {
                 const container = L.DomUtil.create('div', 'course-plot-control');
                 container.style.background = 'white';
-                container.style.padding = '10px';
                 container.style.border = '2px solid rgba(0,0,0,0.2)';
                 container.style.borderRadius = '4px';
                 container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
-                container.style.minWidth = '200px';
+                container.style.cursor = 'pointer';
 
                 container.innerHTML = `
-                    <div style="margin-bottom: 8px;">
-                        <strong>📐 Course Plotter</strong>
+                    <div id="coursePlotterToggle" style="padding: 8px 10px; background: white; border-radius: 4px; font-weight: bold; font-size: 12px;">
+                        📐 Course Plotter
                     </div>
-                    <button id="togglePlotterMode"
+                    <div id="coursePlotterPanel" style="display: none; padding: 10px; padding-top: 0; min-width: 200px;">
+                        <button id="togglePlotterMode"
                             style="width:100%; padding:8px; cursor:pointer; background:#6c757d; color:white; border:none; border-radius:3px; font-weight:bold; margin-bottom:5px;">
                         📐 Plotter Mode: OFF
                     </button>
@@ -52,6 +52,7 @@
                     <div id="courseOutput"
                          style="margin-top:10px; font-size:12px; font-family:monospace; line-height:1.6; min-height:60px; color:#333;">
                         Enable Plotter Mode to begin
+                        </div>
                     </div>
                 `;
 
@@ -59,9 +60,21 @@
 
                 // Initialize buttons after DOM is ready
                 setTimeout(() => {
+                    const panelToggle = document.getElementById('coursePlotterToggle');
+                    const panel = document.getElementById('coursePlotterPanel');
                     const toggleBtn = document.getElementById('togglePlotterMode');
                     const clearBtn = document.getElementById('clearCoursesBtn');
                     outputElement = document.getElementById('courseOutput');
+                    
+                    // Toggle panel visibility
+                    if (panelToggle && panel) {
+                        panelToggle.onclick = function(e) {
+                            e.stopPropagation();
+                            const isVisible = panel.style.display !== 'none';
+                            panel.style.display = isVisible ? 'none' : 'block';
+                            panelToggle.style.background = isVisible ? 'white' : '#e8f5e9';
+                        };
+                    }
                     
                     if (toggleBtn && outputElement) {
                         toggleBtn.onclick = togglePlotterMode;

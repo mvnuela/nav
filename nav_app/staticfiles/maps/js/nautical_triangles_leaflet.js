@@ -101,18 +101,18 @@
             onAdd: function() {
                 const container = L.DomUtil.create('div', 'triangle-control');
                 container.style.background = 'white';
-                container.style.padding = '10px';
                 container.style.border = '2px solid rgba(0,0,0,0.2)';
                 container.style.borderRadius = '4px';
                 container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
                 container.style.marginTop = '10px';
-                container.style.minWidth = '200px';
+                container.style.cursor = 'pointer';
                 
                 container.innerHTML = `
-                    <div style="margin-bottom: 8px;">
-                        <strong>📐 Navigation Triangles</strong>
+                    <div id="trianglesPanelToggle" style="padding: 8px 10px; background: white; border-radius: 4px; font-weight: bold; font-size: 12px;">
+                        📐 Navigation Triangles
                     </div>
-                    <button id="toggleTrianglesBtn" 
+                    <div id="trianglesPanelContent" style="display: none; padding: 10px; padding-top: 0; min-width: 200px;">
+                        <button id="toggleTrianglesBtn"
                             style="width:100%; padding:6px; margin-bottom:5px; cursor:pointer; background:#0078A8; color:white; border:none; border-radius:3px; font-weight:bold; font-size:11px;">
                         Show Triangles
                     </button>
@@ -129,6 +129,7 @@
                         <strong>Current Angles:</strong>
                         <div id="portAngleLeaflet" style="margin-top:3px;">Port: 0°</div>
                         <div id="starboardAngleLeaflet" style="margin-top:3px;">Starboard: 0°</div>
+                        </div>
                     </div>
                 `;
                 
@@ -136,7 +137,20 @@
                 
                 // Setup button click handler
                 setTimeout(() => {
+                    const panelToggle = document.getElementById('trianglesPanelToggle');
+                    const panelContent = document.getElementById('trianglesPanelContent');
                     const toggleBtn = document.getElementById('toggleTrianglesBtn');
+                    
+                    // Toggle panel visibility
+                    if (panelToggle && panelContent) {
+                        panelToggle.onclick = function(e) {
+                            e.stopPropagation();
+                            const isVisible = panelContent.style.display !== 'none';
+                            panelContent.style.display = isVisible ? 'none' : 'block';
+                            panelToggle.style.background = isVisible ? 'white' : '#e8f5e9';
+                        };
+                    }
+                    
                     if (toggleBtn) {
                         toggleBtn.onclick = toggleTriangles;
                     }

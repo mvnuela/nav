@@ -121,18 +121,18 @@
             onAdd: function() {
                 const container = L.DomUtil.create('div', 'divider-control');
                 container.style.background = 'white';
-                container.style.padding = '10px';
                 container.style.border = '2px solid rgba(0,0,0,0.2)';
                 container.style.borderRadius = '4px';
                 container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
                 container.style.marginTop = '10px';
-                container.style.minWidth = '220px';
+                container.style.cursor = 'pointer';
                 
                 container.innerHTML = `
-                    <div style="margin-bottom: 8px;">
-                        <strong>📏 Nautical Divider</strong>
+                    <div id="dividerPanelToggle" style="padding: 8px 10px; background: white; border-radius: 4px; font-weight: bold; font-size: 12px;">
+                        📏 Nautical Divider
                     </div>
-                    <button id="toggleDividerBtn" 
+                    <div id="dividerPanelContent" style="display: none; padding: 10px; padding-top: 0; min-width: 220px;">
+                        <button id="toggleDividerBtn"
                             style="width:100%; padding:6px; margin-bottom:5px; cursor:pointer; background:#FF8800; color:white; border:none; border-radius:3px; font-weight:bold; font-size:11px;">
                         Show Divider
                     </button>
@@ -163,6 +163,7 @@
                             <div id="dividerDistance" style="margin-top:3px;">Distance: -- NM</div>
                             <div id="dividerBearing" style="margin-top:3px;">Bearing: --°</div>
                         </div>
+                        </div>
                     </div>
                 `;
                 
@@ -170,10 +171,22 @@
                 
                 // Setup button handlers
                 setTimeout(() => {
+                    const panelToggle = document.getElementById('dividerPanelToggle');
+                    const panelContent = document.getElementById('dividerPanelContent');
                     const toggleBtn = document.getElementById('toggleDividerBtn');
                     const addBtn = document.getElementById('addDividerBtn');
                     const deleteBtn = document.getElementById('deleteDividerBtn');
                     const clearBtn = document.getElementById('clearDividersBtn');
+                    
+                    // Toggle panel visibility
+                    if (panelToggle && panelContent) {
+                        panelToggle.onclick = function(e) {
+                            e.stopPropagation();
+                            const isVisible = panelContent.style.display !== 'none';
+                            panelContent.style.display = isVisible ? 'none' : 'block';
+                            panelToggle.style.background = isVisible ? 'white' : '#e8f5e9';
+                        };
+                    }
                     
                     if (toggleBtn) toggleBtn.onclick = toggleDivider;
                     if (addBtn) addBtn.onclick = startPlacement;
