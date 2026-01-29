@@ -251,6 +251,10 @@ class EnhancedGraticuleSystem {
         this.dividerManager = null;
         this.dividerVisible = false;
         
+        // GPX routes
+        this.gpxManager = null;
+        this.gpxVisible = false;
+        
         this.setupEventListeners();
     }
 
@@ -558,6 +562,11 @@ class EnhancedGraticuleSystem {
         // Draw nautical dividers (when visible)
         if (this.dividerVisible && this.dividerManager) {
             this.dividerManager.drawAll(this.ctx);
+        }
+        
+        // Draw GPX routes (when visible)
+        if (this.gpxVisible && this.gpxManager && this.mapper) {
+            this.gpxManager.drawAll(this.ctx, this.mapper);
         }
     }
 
@@ -961,6 +970,134 @@ this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
             return this.dividerManager.getSelectedInfo();
         }
         return null;
+    }
+    
+    /**
+     * Initialize GPX routes manager
+     */
+    initGPXRoutes() {
+        if (!this.gpxManager) {
+            this.gpxManager = new GPXRoutesManagerCanvas();
+        }
+        return this.gpxManager;
+    }
+    
+    /**
+     * Toggle GPX routes visibility
+     */
+    toggleGPXRoutes() {
+        if (!this.gpxManager) {
+            this.initGPXRoutes();
+        }
+        this.gpxVisible = !this.gpxVisible;
+        this.render();
+        return this.gpxVisible;
+    }
+    
+    /**
+     * Show GPX routes
+     */
+    showGPXRoutes() {
+        if (!this.gpxManager) {
+            this.initGPXRoutes();
+        }
+        this.gpxVisible = true;
+        this.render();
+    }
+    
+    /**
+     * Hide GPX routes
+     */
+    hideGPXRoutes() {
+        this.gpxVisible = false;
+        this.render();
+    }
+    
+    /**
+     * Load GPX file
+     */
+    async loadGPXFile(file) {
+        if (!this.gpxManager) {
+            this.initGPXRoutes();
+        }
+        if (!this.mapper) {
+            throw new Error('Please apply geographic bounds before loading GPX files');
+        }
+        
+        try {
+            const gpxData = await this.gpxManager.loadGPXFile(file);
+            
+            // Auto-show GPX routes
+            if (!this.gpxVisible) {
+                this.gpxVisible = true;
+            }
+            
+            this.render();
+            return gpxData;
+        } catch (error) {
+            throw error;
+        }
+    }
+    
+    /**
+     * Toggle specific route visibility
+     */
+    toggleGPXRoute(routeId) {
+        if (this.gpxManager) {
+            const visible = this.gpxManager.toggleRoute(routeId);
+            this.render();
+            return visible;
+        }
+        return false;
+    }
+    
+    /**
+     * Remove specific GPX route
+     */
+    removeGPXRoute(routeId) {
+        if (this.gpxManager) {
+            const removed = this.gpxManager.removeRoute(routeId);
+            if (removed) {
+                this.render();
+            }
+            return removed;
+        }
+        return false;
+    }
+    
+    /**
+     * Clear all GPX routes
+     */
+    clearAllGPXRoutes() {
+        if (this.gpxManager) {
+            this.gpxManager.clearAll();
+            this.render();
+        }
+    }
+    
+    /**
+     * Fit map to show all GPX routes
+     */
+    fitToGPXRoutes() {
+        if (!this.gpxManager || !this.mapper) return;
+        
+        const bounds = this.gpxManager.getAllBounds();
+        if (bounds) {
+            // Update geographic bounds to show routes
+            this.setGeographicBounds(
+                bounds.minLat,
+                bounds.maxLat,
+                bounds.minLon,
+                bounds.maxLon
+            );
+        }
+    }
+    
+    /**
+     * Get all GPX routes
+     */
+    getGPXRoutes() {
+        return this.gpxManager ? this.gpxManager.routes : [];
     }
 }
 

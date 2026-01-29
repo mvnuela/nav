@@ -427,6 +427,46 @@
                     <div id="dividerBearing" style="margin-top:5px;">Bearing: --</div>
                 </div>
             </div>
+            
+            <div class="panel" id="gpxPanel" style="display:none;">
+                <h3>🗺️ GPX Routes</h3>
+                <p class="hint">Load and display GPS routes from GPX files</p>
+                
+                <button id="toggleGPXBtn" class="btn btn-primary">
+                    Show GPX Routes
+                </button>
+                
+                <div id="gpxControls" style="display:none; margin-top:10px;">
+                    <input type="file" id="gpxFileInput" accept=".gpx" style="display:none;">
+                    <button id="loadGPXFileBtn" class="btn btn-success">
+                        📁 Load GPX File
+                    </button>
+                    
+                    <div id="gpxRoutesList" style="margin-top:12px; max-height:300px; overflow-y:auto;">
+                        <p style="color:#999; font-size:0.9em; text-align:center; padding:20px 0;">No routes loaded</p>
+                    </div>
+                    
+                    <div id="gpxGlobalActions" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid #ddd;">
+                        <button id="fitAllGPXBtn" class="btn btn-primary" style="font-size:0.85em; padding:6px 12px;">
+                            🎯 Fit All to View
+                        </button>
+                        <button id="clearAllGPXBtn" class="btn btn-secondary" style="font-size:0.85em; padding:6px 12px;">
+                            🗑️ Clear All Routes
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="gpxInfo" style="display:none; background:#e3f2fd; border:1px solid #0078A8; border-radius:4px; padding:10px; margin-top:10px; font-size:0.9em;">
+                    <strong>Instructions:</strong>
+                    <ul style="margin:8px 0 0 20px; padding:0;">
+                        <li>Load GPX files with routes/tracks</li>
+                        <li>Routes shown with green start, red end</li>
+                        <li>Toggle visibility per route</li>
+                        <li>Distances in nautical miles</li>
+                        <li>Fit view to show all routes</li>
+                    </ul>
+                </div>
+            </div>
 
             <div class="panel" id="courseCalculatorPanel" style="display:none;">
                 <h3>🧭 Course Calculator & DR</h3>
@@ -597,6 +637,10 @@
     <script src="{% static 'maps/js/course_calculator.js' %}"></script>
     <!-- Load nautical divider -->
     <script src="{% static 'maps/js/nautical_divider.js' %}"></script>
+    <!-- Load GPX parser -->
+    <script src="{% static 'maps/js/gpx_parser.js' %}"></script>
+    <!-- Load GPX canvas manager -->
+    <script src="{% static 'maps/js/gpx_route_canvas.js' %}"></script>
     <!-- Then load enhanced graticule -->
     <script src="{% static 'maps/js/enhanced_graticule.js' %}"></script>
     <!-- Load course plotting extension -->
@@ -622,6 +666,10 @@
             document.getElementById('addDividerBtn').addEventListener('click', addDivider);
             document.getElementById('deleteDividerBtn').addEventListener('click', deleteSelectedDivider);
             document.getElementById('clearDividersBtn').addEventListener('click', clearAllDividers);
+            document.getElementById('toggleGPXBtn').addEventListener('click', toggleGPX);
+            document.getElementById('loadGPXFileBtn').addEventListener('click', loadGPXFile);
+            document.getElementById('fitAllGPXBtn').addEventListener('click', fitAllGPXRoutes);
+            document.getElementById('clearAllGPXBtn').addEventListener('click', clearAllGPXRoutes);
             document.getElementById('calculateCourseBtn').addEventListener('click', calculateCourse);
             document.getElementById('reverseCalculateBtn').addEventListener('click', reverseCalculateCourse);
             document.getElementById('applyBoundsBtn').addEventListener('click', applyBounds);
@@ -713,12 +761,16 @@
                     document.getElementById('trianglesPanel').style.display = 'block';
                     document.getElementById('dividerPanel').style.display = 'block';
                     document.getElementById('courseCalculatorPanel').style.display = 'block';
+                    document.getElementById('gpxPanel').style.display = 'block';
                 }
                 if (graticuleSystem.trianglesVisible) {
                     updateTriangleAngles();
                 }
                 if (graticuleSystem.dividerVisible) {
                     updateDividerUI();
+                }
+                if (graticuleSystem.gpxVisible) {
+                    updateGPXUI();
                 }
             }
             
@@ -920,6 +972,130 @@
                 addBtn.disabled = false;
             }
         }
+        
+        // GPX Routes Functions
+        function toggleGPX() {
+            const isVisible = graticuleSystem.toggleGPXRoutes();
+            const btn = document.getElementById('toggleGPXBtn');
+            const controls = document.getElementById('gpxControls');
+            const info = document.getElementById('gpxInfo');
+            
+            if (isVisible) {
+                btn.textContent = 'Hide GPX Routes';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+                controls.style.display = 'block';
+                info.style.display = 'block';
+            } else {
+                btn.textContent = 'Show GPX Routes';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary');
+                controls.style.display = 'none';
+                info.style.display = 'none';
+            }
+        }
+        
+        function loadGPXFile() {
+            if (!graticuleSystem.mapper) {
+                alert('Please apply geographic bounds before loading GPX files');
+                return;
+            }
+            
+            const fileInput = document.getElementById('gpxFileInput');
+            fileInput.click();
+            
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    await graticuleSystem.loadGPXFile(file);
+                    updateGPXUI();
+                    
+                    // Auto-show GPX panel if not visible
+                    if (!graticuleSystem.gpxVisible) {
+                        toggleGPX();
+                    }
+                } catch (error) {
+                    alert('Error loading GPX file: ' + error.message);
+                }
+                
+                // Reset file input
+                fileInput.value = '';
+            };
+        }
+        
+        function updateGPXUI() {
+            if (!graticuleSystem.gpxManager) return;
+            
+            const routes = graticuleSystem.getGPXRoutes();
+            const listContainer = document.getElementById('gpxRoutesList');
+            const globalActions = document.getElementById('gpxGlobalActions');
+            
+            if (routes.length === 0) {
+                listContainer.innerHTML = '<p style="color:#999; font-size:0.9em; text-align:center; padding:20px 0;">No routes loaded</p>';
+                globalActions.style.display = 'none';
+                return;
+            }
+            
+            globalActions.style.display = 'block';
+            
+            let html = '';
+            for (const route of routes) {
+                const typeIcon = route.type === 'route' ? '🛣️' : route.type === 'track' ? '📍' : '📌';
+                const distanceText = route.type === 'waypoint' ? '' : 
+                    ` • ${(route.type === 'track' ? route.data.totalDistance : route.data.distance).toFixed(1)} NM`;
+                
+                html += `
+                    <div style="margin-bottom:8px; padding:8px; background:${route.visible ? '#f0f8ff' : '#f5f5f5'}; border:1px solid ${route.visible ? route.color : '#ddd'}; border-radius:4px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                            <input type="checkbox" id="gpx_route_${route.id}" ${route.visible ? 'checked' : ''} style="cursor:pointer;">
+                            <span style="width:12px; height:12px; background:${route.color}; border-radius:2px; display:inline-block;"></span>
+                            <label for="gpx_route_${route.id}" style="flex:1; cursor:pointer; font-weight:600; font-size:11px; color:#333;">
+                                ${typeIcon} ${route.name}
+                            </label>
+                            <button class="remove-gpx-route-btn" data-id="${route.id}" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:16px; padding:0 4px;" title="Remove">×</button>
+                        </div>
+                        ${distanceText ? `<div style="font-size:10px; color:#666; margin-left:32px;">${route.type}${distanceText}</div>` : ''}
+                    </div>
+                `;
+            }
+            
+            listContainer.innerHTML = html;
+            
+            // Add event listeners for checkboxes
+            for (const route of routes) {
+                const checkbox = listContainer.querySelector(`#gpx_route_${route.id}`);
+                if (checkbox) {
+                    checkbox.onchange = () => {
+                        graticuleSystem.toggleGPXRoute(route.id);
+                        updateGPXUI();
+                    };
+                }
+                
+                const removeBtn = listContainer.querySelector(`.remove-gpx-route-btn[data-id="${route.id}"]`);
+                if (removeBtn) {
+                    removeBtn.onclick = () => {
+                        if (confirm(`Remove route "${route.name}"?`)) {
+                            graticuleSystem.removeGPXRoute(route.id);
+                            updateGPXUI();
+                        }
+                    };
+                }
+            }
+        }
+        
+        function fitAllGPXRoutes() {
+            graticuleSystem.fitToGPXRoutes();
+        }
+        
+        function clearAllGPXRoutes() {
+            if (confirm('Clear all GPX routes?')) {
+                graticuleSystem.clearAllGPXRoutes();
+                updateGPXUI();
+            }
+        }
+        
         
         // Course Calculator Functions
         let courseCalculator = null;
