@@ -41,6 +41,11 @@
         }
         
         this.render();
+        
+        // Trigger UI update by calling the global updateCourseUI function if it exists
+        if (typeof window.updateCourseUI === 'function') {
+            window.updateCourseUI();
+        }
     };
 
     // Complete the current course
@@ -58,6 +63,11 @@
     EnhancedGraticuleSystem.prototype.cancelCourse = function() {
         this.currentCourse = null;
         this.render();
+        
+        // Trigger UI update
+        if (typeof window.updateCourseUI === 'function') {
+            window.updateCourseUI();
+        }
     };
 
     // Clear all courses
