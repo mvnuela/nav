@@ -282,7 +282,28 @@
         <div class="sidebar">
             <div class="panel">
                 <h3>📁 1. Upload Map Image</h3>
-                <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg">
+                <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg,application/pdf,.pdf">
+                <small style="display:block; margin-top:4px; color:#666;">Supports: PNG, JPG, PDF</small>
+                <div id="pdfPageSelector" style="display:none; margin-top:10px;">
+                    <label style="font-weight:500; font-size:0.9em;">PDF Page:</label>
+                    <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+                        <button id="pdfPrevPage" class="btn btn-primary" style="padding:4px 8px; width:auto;">←</button>
+                        <span id="pdfPageInfo" style="font-family:monospace;">1 / 1</span>
+                        <button id="pdfNextPage" class="btn btn-primary" style="padding:4px 8px; width:auto;">→</button>
+                    </div>
+                    <div class="form-group" style="margin-top:8px;">
+                        <label>Render Scale:</label>
+                        <select id="pdfScale" style="width:100%;">
+                            <option value="1">1x (72 DPI)</option>
+                            <option value="2" selected>2x (144 DPI)</option>
+                            <option value="3">3x (216 DPI)</option>
+                            <option value="4">4x (288 DPI)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="pdfLoading" style="display:none; margin-top:10px; padding:10px; background:#e3f2fd; border-radius:4px; text-align:center;">
+                    <span>⏳ Loading PDF...</span>
+                </div>
                 <div id="imageInfo" class="info-box" style="display:none; margin-top:10px;">
                     <strong>Image Loaded:</strong><br>
                     <span id="imageDimensions"></span>
@@ -642,7 +663,7 @@
                     <div class="placeholder-content">
                         <div style="font-size: 4em; margin-bottom: 20px;">🗺️</div>
                         <h2>Upload a Map Image</h2>
-                        <p>Select a PNG or JPG file to get started</p>
+                        <p>Select a PNG, JPG, or PDF file to get started</p>
                         <p style="margin-top:10px; color:#999;">The image may include margins, legends, or labels</p>
                     </div>
                 </div>
@@ -650,6 +671,13 @@
             </div>
         </div>
     </div>
+
+    <!-- PDF.js library for PDF rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
 
     <!-- Load utilities first -->
     <script src="{% static 'maps/js/graticule_formatter.js' %}"></script>
@@ -699,6 +727,27 @@
             document.getElementById('exportSVGBtn').addEventListener('click', exportSVG);
             document.getElementById('exportPNGBtn').addEventListener('click', exportPNG);
 
+            // PDF navigation controls
+            document.getElementById('pdfPrevPage').addEventListener('click', async () => {
+                if (currentPDFPage > 1) {
+                    currentPDFPage--;
+                    updatePDFPageInfo();
+                    await renderPDFPage(currentPDFPage);
+                }
+            });
+            document.getElementById('pdfNextPage').addEventListener('click', async () => {
+                if (currentPDFPage < totalPDFPages) {
+                    currentPDFPage++;
+                    updatePDFPageInfo();
+                    await renderPDFPage(currentPDFPage);
+                }
+            });
+            document.getElementById('pdfScale').addEventListener('change', async () => {
+                if (currentPDF) {
+                    await renderPDFPage(currentPDFPage);
+                }
+            });
+
             // Real-time validation + preview for grid inputs
             document.querySelectorAll('.grid-input').forEach(input => {
                 input.addEventListener('input', () => {
@@ -723,34 +772,131 @@
             });
         }
 
+        // PDF state
+        let currentPDF = null;
+        let currentPDFPage = 1;
+        let totalPDFPages = 1;
+
         async function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
+
+            // Check if it's a PDF
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                await handlePDFUpload(file);
+            } else {
+                // Handle as regular image
+                await handleImageUpload(file);
+            }
+        }
+
+        async function handleImageUpload(file) {
+            // Hide PDF controls
+            document.getElementById('pdfPageSelector').style.display = 'none';
+            currentPDF = null;
+
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
                     await graticuleSystem.loadImage(e.target.result);
-                    
-                    const img = graticuleSystem.uploadedImage;
-                    document.getElementById('imageDimensions').textContent =
-                        `${img.width} × ${img.height} pixels`;
-                    document.getElementById('imageInfo').style.display = 'block';
-                    document.getElementById('placeholder').style.display = 'none';
-                    document.getElementById('mapCanvas').style.display = 'block';
-                    
-                    // Render again now that canvas is visible
-                    graticuleSystem.render();
-                    
-                    document.getElementById('fitModeBtn').disabled = false;
-                    document.getElementById('fitModeBtn2').disabled = false;
-                    
-                    updateRegionInfo();
+                    showLoadedImage();
                 } catch (error) {
                     alert('Error loading image: ' + error.message);
                 }
             };
             reader.readAsDataURL(file);
+        }
+
+        async function handlePDFUpload(file) {
+            const pdfLoading = document.getElementById('pdfLoading');
+            const pdfPageSelector = document.getElementById('pdfPageSelector');
+
+            try {
+                pdfLoading.style.display = 'block';
+                pdfPageSelector.style.display = 'none';
+
+                // Read PDF file
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+                currentPDF = pdf;
+                totalPDFPages = pdf.numPages;
+                currentPDFPage = 1;
+
+                // Update page info
+                updatePDFPageInfo();
+
+                // Show PDF controls
+                pdfPageSelector.style.display = 'block';
+                pdfLoading.style.display = 'none';
+
+                // Render first page
+                await renderPDFPage(currentPDFPage);
+
+            } catch (error) {
+                pdfLoading.style.display = 'none';
+                alert('Error loading PDF: ' + error.message);
+            }
+        }
+
+        async function renderPDFPage(pageNum) {
+            if (!currentPDF) return;
+
+            const pdfLoading = document.getElementById('pdfLoading');
+            pdfLoading.style.display = 'block';
+            pdfLoading.innerHTML = '<span>⏳ Rendering page ' + pageNum + '...</span>';
+
+            try {
+                const page = await currentPDF.getPage(pageNum);
+                const scale = parseFloat(document.getElementById('pdfScale').value) || 2;
+                const viewport = page.getViewport({ scale: scale });
+
+                // Create a temporary canvas to render the PDF page
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = viewport.width;
+                tempCanvas.height = viewport.height;
+
+                // Render the page
+                await page.render({
+                    canvasContext: tempCtx,
+                    viewport: viewport
+                }).promise;
+
+                // Convert to data URL and load as image
+                const dataUrl = tempCanvas.toDataURL('image/png');
+                await graticuleSystem.loadImage(dataUrl);
+
+                showLoadedImage();
+                pdfLoading.style.display = 'none';
+
+            } catch (error) {
+                pdfLoading.style.display = 'none';
+                alert('Error rendering PDF page: ' + error.message);
+            }
+        }
+
+        function updatePDFPageInfo() {
+            document.getElementById('pdfPageInfo').textContent = `${currentPDFPage} / ${totalPDFPages}`;
+            document.getElementById('pdfPrevPage').disabled = currentPDFPage <= 1;
+            document.getElementById('pdfNextPage').disabled = currentPDFPage >= totalPDFPages;
+        }
+
+        function showLoadedImage() {
+            const img = graticuleSystem.uploadedImage;
+            document.getElementById('imageDimensions').textContent =
+                `${img.width} × ${img.height} pixels`;
+            document.getElementById('imageInfo').style.display = 'block';
+            document.getElementById('placeholder').style.display = 'none';
+            document.getElementById('mapCanvas').style.display = 'block';
+
+            // Render again now that canvas is visible
+            graticuleSystem.render();
+
+            document.getElementById('fitModeBtn').disabled = false;
+            document.getElementById('fitModeBtn2').disabled = false;
+
+            updateRegionInfo();
         }
 
         function setMode(mode) {
