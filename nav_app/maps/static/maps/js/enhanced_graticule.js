@@ -239,8 +239,11 @@ class EnhancedGraticuleSystem {
         this.mapper = null;
         
         this.mode = 'view'; // 'fit', 'view', or 'triangles'
-        this.latInterval = 0.5; // degrees
-        this.lonInterval = 0.5; // degrees
+        
+        // Grid spacing configuration (in decimal degrees)
+        // User can configure these independently via UI using degrees, minutes, seconds
+        this.latInterval = 0.5; // Parallel (latitude line) spacing - default 30 arcminutes
+        this.lonInterval = 0.5; // Meridian (longitude line) spacing - default 30 arcminutes
         this.showMinorGrid = false;
         
         // Nautical triangles
@@ -319,7 +322,29 @@ class EnhancedGraticuleSystem {
         this.displayScale = scale;
     }
 
-    setGeographicBounds(minLat, maxLat, minLon, maxLon) {
+    /**
+     * Define geographic bounds for the map region.
+     * Optionally define graticule intervals at the same time (recommended),
+     * so "defining bounds" also defines the grid frequencies.
+     *
+     * @param {number} minLat
+     * @param {number} maxLat
+     * @param {number} minLon
+     * @param {number} maxLon
+     * @param {{latInterval:number, lonInterval:number}=} grid
+     */
+    setGeographicBounds(minLat, maxLat, minLon, maxLon, grid = undefined) {
+        // Always define grid intervals at the moment bounds are defined.
+        // Backwards compatible: if caller doesn't pass grid, use current intervals.
+        const resolvedGrid = (grid && typeof grid === 'object')
+            ? grid
+            : { latInterval: this.latInterval, lonInterval: this.lonInterval };
+
+        if (typeof resolvedGrid.latInterval === 'number' && typeof resolvedGrid.lonInterval === 'number') {
+            // Validate+apply (keeps meridians/parallels independent)
+            this.setGridIntervals(resolvedGrid.latInterval, resolvedGrid.lonInterval);
+        }
+
         this.geoBounds = { minLat, maxLat, minLon, maxLon };
         
         if (this.mapRegion) {
@@ -331,6 +356,173 @@ class EnhancedGraticuleSystem {
         }
         
         this.render();
+    }
+
+    /**
+     * Set graticule grid intervals
+     * @param {number} latInterval - Parallel spacing in decimal degrees
+     * @param {number} lonInterval - Meridian spacing in decimal degrees
+     * @throws {Error} If intervals are invalid
+     */
+    setGridIntervals(latInterval, lonInterval) {
+        // Use validation method
+        const validation = this.validateIntervals(latInterval, lonInterval);
+        if (!validation.valid) {
+            throw new Error('Invalid grid intervals: ' + validation.errors.join(', '));
+        }
+
+        // Store the intervals
+        this.latInterval = latInterval;
+        this.lonInterval = lonInterval;
+
+        // Log for debugging
+        console.log(`Grid intervals set - Parallels: ${this.formatIntervalDMS(latInterval)}, Meridians: ${this.formatIntervalDMS(lonInterval)}`);
+
+        // Only render if we have a mapper (bounds have been applied)
+        if (this.mapper) {
+            this.render();
+        }
+    }
+
+    /**
+     * Get current grid intervals
+     * @returns {Object} Object with latInterval and lonInterval in decimal degrees
+     */
+    getGridIntervals() {
+        return {
+            latInterval: this.latInterval,
+            lonInterval: this.lonInterval
+        };
+    }
+
+    /**
+     * Get human-readable description of current grid intervals
+     * @returns {Object} Object with formatted strings for parallels and meridians
+     */
+    getGridIntervalsFormatted() {
+        return {
+            parallels: this.formatIntervalDMS(this.latInterval),
+            meridians: this.formatIntervalDMS(this.lonInterval)
+        };
+    }
+
+    /**
+     * Format a decimal degree interval as DMS string
+     * @param {number} decimal - Interval in decimal degrees
+     * @returns {string} Formatted string (e.g., "0° 30' 0\"" or "1'")
+     */
+    formatIntervalDMS(decimal) {
+        if (decimal == null || isNaN(decimal)) return 'N/A';
+
+        const degrees = Math.floor(decimal);
+        const minutesDecimal = (decimal - degrees) * 60;
+        const minutes = Math.floor(minutesDecimal);
+        const seconds = ((minutesDecimal - minutes) * 60);
+
+        // Format based on what's non-zero
+        if (degrees > 0 && minutes === 0 && Math.abs(seconds) < 0.1) {
+            return `${degrees}°`;
+        } else if (degrees === 0 && Math.abs(seconds) < 0.1) {
+            return `${minutes}'`;
+        } else if (degrees === 0) {
+            return `${minutes}' ${seconds.toFixed(1)}"`;
+        } else if (Math.abs(seconds) < 0.1) {
+            return `${degrees}° ${minutes}'`;
+        } else {
+            return `${degrees}° ${minutes}' ${seconds.toFixed(1)}"`;
+        }
+    }
+
+    /**
+     * Set grid intervals from DMS (degrees, minutes, seconds) format
+     * @param {Object} parallels - {degrees, minutes, seconds} for latitude lines
+     * @param {Object} meridians - {degrees, minutes, seconds} for longitude lines
+     */
+    setGridIntervalsFromDMS(parallels, meridians) {
+        const latInterval = this.dmsToDecimal(
+            parallels.degrees || 0,
+            parallels.minutes || 0,
+            parallels.seconds || 0
+        );
+        const lonInterval = this.dmsToDecimal(
+            meridians.degrees || 0,
+            meridians.minutes || 0,
+            meridians.seconds || 0
+        );
+
+        this.setGridIntervals(latInterval, lonInterval);
+    }
+
+    /**
+     * Convert DMS to decimal degrees
+     * @param {number} degrees
+     * @param {number} minutes
+     * @param {number} seconds
+     * @returns {number} Decimal degrees
+     */
+    dmsToDecimal(degrees, minutes, seconds) {
+        degrees = parseFloat(degrees) || 0;
+        minutes = parseFloat(minutes) || 0;
+        seconds = parseFloat(seconds) || 0;
+        return degrees + (minutes / 60) + (seconds / 3600);
+    }
+
+    /**
+     * Apply a preset grid configuration
+     * @param {string} presetName - 'fine', 'standard', 'coarse', 'nautical', or custom object
+     */
+    applyGridPreset(presetName) {
+        const presets = {
+            // Fine: 1 minute for both
+            fine: { latInterval: 1/60, lonInterval: 1/60 },
+            // Standard: 30 minutes for both
+            standard: { latInterval: 0.5, lonInterval: 0.5 },
+            // Coarse: 1 degree for both
+            coarse: { latInterval: 1, lonInterval: 1 },
+            // Nautical: 1 minute parallels, 30 minutes meridians
+            nautical: { latInterval: 1/60, lonInterval: 0.5 },
+            // Very fine: 30 seconds for both
+            veryFine: { latInterval: 30/3600, lonInterval: 30/3600 }
+        };
+
+        const preset = typeof presetName === 'string' ? presets[presetName] : presetName;
+
+        if (preset && preset.latInterval && preset.lonInterval) {
+            this.setGridIntervals(preset.latInterval, preset.lonInterval);
+        } else {
+            console.warn('Unknown or invalid preset:', presetName);
+        }
+    }
+
+    /**
+     * Validate grid interval values
+     * @param {number} latInterval - Latitude interval in decimal degrees
+     * @param {number} lonInterval - Longitude interval in decimal degrees
+     * @returns {Object} { valid: boolean, errors: string[] }
+     */
+    validateIntervals(latInterval, lonInterval) {
+        const errors = [];
+
+        if (latInterval == null || isNaN(latInterval)) {
+            errors.push('Latitude interval is not a valid number');
+        } else if (latInterval <= 0) {
+            errors.push('Latitude interval must be greater than 0');
+        } else if (latInterval > 90) {
+            errors.push('Latitude interval cannot exceed 90 degrees');
+        }
+
+        if (lonInterval == null || isNaN(lonInterval)) {
+            errors.push('Longitude interval is not a valid number');
+        } else if (lonInterval <= 0) {
+            errors.push('Longitude interval must be greater than 0');
+        } else if (lonInterval > 180) {
+            errors.push('Longitude interval cannot exceed 180 degrees');
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
     }
 
     setMode(mode) {
@@ -572,135 +764,241 @@ class EnhancedGraticuleSystem {
 
     drawGraticule() {
         if (!this.mapper || !this.geoBounds) return;
-        
+
+        // Validate intervals before drawing
+        if (!this.latInterval || this.latInterval <= 0) {
+            console.warn('Invalid latInterval, using default 0.5');
+            this.latInterval = 0.5;
+        }
+        if (!this.lonInterval || this.lonInterval <= 0) {
+            console.warn('Invalid lonInterval, using default 0.5');
+            this.lonInterval = 0.5;
+        }
+
         this.ctx.save();
         this.ctx.strokeStyle = '#0078A8';
         this.ctx.lineWidth = 1.5;
         this.ctx.setLineDash([5, 5]);
         this.ctx.globalAlpha = 0.7;
-        
-        // Draw latitude lines (parallels)
+
+        // Determine label display mode based on interval size
+        // For fine intervals (< 1 minute), show seconds
+        // For medium intervals (< 1 degree), show minutes
+        // For coarse intervals (>= 1 degree), show degrees
+        const latLabelMode = this.getLabelMode(this.latInterval);
+        const lonLabelMode = this.getLabelMode(this.lonInterval);
+
+        // Draw latitude lines (parallels) - horizontal lines
+        // Uses this.latInterval for spacing (can be set independently from meridians)
         const startLat = Math.floor(this.geoBounds.minLat / this.latInterval) * this.latInterval;
         const endLat = Math.ceil(this.geoBounds.maxLat / this.latInterval) * this.latInterval;
-        
-        for (let lat = startLat; lat <= endLat; lat += this.latInterval) {
-            if (lat < this.geoBounds.minLat || lat > this.geoBounds.maxLat) continue;
-            
+
+        // Prevent infinite loops for very small intervals
+        const maxLatLines = 200;
+        let latLineCount = 0;
+
+        for (let lat = startLat; lat <= endLat && latLineCount < maxLatLines; lat += this.latInterval) {
+            // Use epsilon comparison for floating point
+            if (lat < this.geoBounds.minLat - 0.0001 || lat > this.geoBounds.maxLat + 0.0001) continue;
+            latLineCount++;
+
             const isWholeDegree = Math.abs(lat - Math.round(lat)) < 0.0001;
-            
+            const isWholeMinute = Math.abs((lat * 60) - Math.round(lat * 60)) < 0.001;
+
+            // Determine line style based on significance
+            const isMajor = isWholeDegree || (this.latInterval < 1 && isWholeMinute && !isWholeDegree);
+
             // Draw line
             const start = this.mapper.geographicToScreen(lat, this.geoBounds.minLon);
             const end = this.mapper.geographicToScreen(lat, this.geoBounds.maxLon);
-            
+
             if (isWholeDegree) {
+                this.ctx.save();
+                this.ctx.lineWidth = 2.5;
+                this.ctx.globalAlpha = 0.9;
+                this.ctx.setLineDash([]);
+            } else if (isMajor) {
                 this.ctx.save();
                 this.ctx.lineWidth = 2;
                 this.ctx.globalAlpha = 0.8;
             }
-            
+
             this.ctx.beginPath();
             this.ctx.moveTo(start.x, start.y);
             this.ctx.lineTo(end.x, end.y);
             this.ctx.stroke();
-            
-            if (isWholeDegree) {
+
+            if (isWholeDegree || isMajor) {
                 this.ctx.restore();
             }
-            
-            // Draw label
-            this.drawLatitudeLabel(lat, start.x + 10, start.y, isWholeDegree);
+
+            // Draw label with appropriate format
+            this.drawLatitudeLabel(lat, start.x + 10, start.y, isWholeDegree, latLabelMode);
         }
-        
-        // Draw longitude lines (meridians)
+
+        // Draw longitude lines (meridians) - vertical lines
+        // Uses this.lonInterval for spacing (can be set independently from parallels)
         const startLon = Math.floor(this.geoBounds.minLon / this.lonInterval) * this.lonInterval;
         const endLon = Math.ceil(this.geoBounds.maxLon / this.lonInterval) * this.lonInterval;
-        
-        for (let lon = startLon; lon <= endLon; lon += this.lonInterval) {
-            if (lon < this.geoBounds.minLon || lon > this.geoBounds.maxLon) continue;
-            
+
+        // Prevent infinite loops for very small intervals
+        const maxLonLines = 200;
+        let lonLineCount = 0;
+
+        for (let lon = startLon; lon <= endLon && lonLineCount < maxLonLines; lon += this.lonInterval) {
+            // Use epsilon comparison for floating point
+            if (lon < this.geoBounds.minLon - 0.0001 || lon > this.geoBounds.maxLon + 0.0001) continue;
+            lonLineCount++;
+
             const isWholeDegree = Math.abs(lon - Math.round(lon)) < 0.0001;
-            
+            const isWholeMinute = Math.abs((lon * 60) - Math.round(lon * 60)) < 0.001;
+
+            // Determine line style based on significance
+            const isMajor = isWholeDegree || (this.lonInterval < 1 && isWholeMinute && !isWholeDegree);
+
             // Draw line
             const start = this.mapper.geographicToScreen(this.geoBounds.maxLat, lon);
             const end = this.mapper.geographicToScreen(this.geoBounds.minLat, lon);
-            
+
             if (isWholeDegree) {
+                this.ctx.save();
+                this.ctx.lineWidth = 2.5;
+                this.ctx.globalAlpha = 0.9;
+                this.ctx.setLineDash([]);
+            } else if (isMajor) {
                 this.ctx.save();
                 this.ctx.lineWidth = 2;
                 this.ctx.globalAlpha = 0.8;
             }
-            
+
             this.ctx.beginPath();
             this.ctx.moveTo(start.x, start.y);
             this.ctx.lineTo(end.x, end.y);
             this.ctx.stroke();
-            
-            if (isWholeDegree) {
+
+            if (isWholeDegree || isMajor) {
                 this.ctx.restore();
             }
-            
-            // Draw label
-            this.drawLongitudeLabel(lon, start.x, start.y + 20, isWholeDegree);
+
+            // Draw label with appropriate format
+            this.drawLongitudeLabel(lon, start.x, start.y + 20, isWholeDegree, lonLabelMode);
         }
-        
+
         this.ctx.restore();
     }
 
-    drawLatitudeLabel(lat, x, y, isWholeDegree) {
-        let label;
-        if (isWholeDegree) {
-            const degrees = Math.round(Math.abs(lat));
-            const direction = lat >= 0 ? 'N' : 'S';
-            label = `${degrees}°${direction}`;
+    /**
+     * Determine label display mode based on interval size
+     * @param {number} interval - Interval in decimal degrees
+     * @returns {string} 'degrees', 'minutes', or 'seconds'
+     */
+    getLabelMode(interval) {
+        if (interval >= 1) {
+            return 'degrees';
+        } else if (interval >= 1/60) { // >= 1 minute
+            return 'minutes';
         } else {
-            const abs = Math.abs(lat);
-            const degrees = Math.floor(abs);
-            const minutes = Math.round((abs - degrees) * 60);
-            label = `${minutes}'`;
+            return 'seconds';
         }
-        
+    }
+
+    drawLatitudeLabel(lat, x, y, isWholeDegree, labelMode = 'minutes') {
+        let label;
+        const abs = Math.abs(lat);
+        const direction = lat >= 0 ? 'N' : 'S';
+        const degrees = Math.floor(abs);
+        const minutesDecimal = (abs - degrees) * 60;
+        const minutes = Math.floor(minutesDecimal);
+        const seconds = (minutesDecimal - minutes) * 60;
+
+        if (isWholeDegree) {
+            // Always show full format for whole degrees
+            label = `${degrees}°${direction}`;
+        } else if (labelMode === 'seconds') {
+            // Fine grid: show minutes and seconds
+            if (degrees > 0) {
+                label = `${degrees}°${minutes}'${seconds.toFixed(0)}"`;
+            } else {
+                label = `${minutes}'${seconds.toFixed(0)}"`;
+            }
+        } else if (labelMode === 'minutes') {
+            // Medium grid: show minutes (with decimal if needed)
+            const isWholeMinute = Math.abs(minutesDecimal - Math.round(minutesDecimal)) < 0.01;
+            if (degrees > 0 && isWholeMinute) {
+                label = `${degrees}°${Math.round(minutesDecimal)}'${direction}`;
+            } else if (isWholeMinute) {
+                label = `${Math.round(minutesDecimal)}'`;
+            } else {
+                label = `${minutesDecimal.toFixed(1)}'`;
+            }
+        } else {
+            // Coarse grid: show degrees
+            label = `${abs.toFixed(1)}°${direction}`;
+        }
+
         this.ctx.save();
+        this.ctx.font = isWholeDegree ? 'bold 13px monospace' : 'normal 11px monospace';
         const labelWidth = this.ctx.measureText(label).width + 8;
-        
-this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         this.ctx.fillRect(x - 2, y - 12, labelWidth, 24);
-        
+
         this.ctx.strokeStyle = '#0078A8';
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(x - 2, y - 12, labelWidth, 24);
-        
+
         this.ctx.fillStyle = '#0078A8';
-        this.ctx.font = isWholeDegree ? 'bold 13px monospace' : 'normal 11px monospace';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(label, x + 2, y);
         this.ctx.restore();
     }
 
-    drawLongitudeLabel(lon, x, y, isWholeDegree) {
+    drawLongitudeLabel(lon, x, y, isWholeDegree, labelMode = 'minutes') {
         let label;
+        const abs = Math.abs(lon);
+        const direction = lon >= 0 ? 'E' : 'W';
+        const degrees = Math.floor(abs);
+        const minutesDecimal = (abs - degrees) * 60;
+        const minutes = Math.floor(minutesDecimal);
+        const seconds = (minutesDecimal - minutes) * 60;
+
         if (isWholeDegree) {
-            const degrees = Math.round(Math.abs(lon));
-            const direction = lon >= 0 ? 'E' : 'W';
+            // Always show full format for whole degrees
             label = `${degrees.toString().padStart(3, '0')}°${direction}`;
+        } else if (labelMode === 'seconds') {
+            // Fine grid: show minutes and seconds
+            if (degrees > 0) {
+                label = `${degrees}°${minutes}'${seconds.toFixed(0)}"`;
+            } else {
+                label = `${minutes}'${seconds.toFixed(0)}"`;
+            }
+        } else if (labelMode === 'minutes') {
+            // Medium grid: show minutes (with decimal if needed)
+            const isWholeMinute = Math.abs(minutesDecimal - Math.round(minutesDecimal)) < 0.01;
+            if (degrees > 0 && isWholeMinute) {
+                label = `${degrees.toString().padStart(3, '0')}°${Math.round(minutesDecimal)}'${direction}`;
+            } else if (isWholeMinute) {
+                label = `${Math.round(minutesDecimal)}'`;
+            } else {
+                label = `${minutesDecimal.toFixed(1)}'`;
+            }
         } else {
-            const abs = Math.abs(lon);
-            const degrees = Math.floor(abs);
-            const minutes = Math.round((abs - degrees) * 60);
-            label = `${minutes}'`;
+            // Coarse grid: show degrees
+            label = `${abs.toFixed(1)}°${direction}`;
         }
-        
+
         this.ctx.save();
+        this.ctx.font = isWholeDegree ? 'bold 13px monospace' : 'normal 11px monospace';
         const width = this.ctx.measureText(label).width + 10;
-        
+
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         this.ctx.fillRect(x - width/2, y - 2, width, 24);
-        
+
         this.ctx.strokeStyle = '#0078A8';
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(x - width/2, y - 2, width, 24);
-        
+
         this.ctx.fillStyle = '#0078A8';
-        this.ctx.font = isWholeDegree ? 'bold 13px monospace' : 'normal 11px monospace';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'top';
         this.ctx.fillText(label, x, y + 2);
@@ -708,61 +1006,93 @@ this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
     }
 
     exportSVG() {
-        if (!this.mapper) return null;
-        
+        if (!this.mapper || !this.geoBounds) return null;
+
+        // Validate intervals
+        if (!this.latInterval || this.latInterval <= 0 || !this.lonInterval || this.lonInterval <= 0) {
+            console.error('Invalid grid intervals for SVG export');
+            return null;
+        }
+
         const width = this.mapRegion.width;
         const height = this.mapRegion.height;
-        
+
         let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
 <defs>
     <style>
-        .graticule-major { stroke: #0078A8; stroke-width: 2; opacity: 0.8; }
-        .graticule-minor { stroke: #0078A8; stroke-width: 1; stroke-dasharray: 5,5; opacity: 0.7; }
+        .graticule-major { stroke: #0078A8; stroke-width: 2.5; opacity: 0.9; }
+        .graticule-minor { stroke: #0078A8; stroke-width: 1.5; stroke-dasharray: 5,5; opacity: 0.7; }
+        .graticule-medium { stroke: #0078A8; stroke-width: 2; opacity: 0.8; }
     </style>
 </defs>
 <g id="graticule">
 `;
-        
+
+        // Use independent intervals for parallels and meridians
         const startLat = Math.floor(this.geoBounds.minLat / this.latInterval) * this.latInterval;
         const endLat = Math.ceil(this.geoBounds.maxLat / this.latInterval) * this.latInterval;
         const startLon = Math.floor(this.geoBounds.minLon / this.lonInterval) * this.lonInterval;
         const endLon = Math.ceil(this.geoBounds.maxLon / this.lonInterval) * this.lonInterval;
-        
-        // Parallels
-        for (let lat = startLat; lat <= endLat; lat += this.latInterval) {
-            if (lat < this.geoBounds.minLat || lat > this.geoBounds.maxLat) continue;
-            
+
+        // Prevent infinite loops
+        const maxLines = 200;
+        let lineCount = 0;
+
+        // Parallels (latitude lines) - use latInterval
+        for (let lat = startLat; lat <= endLat && lineCount < maxLines; lat += this.latInterval) {
+            if (lat < this.geoBounds.minLat - 0.0001 || lat > this.geoBounds.maxLat + 0.0001) continue;
+            lineCount++;
+
             const start = this.mapper.geographicToScreen(lat, this.geoBounds.minLon);
             const end = this.mapper.geographicToScreen(lat, this.geoBounds.maxLon);
             const isWholeDegree = Math.abs(lat - Math.round(lat)) < 0.0001;
-            
+            const isWholeMinute = Math.abs((lat * 60) - Math.round(lat * 60)) < 0.001;
+
             const x1 = start.x - this.mapRegion.x;
             const y1 = start.y - this.mapRegion.y;
             const x2 = end.x - this.mapRegion.x;
             const y2 = end.y - this.mapRegion.y;
-            
-            svg += `    <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="graticule-${isWholeDegree ? 'major' : 'minor'}"/>\n`;
+
+            let lineClass = 'graticule-minor';
+            if (isWholeDegree) {
+                lineClass = 'graticule-major';
+            } else if (this.latInterval < 1 && isWholeMinute) {
+                lineClass = 'graticule-medium';
+            }
+
+            svg += `    <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${lineClass}"/>\n`;
         }
-        
-        // Meridians
-        for (let lon = startLon; lon <= endLon; lon += this.lonInterval) {
-            if (lon < this.geoBounds.minLon || lon > this.geoBounds.maxLon) continue;
-            
+
+        lineCount = 0;
+
+        // Meridians (longitude lines) - use lonInterval
+        for (let lon = startLon; lon <= endLon && lineCount < maxLines; lon += this.lonInterval) {
+            if (lon < this.geoBounds.minLon - 0.0001 || lon > this.geoBounds.maxLon + 0.0001) continue;
+            lineCount++;
+
             const start = this.mapper.geographicToScreen(this.geoBounds.maxLat, lon);
             const end = this.mapper.geographicToScreen(this.geoBounds.minLat, lon);
             const isWholeDegree = Math.abs(lon - Math.round(lon)) < 0.0001;
-            
+            const isWholeMinute = Math.abs((lon * 60) - Math.round(lon * 60)) < 0.001;
+
             const x1 = start.x - this.mapRegion.x;
             const y1 = start.y - this.mapRegion.y;
             const x2 = end.x - this.mapRegion.x;
             const y2 = end.y - this.mapRegion.y;
-            
-            svg += `    <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="graticule-${isWholeDegree ? 'major' : 'minor'}"/>\n`;
+
+            let lineClass = 'graticule-minor';
+            if (isWholeDegree) {
+                lineClass = 'graticule-major';
+            } else if (this.lonInterval < 1 && isWholeMinute) {
+                lineClass = 'graticule-medium';
+            }
+
+            svg += `    <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${lineClass}"/>\n`;
         }
-        
+
         svg += `</g>\n</svg>`;
-        
+
         return svg;
     }
 
@@ -1083,12 +1413,13 @@ this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         
         const bounds = this.gpxManager.getAllBounds();
         if (bounds) {
-            // Update geographic bounds to show routes
+            // Update geographic bounds to show routes (keep current grid intervals)
             this.setGeographicBounds(
                 bounds.minLat,
                 bounds.maxLat,
                 bounds.minLon,
-                bounds.maxLon
+                bounds.maxLon,
+                { latInterval: this.latInterval, lonInterval: this.lonInterval }
             );
         }
     }
