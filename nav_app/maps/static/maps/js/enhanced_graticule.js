@@ -537,7 +537,7 @@ class EnhancedGraticuleSystem {
         const scaleY = this.canvas.height / rect.height;
         const x = (e.clientX - rect.left) * scaleX;
         const y = (e.clientY - rect.top) * scaleY;
-        
+
         // Handle divider interactions when dividers are visible
         if (this.dividerVisible && this.dividerManager) {
             const handled = this.dividerManager.handleMouseDown(x, y);
@@ -546,10 +546,11 @@ class EnhancedGraticuleSystem {
                 return;
             }
         }
-        
+
         // Handle triangle interactions when triangles are visible
+        // Pass Ctrl/Meta key state for rotation mode
         if (this.trianglesVisible && this.triangleManager) {
-            const handled = this.triangleManager.handleMouseDown(x, y);
+            const handled = this.triangleManager.handleMouseDown(x, y, e.ctrlKey || e.metaKey);
             if (handled) {
                 this.render();
                 return;

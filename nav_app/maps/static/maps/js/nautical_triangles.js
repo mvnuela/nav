@@ -1395,10 +1395,10 @@ class PlottingTriangleManager {
     }
 }
 
-// Export classes globally
+// Export classes globally (for Leaflet/SVG-based usage)
 window.PlottingTriangle = PlottingTriangle;
 window.PlottingTriangleManager = PlottingTriangleManager;
 
-// Backward compatibility
+// Backward compatibility for Leaflet integration only
 window.NauticalTriangle = PlottingTriangle;
-window.NauticalTriangleManager = PlottingTriangleManager;
+// Note: NauticalTriangleManager for canvas is defined in nautical_triangles_canvas.js

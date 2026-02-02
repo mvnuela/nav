@@ -414,10 +414,10 @@
                 <div id="trianglesInfo" style="display:none; background:#e3f2fd; border:1px solid #0078A8; border-radius:4px; padding:10px; margin-top:10px; font-size:0.9em;">
                     <strong>Instructions:</strong>
                     <ul style="margin:8px 0 0 20px; padding:0;">
-                        <li>Drag triangle body to move</li>
-                        <li>Drag center point to rotate</li>
-                        <li>Index line shows current bearing</li>
-                        <li>Degree scale: 0°-180° on hypotenuse</li>
+                        <li>Drag to move triangle</li>
+                        <li><strong>Ctrl + drag</strong> to rotate</li>
+                        <li>Outer scale: 0°-180° (black)</li>
+                        <li>Inner scale: 180°-360° (red)</li>
                     </ul>
                 </div>
                 
@@ -693,8 +693,8 @@
     <script src="{% static 'maps/js/enhanced_graticule.js' %}"></script>
     <!-- Load course plotting extension -->
     <script src="{% static 'maps/js/course_plotter_enhanced.js' %}"></script>
-    <!-- Load nautical triangles component -->
-    <script src="{% static 'maps/js/nautical_triangles.js' %}"></script>
+    <!-- Load nautical triangles component (canvas version for this system) -->
+    <script src="{% static 'maps/js/nautical_triangles_canvas.js' %}"></script>
     
     <script>
         // Make graticule system globally accessible
