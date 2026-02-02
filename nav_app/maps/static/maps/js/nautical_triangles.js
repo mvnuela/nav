@@ -840,10 +840,10 @@ class PlottingTriangle {
         const centerPoint = document.createElementNS(ns, 'circle');
         centerPoint.setAttribute('cx', 0);
         centerPoint.setAttribute('cy', 0);
-        centerPoint.setAttribute('r', this.s(8));  // Bigger visible dot
+        centerPoint.setAttribute('r', Math.max(6, this.s(8)));  // Minimum 6px visible dot
         centerPoint.setAttribute('fill', this.colors.innerScale);
         centerPoint.setAttribute('stroke', '#ffffff');
-        centerPoint.setAttribute('stroke-width', this.s(2));
+        centerPoint.setAttribute('stroke-width', Math.max(1.5, this.s(2)));
         centerPoint.setAttribute('class', 'center-point');
         centerPoint.style.pointerEvents = 'auto';
         centerPoint.style.cursor = 'crosshair';
@@ -853,7 +853,7 @@ class PlottingTriangle {
         const rotationHandle = document.createElementNS(ns, 'circle');
         rotationHandle.setAttribute('cx', 0);
         rotationHandle.setAttribute('cy', 0);
-        rotationHandle.setAttribute('r', this.s(35));  // Much larger hit area for rotation
+        rotationHandle.setAttribute('r', Math.max(30, this.s(35)));  // Minimum 30px hit area for rotation
         rotationHandle.setAttribute('fill', 'rgba(255,0,0,0.01)');  // Nearly invisible but captures events
         rotationHandle.setAttribute('stroke', 'none');
         rotationHandle.setAttribute('class', 'rotation-handle');
@@ -1016,7 +1016,8 @@ class PlottingTriangle {
      */
     isNearCenter(clientX, clientY, threshold = null) {
         if (threshold === null) {
-            threshold = this.s(40);  // Larger threshold for easier rotation
+            // Use a minimum threshold so rotation works even with small triangles
+            threshold = Math.max(35, this.s(40));
         }
         const dx = clientX - this.x;
         const dy = clientY - this.y;

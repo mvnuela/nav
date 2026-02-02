@@ -251,13 +251,42 @@
             });
         }
 
-        // Scale slider
+        // Scale slider - recreates triangles with new size
         if (scaleSlider && scaleValue) {
             scaleSlider.addEventListener('input', function() {
                 const scale = parseFloat(this.value);
                 scaleValue.textContent = Math.round(scale * 100) + '%';
-                // Scale change would require recreating triangles
-                // This is a placeholder for future enhancement
+
+                if (triangleManager && trianglesVisible) {
+                    // Store current rotations and positions
+                    const triangleA = triangleManager.getTriangle('triangleA');
+                    const triangleB = triangleManager.getTriangle('triangleB');
+
+                    const stateA = triangleA ? { x: triangleA.x, y: triangleA.y, rotation: triangleA.rotation } : null;
+                    const stateB = triangleB ? { x: triangleB.x, y: triangleB.y, rotation: triangleB.rotation } : null;
+
+                    // Remove existing triangles
+                    triangleManager.removeAll();
+
+                    // Recreate with new scale
+                    const size = map.getSize();
+
+                    if (stateA) {
+                        const newA = triangleManager.createTriangle('triangleA', 'Triangle A', stateA.x, stateA.y, scale);
+                        newA.setRotation(stateA.rotation);
+                    } else {
+                        triangleManager.createTriangle('triangleA', 'Triangle A', size.x * 0.35, size.y * 0.55, scale);
+                    }
+
+                    if (stateB) {
+                        const newB = triangleManager.createTriangle('triangleB', 'Triangle B', stateB.x, stateB.y, scale);
+                        newB.setRotation(stateB.rotation);
+                    } else {
+                        triangleManager.createTriangle('triangleB', 'Triangle B', size.x * 0.65, size.y * 0.55, scale);
+                    }
+
+                    updateAngleDisplay(triangleManager.getRotationAngles());
+                }
             });
         }
     }
@@ -317,15 +346,18 @@
         if (!map || !triangleManager) return;
 
         const size = map.getSize();
-        const scale = Math.min(size.x, size.y) / 800; // Adjust scale based on map size
+
+        // Get scale from slider if it exists, otherwise use default
+        const scaleSlider = document.getElementById('triangleScaleSlider');
+        const scale = scaleSlider ? parseFloat(scaleSlider.value) : 1.0;
 
         // Create Triangle A (left side)
         triangleManager.createTriangle(
             'triangleA',
             'Triangle A',
             size.x * 0.35,
-            size.y * 0.5,
-            Math.max(0.6, Math.min(1.2, scale))
+            size.y * 0.55,
+            scale
         );
 
         // Create Triangle B (right side)
@@ -333,8 +365,8 @@
             'triangleB',
             'Triangle B',
             size.x * 0.65,
-            size.y * 0.5,
-            Math.max(0.6, Math.min(1.2, scale))
+            size.y * 0.55,
+            scale
         );
     }
 
