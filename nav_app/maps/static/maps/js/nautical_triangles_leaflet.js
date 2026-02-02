@@ -1,16 +1,26 @@
 /**
- * Nautical Triangles for Leaflet Interactive Map
- * Adapts the canvas-based nautical triangles to work with Leaflet maps
+ * Nautical Plotting Triangles - Leaflet Integration
+ * Integrates SVG-based plotting triangles with Leaflet maps
+ *
+ * Features:
+ * - Two independent plotting triangles (A and B)
+ * - Drag and rotate functionality
+ * - Does not interfere with map interactions outside triangle areas
+ * - Proper z-index management
+ * - Responsive to map container resize
  */
 
 (function() {
     'use strict';
 
     let map = null;
-    let triangleCanvas = null;
+    let triangleContainer = null;
     let triangleManager = null;
     let trianglesVisible = false;
-    let mapInteractionsState = null; // Store original map interaction states
+    let mapPane = null;
+
+    // Store map interaction state
+    let mapInteractionState = null;
 
     /**
      * Initialize nautical triangles on the Leaflet map
@@ -18,388 +28,388 @@
      */
     window.initNauticalTriangles = function(leafletMap) {
         map = leafletMap;
-        
-        // Create canvas overlay pane
-        map.createPane('trianglesPane');
-        map.getPane('trianglesPane').style.zIndex = 650; // Above markers (400), below popups (700)
-        map.getPane('trianglesPane').style.pointerEvents = 'none'; // Let events pass through to canvas
-        
-        // Create canvas layer
-        const CanvasLayer = L.Layer.extend({
-            onAdd: function(map) {
-                const size = map.getSize();
-                triangleCanvas = L.DomUtil.create('canvas', 'triangle-overlay');
-                triangleCanvas.width = size.x;
-                triangleCanvas.height = size.y;
-                triangleCanvas.style.position = 'absolute';
-                triangleCanvas.style.left = '0px';
-                triangleCanvas.style.top = '0px';
-                triangleCanvas.style.pointerEvents = 'auto'; // Enable mouse events on canvas
-                
-                map.getPane('trianglesPane').appendChild(triangleCanvas);
-                
-                // Initialize triangle manager
-                triangleManager = new NauticalTriangleManager();
-                const triangleSize = Math.min(size.x, size.y) * 0.25;
-                triangleManager.createStandardPair(size.x, size.y, triangleSize);
-                
-                // Setup mouse event handlers
-                setupMouseHandlers();
-                
-                // Initial render
-                renderTriangles();
-                
-                // Update on map resize
-                map.on('resize', this._onResize, this);
-            },
-            
-            onRemove: function(map) {
-                if (triangleCanvas) {
-                    L.DomUtil.remove(triangleCanvas);
-                    triangleCanvas = null;
-                }
-                map.off('resize', this._onResize, this);
-            },
-            
-            _onResize: function() {
-                if (triangleCanvas) {
-                    const size = map.getSize();
-                    triangleCanvas.width = size.x;
-                    triangleCanvas.height = size.y;
-                    
-                    // Adjust triangle positions to stay within bounds
-                    if (triangleManager) {
-                        triangleManager.triangles.forEach(triangle => {
-                            triangle.x = Math.min(triangle.x, size.x - 50);
-                            triangle.y = Math.min(triangle.y, size.y - 50);
-                        });
-                    }
-                    
-                    renderTriangles();
-                }
-            }
-        });
-        
-        // Store canvas layer reference
-        window.triangleCanvasLayer = new CanvasLayer();
-        
-        // Create custom control
+
+        // Create a custom pane for triangles
+        if (!map.getPane('trianglesPane')) {
+            mapPane = map.createPane('trianglesPane');
+            mapPane.style.zIndex = 650; // Above markers, below popups
+            mapPane.style.pointerEvents = 'none'; // Let events pass through by default
+        } else {
+            mapPane = map.getPane('trianglesPane');
+        }
+
+        // Create container div for triangle SVGs
+        triangleContainer = L.DomUtil.create('div', 'triangle-container');
+        triangleContainer.style.position = 'absolute';
+        triangleContainer.style.left = '0';
+        triangleContainer.style.top = '0';
+        triangleContainer.style.width = '100%';
+        triangleContainer.style.height = '100%';
+        triangleContainer.style.pointerEvents = 'none'; // Container doesn't capture events
+        triangleContainer.style.overflow = 'visible';
+
+        mapPane.appendChild(triangleContainer);
+
+        // Initialize triangle manager
+        triangleManager = new PlottingTriangleManager();
+        triangleManager.setContainer(triangleContainer);
+
+        // Set up change callback for angle display updates
+        triangleManager.onChange(updateAngleDisplay);
+
+        // Create the control panel
         createTriangleControl(map);
-        
-        console.log('✓ Nautical triangles initialized');
+
+        // Handle map resize
+        map.on('resize', handleMapResize);
+
+        // Handle map move/zoom (triangles stay fixed in screen space)
+        map.on('move', handleMapMove);
+
+        console.log('Plotting triangles initialized');
     };
-    
+
     /**
-     * Create control panel for triangles
+     * Create the control panel for triangles
      */
     function createTriangleControl(map) {
-        L.Control.NauticalTriangles = L.Control.extend({
+        const TriangleControl = L.Control.extend({
             options: {
                 position: 'topright'
             },
-            
+
             onAdd: function() {
-                const container = L.DomUtil.create('div', 'triangle-control');
+                const container = L.DomUtil.create('div', 'leaflet-control triangle-control');
                 container.style.background = 'white';
                 container.style.border = '2px solid rgba(0,0,0,0.2)';
                 container.style.borderRadius = '4px';
                 container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
                 container.style.marginTop = '10px';
-                container.style.cursor = 'pointer';
-                
+
                 container.innerHTML = `
-                    <div id="trianglesPanelToggle" style="padding: 8px 10px; background: white; border-radius: 4px; font-weight: bold; font-size: 12px;">
-                        📐 Navigation Triangles
+                    <div id="trianglesPanelToggle" style="padding: 8px 12px; background: white; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 14px;">&#x25B3;</span>
+                        <span>Plotting Triangles</span>
                     </div>
-                    <div id="trianglesPanelContent" style="display: none; padding: 10px; padding-top: 0; min-width: 200px;">
+                    <div id="trianglesPanelContent" style="display: none; padding: 12px; min-width: 220px; border-top: 1px solid #ddd;">
                         <button id="toggleTrianglesBtn"
-                            style="width:100%; padding:6px; margin-bottom:5px; cursor:pointer; background:#0078A8; color:white; border:none; border-radius:3px; font-weight:bold; font-size:11px;">
-                        Show Triangles
-                    </button>
-                    <div id="triangleInfo" style="display:none; background:#e3f2fd; border:1px solid #0078A8; border-radius:3px; padding:8px; margin-top:8px; font-size:10px;">
-                        <strong>Instructions:</strong>
-                        <ul style="margin:4px 0 0 16px; padding:0;">
-                            <li>Drag triangle body to move</li>
-                            <li>Drag center point to rotate</li>
-                            <li>Index line shows current bearing</li>
-                            <li>Degree scale: 0°-180° on hypotenuse</li>
-                        </ul>
-                    </div>
-                    <div id="triangleAngles" style="display:none; background:#fff; border:1px solid #ddd; border-radius:3px; padding:8px; margin-top:8px; font-family:monospace; font-size:10px;">
-                        <strong>Current Angles:</strong>
-                        <div id="portAngleLeaflet" style="margin-top:3px;">Port: 0°</div>
-                        <div id="starboardAngleLeaflet" style="margin-top:3px;">Starboard: 0°</div>
+                            style="width: 100%; padding: 8px 12px; cursor: pointer; background: #0078A8; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; transition: background 0.2s;">
+                            Show Triangles
+                        </button>
+
+                        <div id="triangleInstructions" style="display: none; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; padding: 10px; margin-top: 10px; font-size: 11px;">
+                            <strong style="color: #1565c0;">Instructions:</strong>
+                            <ul style="margin: 6px 0 0 16px; padding: 0; color: #424242;">
+                                <li>Drag triangle body to move</li>
+                                <li>Drag center point (red) to rotate</li>
+                                <li>Scales: 0°-180° (outer), 180°-360° (inner)</li>
+                                <li>Red lines: main directions (0°-180°, 90°-270°)</li>
+                                <li>Blue dashed: auxiliary (45°, 135°)</li>
+                            </ul>
+                        </div>
+
+                        <div id="triangleAnglesPanel" style="display: none; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 10px;">
+                            <strong style="font-size: 11px; color: #666;">Current Rotations:</strong>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <label style="font-size: 11px; font-weight: bold; min-width: 70px;">Triangle A:</label>
+                                    <input type="number" id="triangleAAngle" min="0" max="360" value="0"
+                                        style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px;">
+                                    <span style="font-size: 11px;">°</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <label style="font-size: 11px; font-weight: bold; min-width: 70px;">Triangle B:</label>
+                                    <input type="number" id="triangleBAngle" min="0" max="360" value="0"
+                                        style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px;">
+                                    <span style="font-size: 11px;">°</span>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 6px; margin-top: 10px;">
+                                <button id="resetTriangleA" style="flex: 1; padding: 6px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
+                                    Reset A
+                                </button>
+                                <button id="resetTriangleB" style="flex: 1; padding: 6px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
+                                    Reset B
+                                </button>
+                                <button id="resetBothTriangles" style="flex: 1; padding: 6px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
+                                    Reset Both
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="triangleScaleControl" style="display: none; margin-top: 10px; padding: 10px; background: #fafafa; border: 1px solid #ddd; border-radius: 4px;">
+                            <label style="font-size: 11px; font-weight: bold; display: block; margin-bottom: 6px;">
+                                Triangle Size:
+                            </label>
+                            <input type="range" id="triangleScaleSlider" min="0.5" max="1.5" step="0.1" value="1.0"
+                                style="width: 100%;">
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-top: 2px;">
+                                <span>Small</span>
+                                <span id="scaleValue">100%</span>
+                                <span>Large</span>
+                            </div>
                         </div>
                     </div>
                 `;
-                
+
+                // Prevent map interactions when clicking on control
                 L.DomEvent.disableClickPropagation(container);
-                
-                // Setup button click handler
-                setTimeout(() => {
-                    const panelToggle = document.getElementById('trianglesPanelToggle');
-                    const panelContent = document.getElementById('trianglesPanelContent');
-                    const toggleBtn = document.getElementById('toggleTrianglesBtn');
-                    
-                    // Toggle panel visibility
-                    if (panelToggle && panelContent) {
-                        panelToggle.onclick = function(e) {
-                            e.stopPropagation();
-                            const isVisible = panelContent.style.display !== 'none';
-                            panelContent.style.display = isVisible ? 'none' : 'block';
-                            panelToggle.style.background = isVisible ? 'white' : '#e8f5e9';
-                        };
-                    }
-                    
-                    if (toggleBtn) {
-                        toggleBtn.onclick = toggleTriangles;
-                    }
-                }, 100);
-                
+                L.DomEvent.disableScrollPropagation(container);
+
+                // Setup event handlers after DOM is ready
+                setTimeout(() => setupControlEventHandlers(), 50);
+
                 return container;
             }
         });
-        
-        // Add control to map
-        new L.Control.NauticalTriangles().addTo(map);
+
+        new TriangleControl().addTo(map);
     }
-    
+
     /**
-     * Setup mouse event handlers on canvas
+     * Setup event handlers for control panel
      */
-    function setupMouseHandlers() {
-        if (!triangleCanvas) return;
-        
-        triangleCanvas.addEventListener('mousedown', function(e) {
-            if (!trianglesVisible || !triangleManager) return;
-            
-            const rect = triangleCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            const handled = triangleManager.handleMouseDown(x, y);
-            if (handled) {
-                // Disable map interactions while dragging/rotating triangle
-                disableMapInteractions();
-                renderTriangles();
-                e.preventDefault();
+    function setupControlEventHandlers() {
+        const panelToggle = document.getElementById('trianglesPanelToggle');
+        const panelContent = document.getElementById('trianglesPanelContent');
+        const toggleBtn = document.getElementById('toggleTrianglesBtn');
+        const instructions = document.getElementById('triangleInstructions');
+        const anglesPanel = document.getElementById('triangleAnglesPanel');
+        const scaleControl = document.getElementById('triangleScaleControl');
+        const triangleAInput = document.getElementById('triangleAAngle');
+        const triangleBInput = document.getElementById('triangleBAngle');
+        const resetA = document.getElementById('resetTriangleA');
+        const resetB = document.getElementById('resetTriangleB');
+        const resetBoth = document.getElementById('resetBothTriangles');
+        const scaleSlider = document.getElementById('triangleScaleSlider');
+        const scaleValue = document.getElementById('scaleValue');
+
+        // Toggle panel visibility
+        if (panelToggle && panelContent) {
+            panelToggle.addEventListener('click', function(e) {
                 e.stopPropagation();
-            }
-        });
-        
-        triangleCanvas.addEventListener('mousemove', function(e) {
-            if (!trianglesVisible || !triangleManager) return;
-            
-            const rect = triangleCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            const handled = triangleManager.handleMouseMove(x, y);
-            const cursor = triangleManager.updateCursor(x, y);
-            triangleCanvas.style.cursor = cursor;
-            
-            if (handled) {
-                renderTriangles();
-                updateTriangleAngles();
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-        
-        triangleCanvas.addEventListener('mouseup', function(e) {
-            if (!trianglesVisible || !triangleManager) return;
-            
-            const handled = triangleManager.handleMouseUp();
-            if (handled) {
-                // Re-enable map interactions after triangle operation
-                enableMapInteractions();
-                renderTriangles();
-                updateTriangleAngles();
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-        
-        triangleCanvas.addEventListener('mouseleave', function(e) {
-            if (!trianglesVisible || !triangleManager) return;
-            triangleManager.handleMouseUp();
-            enableMapInteractions();
-            renderTriangles();
-        });
-        
-        // Add touch event handlers for mobile support
-        triangleCanvas.addEventListener('touchstart', function(e) {
-            if (!trianglesVisible || !triangleManager) return;
-            
-            const rect = triangleCanvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-            
-            const handled = triangleManager.handleMouseDown(x, y);
-            if (handled) {
-                disableMapInteractions();
-                renderTriangles();
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-        
-        triangleCanvas.addEventListener('touchmove', function(e) {
-            if (!trianglesVisible || !triangleManager) return;
-            
-            const rect = triangleCanvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-            
-            const handled = triangleManager.handleMouseMove(x, y);
-            if (handled) {
-                renderTriangles();
-                updateTriangleAngles();
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-        
-        triangleCanvas.addEventListener('touchend', function(e) {
-            if (!trianglesVisible || !triangleManager) return;
-            
-            const handled = triangleManager.handleMouseUp();
-            if (handled) {
-                enableMapInteractions();
-                renderTriangles();
-                updateTriangleAngles();
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-    }
-    
-    /**
-     * Render triangles on canvas
-     */
-    function renderTriangles() {
-        if (!triangleCanvas || !triangleManager) return;
-        
-        const ctx = triangleCanvas.getContext('2d');
-        ctx.clearRect(0, 0, triangleCanvas.width, triangleCanvas.height);
-        
-        if (trianglesVisible) {
-            triangleManager.drawAll(ctx);
+                const isVisible = panelContent.style.display !== 'none';
+                panelContent.style.display = isVisible ? 'none' : 'block';
+                panelToggle.style.background = isVisible ? 'white' : '#e8f5e9';
+            });
+        }
+
+        // Toggle triangles visibility
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function() {
+                toggleTriangles();
+            });
+        }
+
+        // Angle input handlers
+        if (triangleAInput) {
+            triangleAInput.addEventListener('change', function() {
+                const angle = parseFloat(this.value) || 0;
+                if (triangleManager) {
+                    triangleManager.setTriangleRotation('triangleA', angle);
+                }
+            });
+        }
+
+        if (triangleBInput) {
+            triangleBInput.addEventListener('change', function() {
+                const angle = parseFloat(this.value) || 0;
+                if (triangleManager) {
+                    triangleManager.setTriangleRotation('triangleB', angle);
+                }
+            });
+        }
+
+        // Reset buttons
+        if (resetA) {
+            resetA.addEventListener('click', function() {
+                if (triangleManager) {
+                    triangleManager.setTriangleRotation('triangleA', 0);
+                    if (triangleAInput) triangleAInput.value = '0';
+                }
+            });
+        }
+
+        if (resetB) {
+            resetB.addEventListener('click', function() {
+                if (triangleManager) {
+                    triangleManager.setTriangleRotation('triangleB', 0);
+                    if (triangleBInput) triangleBInput.value = '0';
+                }
+            });
+        }
+
+        if (resetBoth) {
+            resetBoth.addEventListener('click', function() {
+                if (triangleManager) {
+                    triangleManager.setTriangleRotation('triangleA', 0);
+                    triangleManager.setTriangleRotation('triangleB', 0);
+                    if (triangleAInput) triangleAInput.value = '0';
+                    if (triangleBInput) triangleBInput.value = '0';
+                }
+            });
+        }
+
+        // Scale slider
+        if (scaleSlider && scaleValue) {
+            scaleSlider.addEventListener('input', function() {
+                const scale = parseFloat(this.value);
+                scaleValue.textContent = Math.round(scale * 100) + '%';
+                // Scale change would require recreating triangles
+                // This is a placeholder for future enhancement
+            });
         }
     }
-    
-    /**
-     * Disable all Leaflet map interactions
-     */
-    function disableMapInteractions() {
-        if (!map) return;
-        
-        // Store current state before disabling
-        if (!mapInteractionsState) {
-            mapInteractionsState = {
-                dragging: map.dragging.enabled(),
-                touchZoom: map.touchZoom.enabled(),
-                doubleClickZoom: map.doubleClickZoom.enabled(),
-                scrollWheelZoom: map.scrollWheelZoom.enabled(),
-                boxZoom: map.boxZoom.enabled(),
-                keyboard: map.keyboard.enabled()
-            };
-        }
-        
-        // Disable all interactions
-        map.dragging.disable();
-        map.touchZoom.disable();
-        map.doubleClickZoom.disable();
-        map.scrollWheelZoom.disable();
-        map.boxZoom.disable();
-        map.keyboard.disable();
-    }
-    
-    /**
-     * Restore Leaflet map interactions to previous state
-     */
-    function enableMapInteractions() {
-        if (!map || !mapInteractionsState) return;
-        
-        // Restore to previous state
-        if (mapInteractionsState.dragging) map.dragging.enable();
-        if (mapInteractionsState.touchZoom) map.touchZoom.enable();
-        if (mapInteractionsState.doubleClickZoom) map.doubleClickZoom.enable();
-        if (mapInteractionsState.scrollWheelZoom) map.scrollWheelZoom.enable();
-        if (mapInteractionsState.boxZoom) map.boxZoom.enable();
-        if (mapInteractionsState.keyboard) map.keyboard.enable();
-    }
-    
+
     /**
      * Toggle triangle visibility
      */
     function toggleTriangles() {
         trianglesVisible = !trianglesVisible;
-        
-        const btn = document.getElementById('toggleTrianglesBtn');
-        const info = document.getElementById('triangleInfo');
-        const angles = document.getElementById('triangleAngles');
-        
+
+        const toggleBtn = document.getElementById('toggleTrianglesBtn');
+        const instructions = document.getElementById('triangleInstructions');
+        const anglesPanel = document.getElementById('triangleAnglesPanel');
+        const scaleControl = document.getElementById('triangleScaleControl');
+
         if (trianglesVisible) {
-            // Show triangles
-            if (window.triangleCanvasLayer && map) {
-                window.triangleCanvasLayer.addTo(map);
+            // Create triangles if they don't exist
+            if (triangleManager.triangles.size === 0) {
+                createTriangles();
             }
-            
-            btn.textContent = 'Hide Triangles';
-            btn.style.background = '#dc3545';
-            info.style.display = 'block';
-            angles.style.display = 'block';
-            
-            renderTriangles();
-            updateTriangleAngles();
+
+            // Show triangles
+            triangleManager.showAll();
+            triangleContainer.style.pointerEvents = 'auto';
+
+            // Update UI
+            if (toggleBtn) {
+                toggleBtn.textContent = 'Hide Triangles';
+                toggleBtn.style.background = '#dc3545';
+            }
+            if (instructions) instructions.style.display = 'block';
+            if (anglesPanel) anglesPanel.style.display = 'block';
+            if (scaleControl) scaleControl.style.display = 'block';
+
+            updateAngleDisplay(triangleManager.getRotationAngles());
+
         } else {
             // Hide triangles
-            if (window.triangleCanvasLayer && map) {
-                map.removeLayer(window.triangleCanvasLayer);
+            triangleManager.hideAll();
+            triangleContainer.style.pointerEvents = 'none';
+
+            // Update UI
+            if (toggleBtn) {
+                toggleBtn.textContent = 'Show Triangles';
+                toggleBtn.style.background = '#0078A8';
             }
-            
-            // Ensure map interactions are enabled when hiding triangles
-            enableMapInteractions();
-            mapInteractionsState = null;
-            
-            btn.textContent = 'Show Triangles';
-            btn.style.background = '#0078A8';
-            info.style.display = 'none';
-            angles.style.display = 'none';
-            
-            if (triangleCanvas) {
-                const ctx = triangleCanvas.getContext('2d');
-                ctx.clearRect(0, 0, triangleCanvas.width, triangleCanvas.height);
-            }
+            if (instructions) instructions.style.display = 'none';
+            if (anglesPanel) anglesPanel.style.display = 'none';
+            if (scaleControl) scaleControl.style.display = 'none';
         }
     }
-    
+
     /**
-     * Update triangle angle display
+     * Create the two plotting triangles
      */
-    function updateTriangleAngles() {
-        if (!triangleManager) return;
-        
-        const angles = triangleManager.getRotationAngles();
-        const portElem = document.getElementById('portAngleLeaflet');
-        const starboardElem = document.getElementById('starboardAngleLeaflet');
-        
-        if (portElem && angles.port !== undefined) {
-            portElem.textContent = `Port: ${Math.round(angles.port)}°`;
+    function createTriangles() {
+        if (!map || !triangleManager) return;
+
+        const size = map.getSize();
+        const scale = Math.min(size.x, size.y) / 800; // Adjust scale based on map size
+
+        // Create Triangle A (left side)
+        triangleManager.createTriangle(
+            'triangleA',
+            'Triangle A',
+            size.x * 0.35,
+            size.y * 0.5,
+            Math.max(0.6, Math.min(1.2, scale))
+        );
+
+        // Create Triangle B (right side)
+        triangleManager.createTriangle(
+            'triangleB',
+            'Triangle B',
+            size.x * 0.65,
+            size.y * 0.5,
+            Math.max(0.6, Math.min(1.2, scale))
+        );
+    }
+
+    /**
+     * Update the angle display in the control panel
+     */
+    function updateAngleDisplay(angles) {
+        const triangleAInput = document.getElementById('triangleAAngle');
+        const triangleBInput = document.getElementById('triangleBAngle');
+
+        if (triangleAInput && angles.triangleA !== undefined) {
+            triangleAInput.value = Math.round(angles.triangleA);
         }
-        if (starboardElem && angles.starboard !== undefined) {
-            starboardElem.textContent = `Starboard: ${Math.round(angles.starboard)}°`;
+        if (triangleBInput && angles.triangleB !== undefined) {
+            triangleBInput.value = Math.round(angles.triangleB);
         }
     }
-    
-    // Update angles periodically when visible
-    setInterval(() => {
-        if (trianglesVisible && triangleManager) {
-            updateTriangleAngles();
+
+    /**
+     * Handle map resize
+     */
+    function handleMapResize() {
+        if (!triangleManager || !trianglesVisible) return;
+
+        // Keep triangles within bounds after resize
+        const size = map.getSize();
+
+        for (const [id, triangle] of triangleManager.triangles) {
+            // Clamp position to stay within map bounds
+            const margin = 100;
+            triangle.x = Math.max(margin, Math.min(size.x - margin, triangle.x));
+            triangle.y = Math.max(margin, Math.min(size.y - margin, triangle.y));
+            triangle.updatePosition();
         }
-    }, 100);
+    }
+
+    /**
+     * Handle map move/zoom
+     * Triangles stay fixed relative to screen, not map coordinates
+     */
+    function handleMapMove() {
+        // Triangles are positioned in screen coordinates, so they stay fixed
+        // This is the expected behavior for navigation instruments
+    }
+
+    /**
+     * Get current triangle angles (for external use)
+     */
+    window.getTriangleAngles = function() {
+        if (!triangleManager) return null;
+        return triangleManager.getRotationAngles();
+    };
+
+    /**
+     * Set triangle angle programmatically
+     */
+    window.setTriangleAngle = function(triangleId, angle) {
+        if (!triangleManager) return;
+        triangleManager.setTriangleRotation(triangleId, angle);
+    };
+
+    /**
+     * Show/hide triangles programmatically
+     */
+    window.showTriangles = function(show = true) {
+        if (show !== trianglesVisible) {
+            toggleTriangles();
+        }
+    };
+
+    /**
+     * Check if triangles are currently visible
+     */
+    window.areTrianglesVisible = function() {
+        return trianglesVisible;
+    };
 
 })();
