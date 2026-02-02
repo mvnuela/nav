@@ -837,29 +837,18 @@ class PlottingTriangle {
         mainGroup.appendChild(rulerGroup);
 
         // Center point O (reference point at bottom vertex) - visible red dot
+        // This is the rotation center - visual reference only
         const centerPoint = document.createElementNS(ns, 'circle');
         centerPoint.setAttribute('cx', 0);
         centerPoint.setAttribute('cy', 0);
-        centerPoint.setAttribute('r', Math.max(6, this.s(8)));  // Minimum 6px visible dot
+        centerPoint.setAttribute('r', Math.max(5, this.s(6)));
         centerPoint.setAttribute('fill', this.colors.innerScale);
         centerPoint.setAttribute('stroke', '#ffffff');
         centerPoint.setAttribute('stroke-width', Math.max(1.5, this.s(2)));
         centerPoint.setAttribute('class', 'center-point');
         centerPoint.style.pointerEvents = 'auto';
-        centerPoint.style.cursor = 'crosshair';
+        centerPoint.style.cursor = 'move';
         mainGroup.appendChild(centerPoint);
-
-        // Rotation handle (larger invisible area around center for easier interaction)
-        const rotationHandle = document.createElementNS(ns, 'circle');
-        rotationHandle.setAttribute('cx', 0);
-        rotationHandle.setAttribute('cy', 0);
-        rotationHandle.setAttribute('r', Math.max(30, this.s(35)));  // Minimum 30px hit area for rotation
-        rotationHandle.setAttribute('fill', 'rgba(255,0,0,0.01)');  // Nearly invisible but captures events
-        rotationHandle.setAttribute('stroke', 'none');
-        rotationHandle.setAttribute('class', 'rotation-handle');
-        rotationHandle.style.pointerEvents = 'auto';
-        rotationHandle.style.cursor = 'crosshair';
-        mainGroup.appendChild(rotationHandle);
 
         // Triangle name label (below the triangle)
         const nameLabel = document.createElementNS(ns, 'text');
@@ -1142,13 +1131,29 @@ class PlottingTriangleManager {
         e.preventDefault();
         e.stopPropagation();
 
+        // Clean up any lingering state from previous interactions
+        if (this.activeTriangle) {
+            this.activeTriangle.stopDrag();
+            this.activeTriangle.stopRotation();
+            this.activeTriangle.setHighlight(false);
+        }
+
+        // Remove any existing document listeners (defensive cleanup)
+        document.removeEventListener('mousemove', this.handleMouseMove);
+        document.removeEventListener('mouseup', this.handleMouseUp);
+
+        // Reset both flags before starting new interaction
+        triangle.isDragging = false;
+        triangle.isRotating = false;
+
         const clientX = e.clientX;
         const clientY = e.clientY;
 
         // Bring triangle to front
         this.bringToFront(triangle);
 
-        if (triangle.isNearCenter(clientX, clientY)) {
+        // Ctrl key pressed = rotation mode, otherwise drag mode
+        if (e.ctrlKey || e.metaKey) {
             triangle.startRotation(clientX, clientY);
             triangle.setHighlight(true);
         } else {
@@ -1166,23 +1171,43 @@ class PlottingTriangleManager {
      * Handle touch start on triangle
      */
     handleTouchStart(e, triangle) {
-        if (e.touches.length !== 1) return;
-
         e.preventDefault();
         e.stopPropagation();
 
-        const touch = e.touches[0];
-        const clientX = touch.clientX;
-        const clientY = touch.clientY;
+        // Clean up any lingering state from previous interactions
+        if (this.activeTriangle) {
+            this.activeTriangle.stopDrag();
+            this.activeTriangle.stopRotation();
+            this.activeTriangle.setHighlight(false);
+        }
+
+        // Remove any existing document listeners (defensive cleanup)
+        document.removeEventListener('touchmove', this.handleTouchMove);
+        document.removeEventListener('touchend', this.handleTouchEnd);
+
+        // Reset both flags before starting new interaction
+        triangle.isDragging = false;
+        triangle.isRotating = false;
 
         this.bringToFront(triangle);
 
-        if (triangle.isNearCenter(clientX, clientY)) {
+        // Two-finger touch = rotation mode, single finger = drag mode
+        if (e.touches.length === 2) {
+            // Use midpoint of two touches for rotation
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const clientX = (touch1.clientX + touch2.clientX) / 2;
+            const clientY = (touch1.clientY + touch2.clientY) / 2;
             triangle.startRotation(clientX, clientY);
             triangle.setHighlight(true);
-        } else {
+        } else if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const clientX = touch.clientX;
+            const clientY = touch.clientY;
             triangle.startDrag(clientX, clientY);
             triangle.setHighlight(true);
+        } else {
+            return;
         }
 
         this.activeTriangle = triangle;
@@ -1230,17 +1255,21 @@ class PlottingTriangleManager {
      * Handle touch move
      */
     handleTouchMove = (e) => {
-        if (!this.activeTriangle || e.touches.length !== 1) return;
+        if (!this.activeTriangle) return;
 
         e.preventDefault();
 
-        const touch = e.touches[0];
-        const clientX = touch.clientX;
-        const clientY = touch.clientY;
-
-        if (this.activeTriangle.isRotating) {
+        if (this.activeTriangle.isRotating && e.touches.length >= 2) {
+            // Two-finger rotation - use midpoint
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const clientX = (touch1.clientX + touch2.clientX) / 2;
+            const clientY = (touch1.clientY + touch2.clientY) / 2;
             this.activeTriangle.updateRotationByMouse(clientX, clientY);
-        } else if (this.activeTriangle.isDragging) {
+        } else if (this.activeTriangle.isDragging && e.touches.length === 1) {
+            const touch = e.touches[0];
+            const clientX = touch.clientX;
+            const clientY = touch.clientY;
             this.activeTriangle.updateDrag(clientX, clientY);
         }
 

@@ -100,11 +100,10 @@
                         <div id="triangleInstructions" style="display: none; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; padding: 10px; margin-top: 10px; font-size: 11px;">
                             <strong style="color: #1565c0;">Instructions:</strong>
                             <ul style="margin: 6px 0 0 16px; padding: 0; color: #424242;">
-                                <li>Drag triangle body to move</li>
-                                <li>Drag center point (red) to rotate</li>
+                                <li>Drag to move triangle</li>
+                                <li><strong>Ctrl + drag</strong> to rotate</li>
+                                <li>Touch: 2 fingers to rotate</li>
                                 <li>Scales: 0°-180° (outer), 180°-360° (inner)</li>
-                                <li>Red lines: main directions (0°-180°, 90°-270°)</li>
-                                <li>Blue dashed: auxiliary (45°, 135°)</li>
                             </ul>
                         </div>
 
