@@ -206,7 +206,7 @@ class CanvasPlottingTriangle {
         ctx.closePath();
 
         ctx.strokeStyle = this.isHighlighted ? this.colors.highlight : this.colors.stroke;
-        ctx.lineWidth = this.isHighlighted ? 3 : 2;
+        ctx.lineWidth = this.isHighlighted ? 4 : 3;
         ctx.stroke();
 
         // Draw protractor arcs (centered at hypotenuse, opening downward)
@@ -219,14 +219,14 @@ class CanvasPlottingTriangle {
         ctx.beginPath();
         ctx.arc(arcCenterX, arcCenterY, outerRadius, 0, Math.PI);
         ctx.strokeStyle = this.colors.outerScale;
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 5;
         ctx.stroke();
 
         // Inner arc (180° - 360°)
         ctx.beginPath();
         ctx.arc(arcCenterX, arcCenterY, innerRadius, 0, Math.PI);
         ctx.strokeStyle = this.colors.innerScale;
-        ctx.lineWidth = 0.8;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
 
         // Draw tick marks
@@ -240,23 +240,23 @@ class CanvasPlottingTriangle {
 
         // Draw center point O (rotation center)
         ctx.beginPath();
-        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
         ctx.fillStyle = this.colors.innerScale;
         ctx.fill();
         ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
 
         // Draw triangle name and angle
         ctx.fillStyle = this.colors.labelText;
-        ctx.font = 'bold 10px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(this.name, 0, 20);
+        ctx.fillText(this.name, 0, 24);
 
         ctx.fillStyle = this.colors.innerScale;
-        ctx.font = '9px monospace';
+        ctx.font = 'bold 11px monospace';
         const normalizedAngle = this.getRotation();
-        ctx.fillText(`${Math.round(normalizedAngle)}°`, 0, 32);
+        ctx.fillText(`${Math.round(normalizedAngle)}°`, 0, 38);
 
         ctx.restore();
     }
@@ -269,11 +269,11 @@ class CanvasPlottingTriangle {
         for (let deg = 0; deg <= 180; deg++) {
             let tickLen;
             if (deg % 10 === 0) {
-                tickLen = 12;
+                tickLen = 16;
             } else if (deg % 5 === 0) {
-                tickLen = 8;
+                tickLen = 11;
             } else {
-                tickLen = 4;
+                tickLen = 6;
             }
 
             // Map scale degrees to SVG angles
@@ -290,7 +290,7 @@ class CanvasPlottingTriangle {
             ctx.moveTo(outerX, outerY);
             ctx.lineTo(innerX, innerY);
             ctx.strokeStyle = this.colors.outerScale;
-            ctx.lineWidth = deg % 10 === 0 ? 1.2 : 0.6;
+            ctx.lineWidth = deg % 10 === 0 ? 2 : 1;
             ctx.stroke();
         }
 
@@ -298,11 +298,11 @@ class CanvasPlottingTriangle {
         for (let deg = 180; deg <= 360; deg++) {
             let tickLen;
             if (deg % 10 === 0) {
-                tickLen = 10;
+                tickLen = 14;
             } else if (deg % 5 === 0) {
-                tickLen = 6;
+                tickLen = 9;
             } else {
-                tickLen = 3;
+                tickLen = 5;
             }
 
             const mappedDeg = deg - 180;
@@ -317,7 +317,7 @@ class CanvasPlottingTriangle {
             ctx.moveTo(outerX, outerY);
             ctx.lineTo(innerX, innerY);
             ctx.strokeStyle = this.colors.innerScale;
-            ctx.lineWidth = deg % 10 === 0 ? 1 : 0.5;
+            ctx.lineWidth = deg % 10 === 0 ? 1.8 : 0.9;
             ctx.stroke();
         }
     }
@@ -327,7 +327,7 @@ class CanvasPlottingTriangle {
      */
     drawDirectionalLines(ctx, halfHyp, height) {
         ctx.strokeStyle = this.colors.centerLine;
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 2;
 
         // Main vertical line (90° / 270°) - from vertex O to hypotenuse center
         ctx.beginPath();
@@ -349,8 +349,8 @@ class CanvasPlottingTriangle {
 
         // Auxiliary lines (45° and 135°) - dashed
         ctx.strokeStyle = this.colors.directionLine;
-        ctx.setLineDash([4, 2]);
-        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 3]);
+        ctx.lineWidth = 1.5;
 
         // 45° line from hypotenuse center to left leg
         ctx.beginPath();
@@ -371,12 +371,12 @@ class CanvasPlottingTriangle {
      * Draw angle labels
      */
     drawLabels(ctx, centerX, centerY, outerRadius, innerRadius) {
-        const labelOffset = 18;
-        const innerLabelOffset = 15;
+        const labelOffset = 24;
+        const innerLabelOffset = 20;
 
         // Outer scale labels (0° - 180°) every 10°
         ctx.fillStyle = this.colors.labelText;
-        ctx.font = '8px Arial';
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
@@ -395,7 +395,7 @@ class CanvasPlottingTriangle {
 
         // Inner scale labels (180° - 360°) every 10°
         ctx.fillStyle = this.colors.innerLabelText;
-        ctx.font = '6.5px Arial';
+        ctx.font = 'bold 11px Arial';
 
         for (let deg = 180; deg <= 360; deg += 10) {
             const mappedDeg = deg - 180;

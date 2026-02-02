@@ -176,6 +176,18 @@
             background: #f5f5f5;
         }
 
+        #zoomControls button {
+            padding: 6px 12px;
+            font-size: 16px;
+            font-weight: bold;
+            min-width: 36px;
+        }
+
+        #zoomResetBtn {
+            font-size: 11px !important;
+            font-weight: normal !important;
+        }
+
         #mapContainer {
             flex: 1;
             display: flex;
@@ -644,6 +656,15 @@
                         • Geographic accuracy preserved at all scales
                     </p>
                 </div>
+                <div class="info-box" style="margin-top:10px; background:#e3f2fd; border-left-color:#0078A8;">
+                    <strong>🔍 Zoom & Pan:</strong>
+                    <p style="margin:5px 0 0 0; font-size:0.85em;">
+                        • Mouse wheel to zoom in/out<br>
+                        • Shift + drag to pan when zoomed<br>
+                        • Pinch gesture on touch devices<br>
+                        • Use toolbar buttons for precise control
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -652,6 +673,12 @@
                 <div style="flex:1; display:flex; align-items:center; gap:10px;">
                     <strong>Mode:</strong>
                     <span id="modeIndicator" class="mode-badge view">VIEW</span>
+                </div>
+                <div id="zoomControls" style="display:none; align-items:center; gap:6px; margin-right:15px; padding-right:15px; border-right:1px solid #ddd;">
+                    <button id="zoomOutBtn" class="btn-toolbar" title="Zoom Out (or use mouse wheel)">−</button>
+                    <span id="zoomLevel" style="font-family:monospace; min-width:50px; text-align:center;">100%</span>
+                    <button id="zoomInBtn" class="btn-toolbar" title="Zoom In (or use mouse wheel)">+</button>
+                    <button id="zoomResetBtn" class="btn-toolbar" title="Reset Zoom" style="font-size:11px;">Reset</button>
                 </div>
                 <button id="viewModeBtn" class="btn-toolbar active" disabled>View Mode</button>
                 <button id="fitModeBtn2" class="btn-toolbar" disabled>Fit Mode</button>
@@ -689,12 +716,12 @@
     <script src="{% static 'maps/js/gpx_parser.js' %}"></script>
     <!-- Load GPX canvas manager -->
     <script src="{% static 'maps/js/gpx_route_canvas.js' %}"></script>
+    <!-- Load nautical triangles component (canvas version for this system) -->
+    <script src="{% static 'maps/js/nautical_triangles_canvas.js' %}"></script>
     <!-- Then load enhanced graticule -->
     <script src="{% static 'maps/js/enhanced_graticule.js' %}"></script>
     <!-- Load course plotting extension -->
     <script src="{% static 'maps/js/course_plotter_enhanced.js' %}"></script>
-    <!-- Load nautical triangles component (canvas version for this system) -->
-    <script src="{% static 'maps/js/nautical_triangles_canvas.js' %}"></script>
     
     <script>
         // Make graticule system globally accessible
@@ -725,6 +752,11 @@
             document.getElementById('cancelCourseBtn').addEventListener('click', cancelCourse);
             document.getElementById('clearCoursesBtn').addEventListener('click', clearCourses);
             document.getElementById('exportSVGBtn').addEventListener('click', exportSVG);
+
+            // Zoom controls
+            document.getElementById('zoomInBtn').addEventListener('click', () => graticuleSystem.zoomIn());
+            document.getElementById('zoomOutBtn').addEventListener('click', () => graticuleSystem.zoomOut());
+            document.getElementById('zoomResetBtn').addEventListener('click', () => graticuleSystem.resetZoom());
             document.getElementById('exportPNGBtn').addEventListener('click', exportPNG);
 
             // PDF navigation controls
@@ -889,6 +921,9 @@
             document.getElementById('imageInfo').style.display = 'block';
             document.getElementById('placeholder').style.display = 'none';
             document.getElementById('mapCanvas').style.display = 'block';
+
+            // Show zoom controls
+            document.getElementById('zoomControls').style.display = 'flex';
 
             // Render again now that canvas is visible
             graticuleSystem.render();

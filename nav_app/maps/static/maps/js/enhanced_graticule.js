@@ -232,32 +232,44 @@ class EnhancedGraticuleSystem {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.projection = new MercatorProjection();
-        
+
         this.uploadedImage = null;
         this.mapRegion = null;
         this.geoBounds = null;
         this.mapper = null;
-        
+
         this.mode = 'view'; // 'fit', 'view', or 'triangles'
-        
+
         // Grid spacing configuration (in decimal degrees)
         // User can configure these independently via UI using degrees, minutes, seconds
         this.latInterval = 0.5; // Parallel (latitude line) spacing - default 30 arcminutes
         this.lonInterval = 0.5; // Meridian (longitude line) spacing - default 30 arcminutes
         this.showMinorGrid = false;
-        
+
+        // Zoom and pan state
+        this.zoom = 1.0;
+        this.minZoom = 0.5;
+        this.maxZoom = 10.0;
+        this.panX = 0;
+        this.panY = 0;
+        this.isPanning = false;
+        this.panStartX = 0;
+        this.panStartY = 0;
+        this.lastPanX = 0;
+        this.lastPanY = 0;
+
         // Nautical triangles
         this.triangleManager = null;
         this.trianglesVisible = false;
-        
+
         // Nautical divider
         this.dividerManager = null;
         this.dividerVisible = false;
-        
+
         // GPX routes
         this.gpxManager = null;
         this.gpxVisible = false;
-        
+
         this.setupEventListeners();
     }
 
@@ -266,6 +278,270 @@ class EnhancedGraticuleSystem {
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('mouseleave', (e) => this.handleMouseUp(e));
+
+        // Mouse wheel for zoom
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+
+        // Touch events for pinch zoom
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+
+        // Track touch state for pinch zoom
+        this.touches = [];
+        this.initialPinchDistance = 0;
+        this.initialZoom = 1;
+    }
+
+    /**
+     * Handle mouse wheel for zoom
+     */
+    handleWheel(e) {
+        e.preventDefault();
+
+        if (!this.uploadedImage) return;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+
+        // Mouse position in canvas coordinates
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const mouseY = (e.clientY - rect.top) * scaleY;
+
+        // Zoom factor
+        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+        const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * zoomFactor));
+
+        if (newZoom !== this.zoom) {
+            // Zoom towards mouse position
+            const zoomRatio = newZoom / this.zoom;
+
+            // Adjust pan to zoom towards mouse cursor
+            this.panX = mouseX - (mouseX - this.panX) * zoomRatio;
+            this.panY = mouseY - (mouseY - this.panY) * zoomRatio;
+
+            this.zoom = newZoom;
+            this.constrainPan();
+            this.render();
+            this.updateZoomDisplay();
+        }
+    }
+
+    /**
+     * Handle touch start for pinch zoom
+     */
+    handleTouchStart(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            this.touches = Array.from(e.touches);
+            this.initialPinchDistance = this.getPinchDistance(e.touches);
+            this.initialZoom = this.zoom;
+            this.isPanning = false;
+        } else if (e.touches.length === 1) {
+            // Single touch - could be pan
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            this.panStartX = touch.clientX;
+            this.panStartY = touch.clientY;
+            this.lastPanX = this.panX;
+            this.lastPanY = this.panY;
+        }
+    }
+
+    /**
+     * Handle touch move for pinch zoom
+     */
+    handleTouchMove(e) {
+        if (e.touches.length === 2 && this.initialPinchDistance > 0) {
+            e.preventDefault();
+            const currentDistance = this.getPinchDistance(e.touches);
+            const scale = currentDistance / this.initialPinchDistance;
+            const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.initialZoom * scale));
+
+            if (newZoom !== this.zoom) {
+                // Get center of pinch
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+                const centerX = ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left) * scaleX;
+                const centerY = ((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top) * scaleY;
+
+                const zoomRatio = newZoom / this.zoom;
+                this.panX = centerX - (centerX - this.panX) * zoomRatio;
+                this.panY = centerY - (centerY - this.panY) * zoomRatio;
+
+                this.zoom = newZoom;
+                this.constrainPan();
+                this.render();
+                this.updateZoomDisplay();
+            }
+        } else if (e.touches.length === 1 && this.zoom > 1) {
+            // Single touch pan when zoomed in
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+
+            const dx = (touch.clientX - this.panStartX) * scaleX;
+            const dy = (touch.clientY - this.panStartY) * scaleY;
+
+            this.panX = this.lastPanX + dx;
+            this.panY = this.lastPanY + dy;
+            this.constrainPan();
+            this.render();
+        }
+    }
+
+    /**
+     * Handle touch end
+     */
+    handleTouchEnd(e) {
+        if (e.touches.length < 2) {
+            this.initialPinchDistance = 0;
+            this.touches = [];
+        }
+    }
+
+    /**
+     * Get distance between two touch points
+     */
+    getPinchDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Constrain pan to keep image visible
+     */
+    constrainPan() {
+        if (!this.uploadedImage) return;
+
+        const scaledWidth = this.canvas.width * this.zoom;
+        const scaledHeight = this.canvas.height * this.zoom;
+
+        // Allow some margin outside the image
+        const margin = 50;
+
+        // Maximum pan values (how far the image can move)
+        const maxPanX = scaledWidth - this.canvas.width + margin;
+        const maxPanY = scaledHeight - this.canvas.height + margin;
+
+        // Constrain pan
+        this.panX = Math.max(-maxPanX, Math.min(margin, this.panX));
+        this.panY = Math.max(-maxPanY, Math.min(margin, this.panY));
+    }
+
+    /**
+     * Zoom in
+     */
+    zoomIn() {
+        const newZoom = Math.min(this.maxZoom, this.zoom * 1.25);
+        if (newZoom !== this.zoom) {
+            // Zoom towards center
+            const centerX = this.canvas.width / 2;
+            const centerY = this.canvas.height / 2;
+            const zoomRatio = newZoom / this.zoom;
+
+            this.panX = centerX - (centerX - this.panX) * zoomRatio;
+            this.panY = centerY - (centerY - this.panY) * zoomRatio;
+
+            this.zoom = newZoom;
+            this.constrainPan();
+            this.render();
+            this.updateZoomDisplay();
+        }
+    }
+
+    /**
+     * Zoom out
+     */
+    zoomOut() {
+        const newZoom = Math.max(this.minZoom, this.zoom / 1.25);
+        if (newZoom !== this.zoom) {
+            // Zoom towards center
+            const centerX = this.canvas.width / 2;
+            const centerY = this.canvas.height / 2;
+            const zoomRatio = newZoom / this.zoom;
+
+            this.panX = centerX - (centerX - this.panX) * zoomRatio;
+            this.panY = centerY - (centerY - this.panY) * zoomRatio;
+
+            this.zoom = newZoom;
+            this.constrainPan();
+            this.render();
+            this.updateZoomDisplay();
+        }
+    }
+
+    /**
+     * Reset zoom to 100%
+     */
+    resetZoom() {
+        this.zoom = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+        this.render();
+        this.updateZoomDisplay();
+    }
+
+    /**
+     * Set zoom level
+     */
+    setZoom(level) {
+        const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, level));
+        if (newZoom !== this.zoom) {
+            const centerX = this.canvas.width / 2;
+            const centerY = this.canvas.height / 2;
+            const zoomRatio = newZoom / this.zoom;
+
+            this.panX = centerX - (centerX - this.panX) * zoomRatio;
+            this.panY = centerY - (centerY - this.panY) * zoomRatio;
+
+            this.zoom = newZoom;
+            this.constrainPan();
+            this.render();
+            this.updateZoomDisplay();
+        }
+    }
+
+    /**
+     * Get current zoom level
+     */
+    getZoom() {
+        return this.zoom;
+    }
+
+    /**
+     * Update zoom display in UI
+     */
+    updateZoomDisplay() {
+        const zoomDisplay = document.getElementById('zoomLevel');
+        if (zoomDisplay) {
+            zoomDisplay.textContent = Math.round(this.zoom * 100) + '%';
+        }
+    }
+
+    /**
+     * Convert screen coordinates to canvas coordinates (accounting for zoom/pan)
+     */
+    screenToCanvas(screenX, screenY) {
+        return {
+            x: (screenX - this.panX) / this.zoom,
+            y: (screenY - this.panY) / this.zoom
+        };
+    }
+
+    /**
+     * Convert canvas coordinates to screen coordinates
+     */
+    canvasToScreen(canvasX, canvasY) {
+        return {
+            x: canvasX * this.zoom + this.panX,
+            y: canvasY * this.zoom + this.panY
+        };
     }
 
     loadImage(imageSrc) {
@@ -535,8 +811,25 @@ class EnhancedGraticuleSystem {
         // Account for CSS scaling
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
+        const screenX = (e.clientX - rect.left) * scaleX;
+        const screenY = (e.clientY - rect.top) * scaleY;
+
+        // Convert to canvas coordinates (account for zoom/pan)
+        const canvasCoords = this.screenToCanvas(screenX, screenY);
+        const x = canvasCoords.x;
+        const y = canvasCoords.y;
+
+        // Middle mouse button or Space+click for panning
+        if (e.button === 1 || (e.button === 0 && e.shiftKey && this.zoom > 1)) {
+            e.preventDefault();
+            this.isPanning = true;
+            this.panStartX = e.clientX;
+            this.panStartY = e.clientY;
+            this.lastPanX = this.panX;
+            this.lastPanY = this.panY;
+            this.canvas.style.cursor = 'grabbing';
+            return;
+        }
 
         // Handle divider interactions when dividers are visible
         if (this.dividerVisible && this.dividerManager) {
@@ -580,9 +873,25 @@ class EnhancedGraticuleSystem {
         // Account for CSS scaling
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
-        
+        const screenX = (e.clientX - rect.left) * scaleX;
+        const screenY = (e.clientY - rect.top) * scaleY;
+
+        // Handle panning
+        if (this.isPanning) {
+            const dx = (e.clientX - this.panStartX) * scaleX;
+            const dy = (e.clientY - this.panStartY) * scaleY;
+            this.panX = this.lastPanX + dx;
+            this.panY = this.lastPanY + dy;
+            this.constrainPan();
+            this.render();
+            return;
+        }
+
+        // Convert to canvas coordinates (account for zoom/pan)
+        const canvasCoords = this.screenToCanvas(screenX, screenY);
+        const x = canvasCoords.x;
+        const y = canvasCoords.y;
+
         // Handle divider interactions when dividers are visible
         if (this.dividerVisible && this.dividerManager) {
             this.dividerManager.setPreviewMouse(x, y);
@@ -598,7 +907,7 @@ class EnhancedGraticuleSystem {
                 this.render();
             }
         }
-        
+
         // Handle triangle interactions when triangles are visible
         if (this.trianglesVisible && this.triangleManager) {
             const handled = this.triangleManager.handleMouseMove(x, y);
@@ -609,11 +918,11 @@ class EnhancedGraticuleSystem {
                 return;
             }
         }
-        
+
         if (this.mapRegion && this.mapRegion.isDragging) {
             const dx = x - this.mapRegion.dragStartX;
             const dy = y - this.mapRegion.dragStartY;
-            
+
             this.updateRegionFromDrag(dx, dy);
             this.render();
         } else if (this.mode === 'fit' && this.mapRegion) {
@@ -628,6 +937,13 @@ class EnhancedGraticuleSystem {
     }
 
     handleMouseUp(e) {
+        // Stop panning
+        if (this.isPanning) {
+            this.isPanning = false;
+            this.canvas.style.cursor = 'default';
+            return;
+        }
+
         // Handle divider interactions when dividers are visible
         if (this.dividerVisible && this.dividerManager) {
             const handled = this.dividerManager.handleMouseUp();
@@ -636,7 +952,7 @@ class EnhancedGraticuleSystem {
                 return;
             }
         }
-        
+
         // Handle triangle interactions when triangles are visible
         if (this.trianglesVisible && this.triangleManager) {
             const handled = this.triangleManager.handleMouseUp();
@@ -645,11 +961,11 @@ class EnhancedGraticuleSystem {
                 return;
             }
         }
-        
+
         if (this.mapRegion && this.mapRegion.isDragging) {
             this.mapRegion.isDragging = false;
             this.mapRegion.dragHandle = null;
-            
+
             // Update mapper with new region
             if (this.geoBounds) {
                 this.mapper = new CoordinateMapper(
@@ -658,7 +974,7 @@ class EnhancedGraticuleSystem {
                     this.projection
                 );
             }
-            
+
             this.render();
         }
     }
@@ -730,37 +1046,67 @@ class EnhancedGraticuleSystem {
 
     render() {
         if (!this.uploadedImage) return;
-        
+
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
+
+        // Save context state
+        this.ctx.save();
+
+        // Apply zoom and pan transformation
+        this.ctx.translate(this.panX, this.panY);
+        this.ctx.scale(this.zoom, this.zoom);
+
         // Draw image
         this.ctx.drawImage(this.uploadedImage, 0, 0);
-        
+
         // Draw map region (in fit mode)
         if (this.mode === 'fit' && this.mapRegion) {
             this.mapRegion.draw(this.ctx, true);
         }
-        
+
         // Draw graticule (in view mode with mapper)
         if (this.mode === 'view' && this.mapper) {
             this.drawGraticule();
         }
-        
+
         // Draw nautical triangles (when visible)
         if (this.trianglesVisible && this.triangleManager) {
             this.triangleManager.drawAll(this.ctx);
         }
-        
+
         // Draw nautical dividers (when visible)
         if (this.dividerVisible && this.dividerManager) {
             this.dividerManager.drawAll(this.ctx);
         }
-        
+
         // Draw GPX routes (when visible)
         if (this.gpxVisible && this.gpxManager && this.mapper) {
             this.gpxManager.drawAll(this.ctx, this.mapper);
         }
+
+        // Restore context state
+        this.ctx.restore();
+
+        // Draw zoom indicator (not affected by zoom transform)
+        this.drawZoomIndicator();
+    }
+
+    /**
+     * Draw zoom indicator on canvas
+     */
+    drawZoomIndicator() {
+        if (this.zoom === 1.0) return;
+
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(10, 10, 80, 30);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(Math.round(this.zoom * 100) + '%', 50, 25);
+        this.ctx.restore();
     }
 
     drawGraticule() {
