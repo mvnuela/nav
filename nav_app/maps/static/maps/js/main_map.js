@@ -57,7 +57,10 @@
         if (typeof initGPXRoutes === 'function') {
             initGPXRoutes(map);
         }
-        
+        if (typeof initObservedPosition === 'function') {
+            initObservedPosition(map);
+        }
+
         console.log('✓ Nautical map initialized successfully');
     }
 
