@@ -270,6 +270,10 @@ class EnhancedGraticuleSystem {
         this.gpxManager = null;
         this.gpxVisible = false;
 
+        // Observed positions
+        this.observedPositionManager = null;
+        this.observedPositionVisible = false;
+
         this.setupEventListeners();
     }
 
@@ -831,6 +835,15 @@ class EnhancedGraticuleSystem {
             return;
         }
 
+        // Handle observed position interactions when visible
+        if (this.observedPositionVisible && this.observedPositionManager) {
+            const handled = this.observedPositionManager.handleMouseDown(x, y);
+            if (handled) {
+                this.render();
+                return;
+            }
+        }
+
         // Handle divider interactions when dividers are visible
         if (this.dividerVisible && this.dividerManager) {
             const handled = this.dividerManager.handleMouseDown(x, y);
@@ -892,6 +905,19 @@ class EnhancedGraticuleSystem {
         const x = canvasCoords.x;
         const y = canvasCoords.y;
 
+        // Handle observed position interactions when visible
+        if (this.observedPositionVisible && this.observedPositionManager) {
+            const handled = this.observedPositionManager.handleMouseMove(x, y);
+            const cursor = this.observedPositionManager.updateCursor(x, y);
+            if (cursor !== 'default') {
+                this.canvas.style.cursor = cursor;
+            }
+            if (handled) {
+                this.render();
+                return;
+            }
+        }
+
         // Handle divider interactions when dividers are visible
         if (this.dividerVisible && this.dividerManager) {
             this.dividerManager.setPreviewMouse(x, y);
@@ -942,6 +968,15 @@ class EnhancedGraticuleSystem {
             this.isPanning = false;
             this.canvas.style.cursor = 'default';
             return;
+        }
+
+        // Handle observed position interactions when visible
+        if (this.observedPositionVisible && this.observedPositionManager) {
+            const handled = this.observedPositionManager.handleMouseUp();
+            if (handled) {
+                this.render();
+                return;
+            }
         }
 
         // Handle divider interactions when dividers are visible
@@ -1083,6 +1118,11 @@ class EnhancedGraticuleSystem {
         // Draw GPX routes (when visible)
         if (this.gpxVisible && this.gpxManager && this.mapper) {
             this.gpxManager.drawAll(this.ctx, this.mapper);
+        }
+
+        // Draw observed positions (when visible)
+        if (this.observedPositionVisible && this.observedPositionManager) {
+            this.observedPositionManager.drawAll(this.ctx);
         }
 
         // Restore context state
@@ -1776,6 +1816,122 @@ class EnhancedGraticuleSystem {
      */
     getGPXRoutes() {
         return this.gpxManager ? this.gpxManager.routes : [];
+    }
+
+    /**
+     * Initialize observed position manager
+     */
+    initObservedPosition() {
+        if (!this.observedPositionManager && this.mapper) {
+            this.observedPositionManager = new ObservedPositionManagerCanvas(this.mapper);
+        }
+        return this.observedPositionManager;
+    }
+
+    /**
+     * Toggle observed position visibility
+     */
+    toggleObservedPosition() {
+        if (!this.observedPositionManager) {
+            this.initObservedPosition();
+        }
+        this.observedPositionVisible = !this.observedPositionVisible;
+        this.render();
+        return this.observedPositionVisible;
+    }
+
+    /**
+     * Show observed positions
+     */
+    showObservedPositions() {
+        if (!this.observedPositionManager) {
+            this.initObservedPosition();
+        }
+        this.observedPositionVisible = true;
+        this.render();
+    }
+
+    /**
+     * Hide observed positions
+     */
+    hideObservedPositions() {
+        this.observedPositionVisible = false;
+        if (this.observedPositionManager) {
+            this.observedPositionManager.cancelPlacement();
+        }
+        this.render();
+    }
+
+    /**
+     * Start observed position placement
+     */
+    startObservedPositionPlacement() {
+        if (!this.observedPositionManager) {
+            this.initObservedPosition();
+        }
+        if (!this.observedPositionVisible) {
+            this.observedPositionVisible = true;
+        }
+        this.observedPositionManager.startPlacement();
+        this.render();
+    }
+
+    /**
+     * Cancel observed position placement
+     */
+    cancelObservedPositionPlacement() {
+        if (this.observedPositionManager) {
+            this.observedPositionManager.cancelPlacement();
+        }
+        this.render();
+    }
+
+    /**
+     * Delete selected observed position
+     */
+    deleteSelectedObservedPosition() {
+        if (this.observedPositionManager) {
+            const deleted = this.observedPositionManager.deleteSelected();
+            if (deleted) {
+                this.render();
+            }
+            return deleted;
+        }
+        return false;
+    }
+
+    /**
+     * Clear all observed positions
+     */
+    clearAllObservedPositions() {
+        if (this.observedPositionManager) {
+            this.observedPositionManager.clearAll();
+            this.render();
+        }
+    }
+
+    /**
+     * Get all observed positions
+     */
+    getObservedPositions() {
+        return this.observedPositionManager ? this.observedPositionManager.getPositions() : [];
+    }
+
+    /**
+     * Get selected observed position info
+     */
+    getSelectedObservedPositionInfo() {
+        if (this.observedPositionManager) {
+            return this.observedPositionManager.getSelectedInfo();
+        }
+        return null;
+    }
+
+    /**
+     * Check if in observed position placement mode
+     */
+    isObservedPositionPlacementMode() {
+        return this.observedPositionManager ? this.observedPositionManager.placementMode : false;
     }
 }
 

@@ -521,6 +521,52 @@
                 </div>
             </div>
 
+            <div class="panel" id="observedPositionPanel" style="display:none;">
+                <h3>⊗ Observed Position</h3>
+                <p class="hint">Mark observed positions (fixes) on the chart</p>
+
+                <button id="toggleObservedPositionBtn" class="btn btn-primary">
+                    Show Position Markers
+                </button>
+
+                <div id="observedPositionControls" style="display:none; margin-top:10px;">
+                    <button id="addObservedPositionBtn" class="btn btn-success">
+                        ➕ Mark Position
+                    </button>
+
+                    <button id="deleteObservedPositionBtn" class="btn btn-secondary" style="display:none;">
+                        🗑️ Delete Selected
+                    </button>
+
+                    <button id="clearObservedPositionsBtn" class="btn btn-secondary" style="display:none;">
+                        Clear All Positions
+                    </button>
+                </div>
+
+                <div id="observedPositionInfo" style="display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:10px; margin-top:10px; font-size:0.9em;">
+                    <strong>Instructions:</strong>
+                    <ul style="margin:8px 0 0 20px; padding:0;">
+                        <li>Click "Mark Position" then click on map</li>
+                        <li>Drag markers to adjust position</li>
+                        <li>Click marker to select/view details</li>
+                        <li>Icon: ⊗ (circle with X) = observed fix</li>
+                    </ul>
+                </div>
+
+                <div id="observedPositionList" style="display:none; margin-top:10px; max-height:200px; overflow-y:auto;">
+                    <div style="font-weight:bold; font-size:0.9em; margin-bottom:8px;">Marked Positions:</div>
+                    <div id="observedPositionListContent">
+                        <p style="color:#999; font-size:0.85em; text-align:center;">No positions marked</p>
+                    </div>
+                </div>
+
+                <div id="selectedObservedPositionInfo" style="display:none; background:#e3f2fd; border:1px solid #0078A8; border-radius:4px; padding:10px; margin-top:10px; font-family:monospace; font-size:0.9em;">
+                    <strong>Selected Position:</strong>
+                    <div id="observedPositionCoords" style="margin-top:5px;">--</div>
+                    <div id="observedPositionTime" style="margin-top:5px;">Time: --</div>
+                </div>
+            </div>
+
             <div class="panel" id="courseCalculatorPanel" style="display:none;">
                 <h3>🧭 Course Calculator & DR</h3>
                 <p class="hint">Calculate compass course and dead reckoning position</p>
@@ -718,6 +764,8 @@
     <script src="{% static 'maps/js/gpx_route_canvas.js' %}"></script>
     <!-- Load nautical triangles component (canvas version for this system) -->
     <script src="{% static 'maps/js/nautical_triangles_canvas.js' %}"></script>
+    <!-- Load observed position canvas manager -->
+    <script src="{% static 'maps/js/observed_position_canvas.js' %}"></script>
     <!-- Then load enhanced graticule -->
     <script src="{% static 'maps/js/enhanced_graticule.js' %}"></script>
     <!-- Load course plotting extension -->
@@ -745,6 +793,10 @@
             document.getElementById('loadGPXFileBtn').addEventListener('click', loadGPXFile);
             document.getElementById('fitAllGPXBtn').addEventListener('click', fitAllGPXRoutes);
             document.getElementById('clearAllGPXBtn').addEventListener('click', clearAllGPXRoutes);
+            document.getElementById('toggleObservedPositionBtn').addEventListener('click', toggleObservedPosition);
+            document.getElementById('addObservedPositionBtn').addEventListener('click', addObservedPosition);
+            document.getElementById('deleteObservedPositionBtn').addEventListener('click', deleteSelectedObservedPosition);
+            document.getElementById('clearObservedPositionsBtn').addEventListener('click', clearAllObservedPositions);
             document.getElementById('calculateCourseBtn').addEventListener('click', calculateCourse);
             document.getElementById('reverseCalculateBtn').addEventListener('click', reverseCalculateCourse);
             document.getElementById('applyBoundsBtn').addEventListener('click', applyBounds);
@@ -953,6 +1005,7 @@
             document.getElementById('coursePanel').style.display = 'none';
             document.getElementById('trianglesPanel').style.display = 'none';
             document.getElementById('dividerPanel').style.display = 'none';
+            document.getElementById('observedPositionPanel').style.display = 'none';
             document.getElementById('courseCalculatorPanel').style.display = 'none';
             
             if (mode === 'fit') {
@@ -975,6 +1028,7 @@
                     document.getElementById('coordinateDisplay').style.display = 'block';
                     document.getElementById('trianglesPanel').style.display = 'block';
                     document.getElementById('dividerPanel').style.display = 'block';
+                    document.getElementById('observedPositionPanel').style.display = 'block';
                     document.getElementById('courseCalculatorPanel').style.display = 'block';
                     document.getElementById('gpxPanel').style.display = 'block';
                 }
@@ -986,6 +1040,9 @@
                 }
                 if (graticuleSystem.gpxVisible) {
                     updateGPXUI();
+                }
+                if (graticuleSystem.observedPositionVisible) {
+                    updateObservedPositionUI();
                 }
             }
             
@@ -1338,8 +1395,144 @@
                 updateGPXUI();
             }
         }
-        
-        
+
+
+        // Observed Position Functions
+        function toggleObservedPosition() {
+            const isVisible = graticuleSystem.toggleObservedPosition();
+            const btn = document.getElementById('toggleObservedPositionBtn');
+            const controls = document.getElementById('observedPositionControls');
+            const info = document.getElementById('observedPositionInfo');
+            const list = document.getElementById('observedPositionList');
+
+            if (isVisible) {
+                btn.textContent = 'Hide Position Markers';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+                controls.style.display = 'block';
+                info.style.display = 'block';
+                list.style.display = 'block';
+                updateObservedPositionUI();
+            } else {
+                btn.textContent = 'Show Position Markers';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary');
+                controls.style.display = 'none';
+                info.style.display = 'none';
+                list.style.display = 'none';
+                document.getElementById('selectedObservedPositionInfo').style.display = 'none';
+            }
+        }
+
+        function addObservedPosition() {
+            graticuleSystem.startObservedPositionPlacement();
+            updateObservedPositionUI();
+        }
+
+        function deleteSelectedObservedPosition() {
+            const deleted = graticuleSystem.deleteSelectedObservedPosition();
+            if (deleted) {
+                updateObservedPositionUI();
+            }
+        }
+
+        function clearAllObservedPositions() {
+            if (confirm('Clear all observed positions?')) {
+                graticuleSystem.clearAllObservedPositions();
+                updateObservedPositionUI();
+            }
+        }
+
+        function updateObservedPositionUI() {
+            if (!graticuleSystem.observedPositionManager) return;
+
+            const positions = graticuleSystem.getObservedPositions();
+            const hasSelected = graticuleSystem.getSelectedObservedPositionInfo() !== null;
+            const hasPositions = positions.length > 0;
+            const inPlacement = graticuleSystem.isObservedPositionPlacementMode();
+
+            // Show/hide buttons
+            document.getElementById('deleteObservedPositionBtn').style.display = hasSelected ? 'block' : 'none';
+            document.getElementById('clearObservedPositionsBtn').style.display = hasPositions ? 'block' : 'none';
+
+            // Update selected position info
+            const selectedInfo = document.getElementById('selectedObservedPositionInfo');
+            if (hasSelected && !inPlacement) {
+                const info = graticuleSystem.getSelectedObservedPositionInfo();
+                if (info) {
+                    const latStr = typeof decimalToNautical === 'function'
+                        ? decimalToNautical(info.lat, true)
+                        : info.lat.toFixed(4);
+                    const lonStr = typeof decimalToNautical === 'function'
+                        ? decimalToNautical(info.lon, false)
+                        : info.lon.toFixed(4);
+                    const timeStr = info.timestamp.toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    document.getElementById('observedPositionCoords').textContent =
+                        `#${info.id}: ${latStr}, ${lonStr}`;
+                    document.getElementById('observedPositionTime').textContent =
+                        `Time: ${timeStr}`;
+                    selectedInfo.style.display = 'block';
+                }
+            } else {
+                selectedInfo.style.display = 'none';
+            }
+
+            // Change button text during placement
+            const addBtn = document.getElementById('addObservedPositionBtn');
+            if (inPlacement) {
+                addBtn.textContent = '⏳ Click on map...';
+                addBtn.disabled = true;
+            } else {
+                addBtn.textContent = '➕ Mark Position';
+                addBtn.disabled = false;
+            }
+
+            // Update position list
+            const listContent = document.getElementById('observedPositionListContent');
+            if (positions.length === 0) {
+                listContent.innerHTML = '<p style="color:#999; font-size:0.85em; text-align:center;">No positions marked</p>';
+            } else {
+                let html = '';
+                for (const pos of positions) {
+                    const latStr = typeof decimalToNautical === 'function'
+                        ? decimalToNautical(pos.lat, true)
+                        : pos.lat.toFixed(4);
+                    const lonStr = typeof decimalToNautical === 'function'
+                        ? decimalToNautical(pos.lon, false)
+                        : pos.lon.toFixed(4);
+                    const timeStr = pos.timestamp.toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    html += `
+                        <div style="padding:6px; margin-bottom:4px; background:#f5f5f5; border-radius:4px; font-size:0.85em;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-weight:bold;">⊗ #${pos.id}</span>
+                                <span style="color:#666;">${timeStr}</span>
+                            </div>
+                            <div style="margin-top:2px; color:#333; font-family:monospace; font-size:0.9em;">
+                                ${latStr}, ${lonStr}
+                            </div>
+                        </div>
+                    `;
+                }
+                listContent.innerHTML = html;
+            }
+        }
+
+        // Update observed position UI periodically when visible
+        setInterval(() => {
+            if (graticuleSystem && graticuleSystem.observedPositionVisible && graticuleSystem.mode === 'view') {
+                updateObservedPositionUI();
+            }
+        }, 200);
+
+
         // Course Calculator Functions
         let courseCalculator = null;
         let drMarkers = [];
