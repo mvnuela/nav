@@ -303,6 +303,9 @@ class EnhancedGraticuleSystem {
     handleWheel(e) {
         e.preventDefault();
 
+        // Don't zoom when a triangle is selected (arrow keys control it instead)
+        if (this.triangleManager?.selectedTriangle) return;
+
         if (!this.uploadedImage) return;
 
         const rect = this.canvas.getBoundingClientRect();
@@ -856,7 +859,7 @@ class EnhancedGraticuleSystem {
         // Handle triangle interactions when triangles are visible
         // Pass Ctrl/Meta key state for rotation mode
         if (this.trianglesVisible && this.triangleManager) {
-            const handled = this.triangleManager.handleMouseDown(x, y, e.ctrlKey || e.metaKey);
+            const handled = this.triangleManager.handleMouseDown(x, y);
             if (handled) {
                 this.render();
                 return;
@@ -1539,6 +1542,8 @@ class EnhancedGraticuleSystem {
                 this.canvas.height,
                 triangleSize
             );
+            // Redraw canvas whenever arrow keys reposition a triangle
+            this.triangleManager.onPositionChange = () => this.render();
         }
         return this.triangleManager;
     }

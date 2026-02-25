@@ -57,6 +57,27 @@
         // Set up change callback for angle display updates
         triangleManager.onChange(updateAngleDisplay);
 
+        // Disable Leaflet keyboard when a triangle is selected so arrow keys
+        // move the triangle instead of panning the map
+        triangleManager.onSelectionChange = (triangle) => {
+            if (triangle) {
+                map.keyboard.disable();
+            } else if (!window.mapInteractionLocked) {
+                // Only re-enable if the global map lock is not active
+                map.keyboard.enable();
+            }
+        };
+
+        // Deselect triangle when user clicks outside any triangle
+        document.addEventListener('mousedown', (e) => {
+            if (!triangleManager.selectedTriangle) return;
+            const clickedInsideTriangle = e.target.closest?.('.plotting-triangle');
+            if (!clickedInsideTriangle) {
+                triangleManager.selectedTriangle = null;
+                triangleManager.onSelectionChange(null);
+            }
+        }, true);
+
         // Create the control panel
         createTriangleControl(map);
 
@@ -96,6 +117,7 @@
                             style="width: 100%; padding: 8px 12px; cursor: pointer; background: #0078A8; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; transition: background 0.2s;">
                             Show Triangles
                         </button>
+
 
                         <div id="triangleInstructions" style="display: none; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; padding: 10px; margin-top: 10px; font-size: 11px;">
                             <strong style="color: #1565c0;">Instructions:</strong>
@@ -200,6 +222,7 @@
                 toggleTriangles();
             });
         }
+
 
         // Angle input handlers
         if (triangleAInput) {
@@ -337,6 +360,7 @@
             if (scaleControl) scaleControl.style.display = 'none';
         }
     }
+
 
     /**
      * Create the two plotting triangles

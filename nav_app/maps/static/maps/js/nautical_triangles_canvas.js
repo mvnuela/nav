@@ -119,18 +119,22 @@ class CanvasPlottingTriangle {
      */
     startRotation(mouseX, mouseY) {
         this.isRotating = true;
-        this.rotationStartAngle = Math.atan2(mouseY - this.y, mouseX - this.x) * 180 / Math.PI;
-        this.initialRotation = this.rotation;
+        const height = this.height;
+        this.rotationStartAngle = Math.atan2(mouseY - (this.y - height), mouseX - this.x) * 180 / Math.PI;
     }
 
     /**
-     * Update rotation by mouse position
+     * Update rotation by mouse position (incremental to avoid atan2 wrap-around jumps)
      */
     updateRotationByMouse(mouseX, mouseY) {
         if (!this.isRotating) return false;
-        const currentAngle = Math.atan2(mouseY - this.y, mouseX - this.x) * 180 / Math.PI;
-        const deltaAngle = currentAngle - this.rotationStartAngle;
-        this.rotation = this.initialRotation + deltaAngle;
+        const height = this.height;
+        const currentAngle = Math.atan2(mouseY - (this.y - height), mouseX - this.x) * 180 / Math.PI;
+        let delta = currentAngle - this.rotationStartAngle;
+        // Normalize to [-180, 180] so crossing the ±180° boundary never causes a jump
+        delta = ((delta + 180) % 360 + 360) % 360 - 180;
+        this.rotation += delta;
+        this.rotationStartAngle = currentAngle;
         return true;
     }
 
@@ -145,12 +149,13 @@ class CanvasPlottingTriangle {
      * Check if point is within the triangle bounds
      */
     containsPoint(px, py) {
-        // Transform point to local coordinates (account for rotation)
+        // Transform point to local coordinates, pivot = hypotenuse midpoint
+        const height = this.height;
         const dx = px - this.x;
-        const dy = py - this.y;
+        const dy = py - (this.y - height);
         const angleRad = -this.rotation * Math.PI / 180;
         const localX = dx * Math.cos(angleRad) - dy * Math.sin(angleRad);
-        const localY = dx * Math.sin(angleRad) + dy * Math.cos(angleRad);
+        const localY = dx * Math.sin(angleRad) + dy * Math.cos(angleRad) - height;
 
         // Triangle vertices in local coordinates (O at origin)
         const halfHyp = this.hypotenuseLength / 2;
@@ -191,12 +196,12 @@ class CanvasPlottingTriangle {
     draw(ctx) {
         ctx.save();
 
-        // Move to triangle position and rotate
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.rotation * Math.PI / 180);
-
+        // Rotate around hypotenuse midpoint
         const halfHyp = this.hypotenuseLength / 2;
         const height = this.height;
+        ctx.translate(this.x, this.y - height);
+        ctx.rotate(this.rotation * Math.PI / 180);
+        ctx.translate(0, height);
 
         // Draw triangle outline
         ctx.beginPath();
@@ -209,25 +214,11 @@ class CanvasPlottingTriangle {
         ctx.lineWidth = this.isHighlighted ? 4 : 3;
         ctx.stroke();
 
-        // Draw protractor arcs (centered at hypotenuse, opening downward)
+        // Protractor arc radii (arcs removed; kept for tick mark positioning)
         const arcCenterX = 0;
         const arcCenterY = -height;
         const outerRadius = this.scaleRadius;
         const innerRadius = outerRadius - this.innerScaleOffset;
-
-        // Outer arc (0° - 180°)
-        ctx.beginPath();
-        ctx.arc(arcCenterX, arcCenterY, outerRadius, 0, Math.PI);
-        ctx.strokeStyle = this.colors.outerScale;
-        ctx.lineWidth = 5;
-        ctx.stroke();
-
-        // Inner arc (180° - 360°)
-        ctx.beginPath();
-        ctx.arc(arcCenterX, arcCenterY, innerRadius, 0, Math.PI);
-        ctx.strokeStyle = this.colors.innerScale;
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
 
         // Draw tick marks
         this.drawTickMarks(ctx, arcCenterX, arcCenterY, outerRadius, innerRadius);
@@ -238,14 +229,6 @@ class CanvasPlottingTriangle {
         // Draw angle labels
         this.drawLabels(ctx, arcCenterX, arcCenterY, outerRadius, innerRadius);
 
-        // Draw center point O (rotation center)
-        ctx.beginPath();
-        ctx.arc(0, 0, 7, 0, Math.PI * 2);
-        ctx.fillStyle = this.colors.innerScale;
-        ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
 
         // Draw triangle name and angle
         ctx.fillStyle = this.colors.labelText;
@@ -420,31 +403,45 @@ class NauticalTriangleManager {
     constructor() {
         this.triangles = new Map();
         this.activeTriangle = null;
-        this.ctrlKeyPressed = false;
+        this.selectedTriangle = null;  // persists after mouseup for arrow-key movement
+        this.zKeyPressed = false;
+        this.onPositionChange = null;  // callback() to trigger canvas redraw
 
         // Track keyboard state
         this.setupKeyboardListeners();
     }
 
     /**
-     * Setup keyboard listeners for Ctrl key
+     * Setup keyboard listeners for Z key (rotation) and arrow keys (movement)
      */
     setupKeyboardListeners() {
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Control' || e.key === 'Meta') {
-                this.ctrlKeyPressed = true;
+            if (e.key === 'z' || e.key === 'Z') {
+                this.zKeyPressed = true;
+                return;
             }
+            if (!this.selectedTriangle) return;
+            const step = e.shiftKey ? 20 : 5;
+            switch (e.key) {
+                case 'ArrowUp':    this.selectedTriangle.y -= step; break;
+                case 'ArrowDown':  this.selectedTriangle.y += step; break;
+                case 'ArrowLeft':  this.selectedTriangle.x -= step; break;
+                case 'ArrowRight': this.selectedTriangle.x += step; break;
+                default: return;
+            }
+            e.preventDefault();
+            this.onPositionChange?.();
         });
 
         document.addEventListener('keyup', (e) => {
-            if (e.key === 'Control' || e.key === 'Meta') {
-                this.ctrlKeyPressed = false;
+            if (e.key === 'z' || e.key === 'Z') {
+                this.zKeyPressed = false;
             }
         });
 
         // Also handle blur to reset state
         window.addEventListener('blur', () => {
-            this.ctrlKeyPressed = false;
+            this.zKeyPressed = false;
         });
     }
 
@@ -484,9 +481,8 @@ class NauticalTriangleManager {
     /**
      * Handle mouse down
      */
-    handleMouseDown(x, y, ctrlKey = false) {
-        // Check if Ctrl is pressed (from event or tracked state)
-        const isRotateMode = ctrlKey || this.ctrlKeyPressed;
+    handleMouseDown(x, y) {
+        const isRotateMode = this.zKeyPressed;
 
         // Find which triangle was clicked
         for (const [id, triangle] of this.triangles) {
@@ -510,6 +506,7 @@ class NauticalTriangleManager {
 
                 triangle.setHighlight(true);
                 this.activeTriangle = triangle;
+                this.selectedTriangle = triangle;
                 return true;
             }
         }
@@ -552,7 +549,7 @@ class NauticalTriangleManager {
     updateCursor(x, y) {
         for (const [id, triangle] of this.triangles) {
             if (triangle.containsPoint(x, y)) {
-                return this.ctrlKeyPressed ? 'crosshair' : 'move';
+                return this.zKeyPressed ? 'crosshair' : 'move';
             }
         }
         return 'default';

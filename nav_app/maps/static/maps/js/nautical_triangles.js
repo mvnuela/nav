@@ -632,7 +632,9 @@ class PlottingTriangle {
         const padding = 40;
 
         const svgWidth = halfHyp * 2 + padding * 2;
-        const svgHeight = height + padding * 2;
+        // Extend height upward by `height` so the SVG covers the full rotation arc
+        // around the hypotenuse midpoint (pivot can swing up to `height` above the midpoint)
+        const svgHeight = height * 2 + padding * 2;
 
         // Create SVG container
         const svg = document.createElementNS(ns, 'svg');
@@ -640,8 +642,8 @@ class PlottingTriangle {
         svg.setAttribute('data-triangle-id', this.id);
         svg.setAttribute('width', svgWidth);
         svg.setAttribute('height', svgHeight);
-        // ViewBox: O (bottom vertex) at center-bottom
-        svg.setAttribute('viewBox', `${-halfHyp - padding} ${-height - padding} ${svgWidth} ${svgHeight}`);
+        // ViewBox: O (bottom vertex) at center; extended upward to capture rotated triangle
+        svg.setAttribute('viewBox', `${-halfHyp - padding} ${-height * 2 - padding} ${svgWidth} ${svgHeight}`);
         svg.style.position = 'absolute';
         svg.style.overflow = 'visible';
         svg.style.userSelect = 'none';
@@ -684,26 +686,6 @@ class PlottingTriangle {
         trianglePath.setAttribute('class', 'triangle-outline');
         mainGroup.appendChild(trianglePath);
 
-        // Protractor arcs - enable pointer events for dragging
-        const arcs = this.generateArcPaths();
-
-        const outerArc = document.createElementNS(ns, 'path');
-        outerArc.setAttribute('d', arcs.outerArc);
-        outerArc.setAttribute('fill', 'none');
-        outerArc.setAttribute('stroke', this.colors.outerScale);
-        outerArc.setAttribute('stroke-width', this.s(cfg.strokeWidth));
-        outerArc.style.pointerEvents = 'stroke';
-        outerArc.style.cursor = 'move';
-        mainGroup.appendChild(outerArc);
-
-        const innerArc = document.createElementNS(ns, 'path');
-        innerArc.setAttribute('d', arcs.innerArc);
-        innerArc.setAttribute('fill', 'none');
-        innerArc.setAttribute('stroke', this.colors.innerScale);
-        innerArc.setAttribute('stroke-width', this.s(cfg.thinStroke));
-        innerArc.style.pointerEvents = 'stroke';
-        innerArc.style.cursor = 'move';
-        mainGroup.appendChild(innerArc);
 
         // Tick marks - enable pointer events for dragging
         const ticks = this.generateTickMarks();
@@ -836,19 +818,6 @@ class PlottingTriangle {
         }
         mainGroup.appendChild(rulerGroup);
 
-        // Center point O (reference point at bottom vertex) - visible red dot
-        // This is the rotation center - visual reference only
-        const centerPoint = document.createElementNS(ns, 'circle');
-        centerPoint.setAttribute('cx', 0);
-        centerPoint.setAttribute('cy', 0);
-        centerPoint.setAttribute('r', Math.max(5, this.s(6)));
-        centerPoint.setAttribute('fill', this.colors.innerScale);
-        centerPoint.setAttribute('stroke', '#ffffff');
-        centerPoint.setAttribute('stroke-width', Math.max(1.5, this.s(2)));
-        centerPoint.setAttribute('class', 'center-point');
-        centerPoint.style.pointerEvents = 'auto';
-        centerPoint.style.cursor = 'move';
-        mainGroup.appendChild(centerPoint);
 
         // Triangle name label (below the triangle)
         const nameLabel = document.createElementNS(ns, 'text');
@@ -897,7 +866,7 @@ class PlottingTriangle {
 
         // Position so that O (bottom vertex) is at (this.x, this.y)
         this.svgElement.style.left = `${this.x - width / 2}px`;
-        this.svgElement.style.top = `${this.y - triangleHeight - padding}px`;
+        this.svgElement.style.top = `${this.y - triangleHeight * 2 - padding}px`;
     }
 
     /**
@@ -906,8 +875,9 @@ class PlottingTriangle {
     updateRotation() {
         if (!this.groupElement) return;
 
-        // Rotate around O (which is at 0,0 in local coordinates)
-        this.groupElement.setAttribute('transform', `rotate(${this.rotation}, 0, 0)`);
+        // Rotate around midpoint of hypotenuse (0, -halfHyp) in local coordinates
+        const halfHyp = this.s(this.config.hypotenuseLength) / 2;
+        this.groupElement.setAttribute('transform', `rotate(${this.rotation}, 0, ${-halfHyp})`);
 
         // Update angle display
         const angleDisplay = this.svgElement.querySelector('.angle-display');
@@ -976,19 +946,25 @@ class PlottingTriangle {
      */
     startRotation(clientX, clientY) {
         this.isRotating = true;
-        this.rotationStartAngle = Math.atan2(clientY - this.y, clientX - this.x) * 180 / Math.PI;
-        this.initialRotation = this.rotation;
+        const halfHyp = this.s(this.config.hypotenuseLength) / 2;
+        const pivotY = this.y - halfHyp;
+        this.rotationStartAngle = Math.atan2(clientY - pivotY, clientX - this.x) * 180 / Math.PI;
     }
 
     /**
-     * Update rotation by mouse position
+     * Update rotation by mouse position (incremental to avoid atan2 wrap-around jumps)
      */
     updateRotationByMouse(clientX, clientY) {
         if (!this.isRotating) return false;
 
-        const currentAngle = Math.atan2(clientY - this.y, clientX - this.x) * 180 / Math.PI;
-        const deltaAngle = currentAngle - this.rotationStartAngle;
-        this.rotation = this.initialRotation + deltaAngle;
+        const halfHyp = this.s(this.config.hypotenuseLength) / 2;
+        const pivotY = this.y - halfHyp;
+        const currentAngle = Math.atan2(clientY - pivotY, clientX - this.x) * 180 / Math.PI;
+        let delta = currentAngle - this.rotationStartAngle;
+        // Normalize to [-180, 180] so crossing the ±180° boundary never causes a jump
+        delta = ((delta + 180) % 360 + 360) % 360 - 180;
+        this.rotation += delta;
+        this.rotationStartAngle = currentAngle;
         this.updateRotation();
         return true;
     }
@@ -1050,8 +1026,44 @@ class PlottingTriangleManager {
     constructor() {
         this.triangles = new Map();
         this.activeTriangle = null;
+        this.selectedTriangle = null;  // persists after mouseup for arrow-key movement
         this.container = null;
         this.onChangeCallback = null;
+        this.onSelectionChange = null; // callback(triangle|null) for map zoom control
+        this.zKeyPressed = false;
+        this.setupKeyboardListeners();
+    }
+
+    /**
+     * Setup keyboard listeners for Z key (rotation) and arrow keys (movement)
+     */
+    setupKeyboardListeners() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'z' || e.key === 'Z') {
+                this.zKeyPressed = true;
+                return;
+            }
+            if (!this.selectedTriangle) return;
+            const step = e.shiftKey ? 20 : 5;
+            switch (e.key) {
+                case 'ArrowUp':    this.selectedTriangle.y -= step; break;
+                case 'ArrowDown':  this.selectedTriangle.y += step; break;
+                case 'ArrowLeft':  this.selectedTriangle.x -= step; break;
+                case 'ArrowRight': this.selectedTriangle.x += step; break;
+                default: return;
+            }
+            e.preventDefault();
+            this.selectedTriangle.updatePosition();
+            this.notifyChange();
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'z' || e.key === 'Z') {
+                this.zKeyPressed = false;
+            }
+        });
+        window.addEventListener('blur', () => {
+            this.zKeyPressed = false;
+        });
     }
 
     /**
@@ -1152,8 +1164,8 @@ class PlottingTriangleManager {
         // Bring triangle to front
         this.bringToFront(triangle);
 
-        // Ctrl key pressed = rotation mode, otherwise drag mode
-        if (e.ctrlKey || e.metaKey) {
+        // Z key held = rotation mode, otherwise drag mode
+        if (this.zKeyPressed) {
             triangle.startRotation(clientX, clientY);
             triangle.setHighlight(true);
         } else {
@@ -1162,6 +1174,11 @@ class PlottingTriangleManager {
         }
 
         this.activeTriangle = triangle;
+
+        if (this.selectedTriangle !== triangle) {
+            this.selectedTriangle = triangle;
+            this.onSelectionChange?.(triangle);
+        }
 
         document.addEventListener('mousemove', this.handleMouseMove);
         document.addEventListener('mouseup', this.handleMouseUp);

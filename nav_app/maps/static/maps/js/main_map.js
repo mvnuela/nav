@@ -171,6 +171,64 @@
 
         // Add legend
         L.control.legend().addTo(map);
+
+        // Add map lock button (disable/enable all panning and zooming)
+        addMapLockControl(map);
+    }
+
+    /**
+     * Toggle button that disables / enables all map panning and zooming
+     */
+    function addMapLockControl(map) {
+        window.mapInteractionLocked = false;
+
+        const MapLockControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function() {
+                const btn = L.DomUtil.create('button', 'leaflet-control map-lock-btn');
+                btn.title = 'Lock / unlock map movement';
+                btn.innerHTML = '&#x1F513;'; // 🔓
+                btn.style.cssText = [
+                    'width:34px', 'height:34px', 'border:2px solid rgba(0,0,0,0.2)',
+                    'border-radius:4px', 'background:white', 'cursor:pointer',
+                    'font-size:16px', 'line-height:1', 'display:flex',
+                    'align-items:center', 'justify-content:center',
+                    'box-shadow:0 1px 5px rgba(0,0,0,0.4)'
+                ].join(';');
+
+                L.DomEvent.disableClickPropagation(btn);
+                L.DomEvent.on(btn, 'click', function() {
+                    window.mapInteractionLocked = !window.mapInteractionLocked;
+                    if (window.mapInteractionLocked) {
+                        map.dragging.disable();
+                        map.scrollWheelZoom.disable();
+                        map.doubleClickZoom.disable();
+                        map.keyboard.disable();
+                        map.touchZoom.disable();
+                        map.boxZoom.disable();
+                        btn.innerHTML = '&#x1F512;'; // 🔒
+                        btn.style.background = '#e67e22';
+                        btn.style.color = 'white';
+                        btn.style.borderColor = '#e67e22';
+                    } else {
+                        map.dragging.enable();
+                        map.scrollWheelZoom.enable();
+                        map.doubleClickZoom.enable();
+                        map.keyboard.enable();
+                        map.touchZoom.enable();
+                        map.boxZoom.enable();
+                        btn.innerHTML = '&#x1F513;'; // 🔓
+                        btn.style.background = 'white';
+                        btn.style.color = 'black';
+                        btn.style.borderColor = 'rgba(0,0,0,0.2)';
+                    }
+                });
+
+                return btn;
+            }
+        });
+
+        new MapLockControl().addTo(map);
     }
 
     /**
