@@ -1,0 +1,411 @@
+/**
+ * Geometry Tools for Leaflet-based Sea Map
+ * Points, Connections (line segments), and Rays (half-lines)
+ * Pattern: matches observed_position.js IIFE
+ */
+
+(function() {
+    'use strict';
+
+    let map = null;
+    let store = null;
+    let geometryLayer = null;
+
+    // Interaction mode: 'none', 'place_point', 'connect', 'ray', 'delete'
+    let mode = 'none';
+    let pendingFirstPointId = null;
+
+    // Maps from model IDs to Leaflet layers
+    let pointMarkers = {};
+    let connectionLines = {};
+    let rayLines = {};
+
+    // Colors
+    const COLORS = {
+        point: '#E91E63',
+        pointPending: '#FFC107',
+        connection: '#2196F3',
+        ray: '#FF9800'
+    };
+
+    window.initGeometry = function(leafletMap) {
+        map = leafletMap;
+        store = new GeometryStore();
+        geometryLayer = L.layerGroup().addTo(map);
+        createControlPanel();
+        map.on('click', onMapClick);
+        map.on('moveend', updateAllRays);
+        map.on('zoomend', updateAllRays);
+        console.log('Geometry tools initialized');
+    };
+
+    function onMapClick(e) {
+        if (mode === 'place_point') {
+            addPoint(e.latlng.lat, e.latlng.lng);
+        }
+    }
+
+    // ——— Points ———
+
+    function addPoint(lat, lng) {
+        const pt = store.addPoint(lat, lng);
+        const marker = L.circleMarker([lat, lng], {
+            radius: 7,
+            color: '#fff',
+            weight: 2,
+            fillColor: COLORS.point,
+            fillOpacity: 0.9
+        });
+        marker.pointId = pt.id;
+
+        marker.on('click', function(e) {
+            L.DomEvent.stopPropagation(e);
+            handlePointClick(pt.id);
+        });
+
+        marker.bindTooltip(`P${pt.id}`, {
+            permanent: true,
+            direction: 'top',
+            offset: [0, -10],
+            className: 'geometry-point-label'
+        });
+
+        marker.addTo(geometryLayer);
+        pointMarkers[pt.id] = marker;
+        updateElementList();
+    }
+
+    function handlePointClick(pointId) {
+        if (mode === 'connect' || mode === 'ray') {
+            if (pendingFirstPointId === null) {
+                pendingFirstPointId = pointId;
+                highlightPoint(pointId, true);
+                updateStatus();
+            } else if (pendingFirstPointId !== pointId) {
+                if (mode === 'connect') {
+                    createConnection(pendingFirstPointId, pointId);
+                } else {
+                    createRay(pendingFirstPointId, pointId);
+                }
+                highlightPoint(pendingFirstPointId, false);
+                pendingFirstPointId = null;
+                updateStatus();
+            }
+        } else if (mode === 'delete') {
+            deletePointWithCascade(pointId);
+        }
+    }
+
+    function highlightPoint(pointId, highlight) {
+        const marker = pointMarkers[pointId];
+        if (!marker) return;
+        marker.setStyle({
+            fillColor: highlight ? COLORS.pointPending : COLORS.point,
+            radius: highlight ? 10 : 7,
+            weight: highlight ? 3 : 2
+        });
+    }
+
+    // ——— Connections ———
+
+    function createConnection(ptAId, ptBId) {
+        const conn = store.addConnection(ptAId, ptBId);
+        const ptA = store.getPoint(ptAId);
+        const ptB = store.getPoint(ptBId);
+        const line = L.polyline([[ptA.lat, ptA.lon], [ptB.lat, ptB.lon]], {
+            color: COLORS.connection,
+            weight: 3,
+            opacity: 0.8
+        });
+        line.connectionId = conn.id;
+        line.on('click', function(e) {
+            L.DomEvent.stopPropagation(e);
+            if (mode === 'delete') {
+                deleteConnection(conn.id);
+            }
+        });
+        line.addTo(geometryLayer);
+        connectionLines[conn.id] = line;
+        updateElementList();
+    }
+
+    function deleteConnection(connId) {
+        store.deleteConnection(connId);
+        if (connectionLines[connId]) {
+            geometryLayer.removeLayer(connectionLines[connId]);
+            delete connectionLines[connId];
+        }
+        updateElementList();
+    }
+
+    // ——— Rays ———
+
+    function createRay(originId, throughId) {
+        const ray = store.addRay(originId, throughId);
+        const line = buildRayPolyline(ray);
+        line.rayId = ray.id;
+        line.on('click', function(e) {
+            L.DomEvent.stopPropagation(e);
+            if (mode === 'delete') {
+                deleteRay(ray.id);
+            }
+        });
+        line.addTo(geometryLayer);
+        rayLines[ray.id] = line;
+        updateElementList();
+    }
+
+    function buildRayPolyline(ray) {
+        const origin = store.getPoint(ray.originPointId);
+        const through = store.getPoint(ray.throughPointId);
+        const endLatLng = extendRayToMapBounds(origin.lat, origin.lon, through.lat, through.lon);
+        return L.polyline(
+            [[origin.lat, origin.lon], [through.lat, through.lon], endLatLng],
+            { color: COLORS.ray, weight: 2.5, opacity: 0.8, dashArray: '8, 5' }
+        );
+    }
+
+    function extendRayToMapBounds(lat1, lon1, lat2, lon2) {
+        // Use pixel coordinates for proper projection handling
+        const p1 = map.latLngToContainerPoint([lat1, lon1]);
+        const p2 = map.latLngToContainerPoint([lat2, lon2]);
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len === 0) return [lat2, lon2];
+
+        // Extend far enough to cover the entire map view
+        const size = map.getSize();
+        const maxDist = Math.sqrt(size.x * size.x + size.y * size.y) * 2;
+        const ux = dx / len;
+        const uy = dy / len;
+        const endPixel = L.point(p1.x + ux * maxDist, p1.y + uy * maxDist);
+        const endLatLng = map.containerPointToLatLng(endPixel);
+        return [endLatLng.lat, endLatLng.lng];
+    }
+
+    function updateAllRays() {
+        for (const ray of store.rays) {
+            if (rayLines[ray.id]) {
+                geometryLayer.removeLayer(rayLines[ray.id]);
+                const line = buildRayPolyline(ray);
+                line.rayId = ray.id;
+                line.on('click', function(e) {
+                    L.DomEvent.stopPropagation(e);
+                    if (mode === 'delete') deleteRay(ray.id);
+                });
+                line.addTo(geometryLayer);
+                rayLines[ray.id] = line;
+            }
+        }
+    }
+
+    function deleteRay(rayId) {
+        store.deleteRay(rayId);
+        if (rayLines[rayId]) {
+            geometryLayer.removeLayer(rayLines[rayId]);
+            delete rayLines[rayId];
+        }
+        updateElementList();
+    }
+
+    // ——— Deletion ———
+
+    function deletePointWithCascade(pointId) {
+        const result = store.deletePoint(pointId);
+        for (const cId of result.removedConnectionIds) {
+            if (connectionLines[cId]) {
+                geometryLayer.removeLayer(connectionLines[cId]);
+                delete connectionLines[cId];
+            }
+        }
+        for (const rId of result.removedRayIds) {
+            if (rayLines[rId]) {
+                geometryLayer.removeLayer(rayLines[rId]);
+                delete rayLines[rId];
+            }
+        }
+        if (pointMarkers[pointId]) {
+            geometryLayer.removeLayer(pointMarkers[pointId]);
+            delete pointMarkers[pointId];
+        }
+        if (pendingFirstPointId === pointId) {
+            pendingFirstPointId = null;
+        }
+        updateElementList();
+    }
+
+    function clearAll() {
+        store.clearAll();
+        geometryLayer.clearLayers();
+        pointMarkers = {};
+        connectionLines = {};
+        rayLines = {};
+        pendingFirstPointId = null;
+        updateElementList();
+    }
+
+    // ——— Mode Switching ———
+
+    function setActiveMode(newMode) {
+        // Toggle off if same mode
+        if (mode === newMode) {
+            mode = 'none';
+        } else {
+            mode = newMode;
+        }
+        // Clear pending state
+        if (pendingFirstPointId !== null) {
+            highlightPoint(pendingFirstPointId, false);
+            pendingFirstPointId = null;
+        }
+        updateModeButtons();
+        updateStatus();
+
+        // Change cursor
+        const mapContainer = document.getElementById('map');
+        if (mapContainer) {
+            mapContainer.style.cursor = mode === 'place_point' ? 'crosshair' : '';
+        }
+    }
+
+    function updateModeButtons() {
+        const buttons = {
+            'place_point': 'geometryLPlacePointBtn',
+            'connect': 'geometryLConnectBtn',
+            'ray': 'geometryLRayBtn',
+            'delete': 'geometryLDeleteBtn'
+        };
+        for (const [m, btnId] of Object.entries(buttons)) {
+            const btn = document.getElementById(btnId);
+            if (!btn) continue;
+            if (m === mode) {
+                btn.style.outline = '3px solid #333';
+                btn.style.outlineOffset = '-3px';
+            } else {
+                btn.style.outline = 'none';
+            }
+        }
+    }
+
+    function updateStatus() {
+        const el = document.getElementById('geometryLStatus');
+        if (!el) return;
+        if (mode === 'place_point') {
+            el.textContent = 'Click on map to place a point';
+            el.style.color = '#4CAF50';
+        } else if (mode === 'connect') {
+            el.textContent = pendingFirstPointId ? 'Click second point to connect' : 'Click first point';
+            el.style.color = '#2196F3';
+        } else if (mode === 'ray') {
+            el.textContent = pendingFirstPointId ? 'Click second point for ray direction' : 'Click origin point';
+            el.style.color = '#FF9800';
+        } else if (mode === 'delete') {
+            el.textContent = 'Click any element to delete';
+            el.style.color = '#f44336';
+        } else {
+            el.textContent = 'Select a mode above';
+            el.style.color = '#666';
+        }
+    }
+
+    function updateElementList() {
+        const el = document.getElementById('geometryLStats');
+        if (!el) return;
+        const p = store.points.length;
+        const c = store.connections.length;
+        const r = store.rays.length;
+        el.textContent = `${p} point${p !== 1 ? 's' : ''}, ${c} connection${c !== 1 ? 's' : ''}, ${r} ray${r !== 1 ? 's' : ''}`;
+    }
+
+    // ——— Control Panel ———
+
+    function createControlPanel() {
+        L.Control.Geometry = L.Control.extend({
+            options: { position: 'topright' },
+
+            onAdd: function() {
+                const container = L.DomUtil.create('div', 'leaflet-control-geometry');
+                container.style.cssText = 'background:white; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.3); margin-top:10px; min-width:200px;';
+
+                container.innerHTML = `
+                    <div id="geometryLHeader" style="padding:8px 10px; background:white; border-radius:4px 4px 0 0; font-weight:bold; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:14px;">📐</span> Geometry Tools
+                    </div>
+                    <div id="geometryLPanel" style="display:none; padding:10px; padding-top:5px;">
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
+                            <button id="geometryLPlacePointBtn" style="flex:1; min-width:45%; padding:6px 4px; border:none; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold; background:#4CAF50; color:white;">
+                                📍 Place Point
+                            </button>
+                            <button id="geometryLConnectBtn" style="flex:1; min-width:45%; padding:6px 4px; border:none; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold; background:#2196F3; color:white;">
+                                🔗 Connect
+                            </button>
+                            <button id="geometryLRayBtn" style="flex:1; min-width:45%; padding:6px 4px; border:none; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold; background:#FF9800; color:white;">
+                                ➡️ Ray
+                            </button>
+                            <button id="geometryLDeleteBtn" style="flex:1; min-width:45%; padding:6px 4px; border:none; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold; background:#f44336; color:white;">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                        <div id="geometryLStatus" style="text-align:center; font-size:11px; color:#666; margin-bottom:8px;">
+                            Select a mode above
+                        </div>
+                        <div id="geometryLStats" style="font-size:11px; color:#333; margin-bottom:8px;">
+                            0 points, 0 connections, 0 rays
+                        </div>
+                        <button id="geometryLClearAllBtn" style="width:100%; padding:6px; background:#757575; color:white; border:none; border-radius:3px; cursor:pointer; font-size:11px;">
+                            Clear All
+                        </button>
+                    </div>
+                `;
+
+                L.DomEvent.disableClickPropagation(container);
+                L.DomEvent.disableScrollPropagation(container);
+
+                return container;
+            },
+
+            onRemove: function() {
+                mode = 'none';
+                pendingFirstPointId = null;
+            }
+        });
+
+        new L.Control.Geometry().addTo(map);
+
+        setTimeout(() => {
+            const header = document.getElementById('geometryLHeader');
+            const panel = document.getElementById('geometryLPanel');
+
+            if (header && panel) {
+                header.onclick = function(e) {
+                    e.stopPropagation();
+                    const isVisible = panel.style.display !== 'none';
+                    panel.style.display = isVisible ? 'none' : 'block';
+                    header.style.background = isVisible ? 'white' : '#fce4ec';
+                    if (isVisible) {
+                        setActiveMode('none');
+                    }
+                };
+            }
+
+            const placeBtn = document.getElementById('geometryLPlacePointBtn');
+            const connectBtn = document.getElementById('geometryLConnectBtn');
+            const rayBtn = document.getElementById('geometryLRayBtn');
+            const deleteBtn = document.getElementById('geometryLDeleteBtn');
+            const clearBtn = document.getElementById('geometryLClearAllBtn');
+
+            if (placeBtn) placeBtn.onclick = (e) => { e.stopPropagation(); setActiveMode('place_point'); };
+            if (connectBtn) connectBtn.onclick = (e) => { e.stopPropagation(); setActiveMode('connect'); };
+            if (rayBtn) rayBtn.onclick = (e) => { e.stopPropagation(); setActiveMode('ray'); };
+            if (deleteBtn) deleteBtn.onclick = (e) => { e.stopPropagation(); setActiveMode('delete'); };
+            if (clearBtn) clearBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm('Clear all geometry?')) {
+                    clearAll();
+                }
+            };
+        }, 100);
+    }
+
+})();

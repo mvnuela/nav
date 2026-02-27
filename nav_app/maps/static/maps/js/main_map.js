@@ -60,6 +60,9 @@
         if (typeof initObservedPosition === 'function') {
             initObservedPosition(map);
         }
+        if (typeof initGeometry === 'function') {
+            initGeometry(map);
+        }
 
         console.log('✓ Nautical map initialized successfully');
     }

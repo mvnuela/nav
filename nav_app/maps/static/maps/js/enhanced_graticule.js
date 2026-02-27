@@ -29,6 +29,12 @@ class MercatorProjection {
     }
 
     /**
+
+
+
+
+
+
      * Convert longitude to Mercator X (linear)
      */
     longitudeToMercatorX(lon) {
@@ -273,6 +279,10 @@ class EnhancedGraticuleSystem {
         // Observed positions
         this.observedPositionManager = null;
         this.observedPositionVisible = false;
+
+        // Geometry (points, connections, rays)
+        this.geometryManager = null;
+        this.geometryVisible = false;
 
         this.setupEventListeners();
     }
@@ -838,6 +848,15 @@ class EnhancedGraticuleSystem {
             return;
         }
 
+        // Handle geometry interactions when visible
+        if (this.geometryVisible && this.geometryManager) {
+            const handled = this.geometryManager.handleMouseDown(x, y);
+            if (handled) {
+                this.render();
+                return;
+            }
+        }
+
         // Handle observed position interactions when visible
         if (this.observedPositionVisible && this.observedPositionManager) {
             const handled = this.observedPositionManager.handleMouseDown(x, y);
@@ -908,6 +927,19 @@ class EnhancedGraticuleSystem {
         const x = canvasCoords.x;
         const y = canvasCoords.y;
 
+        // Handle geometry interactions when visible
+        if (this.geometryVisible && this.geometryManager) {
+            const handled = this.geometryManager.handleMouseMove(x, y);
+            const cursor = this.geometryManager.updateCursor(x, y);
+            if (cursor !== 'default') {
+                this.canvas.style.cursor = cursor;
+            }
+            if (handled) {
+                this.render();
+                return;
+            }
+        }
+
         // Handle observed position interactions when visible
         if (this.observedPositionVisible && this.observedPositionManager) {
             const handled = this.observedPositionManager.handleMouseMove(x, y);
@@ -971,6 +1003,15 @@ class EnhancedGraticuleSystem {
             this.isPanning = false;
             this.canvas.style.cursor = 'default';
             return;
+        }
+
+        // Handle geometry interactions when visible
+        if (this.geometryVisible && this.geometryManager) {
+            const handled = this.geometryManager.handleMouseUp();
+            if (handled) {
+                this.render();
+                return;
+            }
         }
 
         // Handle observed position interactions when visible
@@ -1083,53 +1124,58 @@ class EnhancedGraticuleSystem {
     }
 
     render() {
-        if (!this.uploadedImage) return;
-
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Save context state
-        this.ctx.save();
+        if (this.uploadedImage) {
+            // Save context state
+            this.ctx.save();
 
-        // Apply zoom and pan transformation
-        this.ctx.translate(this.panX, this.panY);
-        this.ctx.scale(this.zoom, this.zoom);
+            // Apply zoom and pan transformation
+            this.ctx.translate(this.panX, this.panY);
+            this.ctx.scale(this.zoom, this.zoom);
 
-        // Draw image
-        this.ctx.drawImage(this.uploadedImage, 0, 0);
+            // Draw image
+            this.ctx.drawImage(this.uploadedImage, 0, 0);
 
-        // Draw map region (in fit mode)
-        if (this.mode === 'fit' && this.mapRegion) {
-            this.mapRegion.draw(this.ctx, true);
+            // Draw map region (in fit mode)
+            if (this.mode === 'fit' && this.mapRegion) {
+                this.mapRegion.draw(this.ctx, true);
+            }
+
+            // Draw graticule (in view mode with mapper)
+            if (this.mode === 'view' && this.mapper) {
+                this.drawGraticule();
+            }
+
+            // Draw nautical dividers (when visible)
+            if (this.dividerVisible && this.dividerManager) {
+                this.dividerManager.drawAll(this.ctx);
+            }
+
+            // Draw GPX routes (when visible)
+            if (this.gpxVisible && this.gpxManager && this.mapper) {
+                this.gpxManager.drawAll(this.ctx, this.mapper);
+            }
+
+            // Draw observed positions (when visible)
+            if (this.observedPositionVisible && this.observedPositionManager) {
+                this.observedPositionManager.drawAll(this.ctx);
+            }
+
+            // Draw geometry (points, connections, rays) when visible
+            if (this.geometryVisible && this.geometryManager) {
+                this.geometryManager.drawAll(this.ctx);
+            }
+
+            // Restore context state
+            this.ctx.restore();
         }
 
-        // Draw graticule (in view mode with mapper)
-        if (this.mode === 'view' && this.mapper) {
-            this.drawGraticule();
-        }
-
-        // Draw nautical triangles (when visible)
+        // Draw nautical triangles in screen coordinates (unaffected by zoom/pan)
         if (this.trianglesVisible && this.triangleManager) {
             this.triangleManager.drawAll(this.ctx);
         }
-
-        // Draw nautical dividers (when visible)
-        if (this.dividerVisible && this.dividerManager) {
-            this.dividerManager.drawAll(this.ctx);
-        }
-
-        // Draw GPX routes (when visible)
-        if (this.gpxVisible && this.gpxManager && this.mapper) {
-            this.gpxManager.drawAll(this.ctx, this.mapper);
-        }
-
-        // Draw observed positions (when visible)
-        if (this.observedPositionVisible && this.observedPositionManager) {
-            this.observedPositionManager.drawAll(this.ctx);
-        }
-
-        // Restore context state
-        this.ctx.restore();
 
         // Draw zoom indicator (not affected by zoom transform)
         this.drawZoomIndicator();
@@ -1937,6 +1983,62 @@ class EnhancedGraticuleSystem {
      */
     isObservedPositionPlacementMode() {
         return this.observedPositionManager ? this.observedPositionManager.placementMode : false;
+    }
+
+    // ——— Geometry Tools API ———
+
+    initGeometry() {
+        if (!this.geometryManager && this.mapper) {
+            this.geometryManager = new GeometryManagerCanvas(this.mapper);
+        }
+        return this.geometryManager;
+    }
+
+    toggleGeometry() {
+        if (!this.geometryManager) {
+            this.initGeometry();
+        }
+        this.geometryVisible = !this.geometryVisible;
+        this.render();
+        return this.geometryVisible;
+    }
+
+    showGeometry() {
+        if (!this.geometryManager) {
+            this.initGeometry();
+        }
+        this.geometryVisible = true;
+        this.render();
+    }
+
+    hideGeometry() {
+        this.geometryVisible = false;
+        if (this.geometryManager) {
+            this.geometryManager.setMode('none');
+        }
+        this.render();
+    }
+
+    setGeometryMode(mode) {
+        if (!this.geometryManager) {
+            this.initGeometry();
+        }
+        if (!this.geometryVisible) {
+            this.geometryVisible = true;
+        }
+        this.geometryManager.setMode(mode);
+        this.render();
+    }
+
+    clearAllGeometry() {
+        if (this.geometryManager) {
+            this.geometryManager.store.clearAll();
+            this.render();
+        }
+    }
+
+    getGeometryStore() {
+        return this.geometryManager ? this.geometryManager.store : null;
     }
 }
 
