@@ -818,8 +818,11 @@
     <!-- Load geometry tools (model + canvas manager) -->
     <script src="{% static 'maps/js/geometry_model.js' %}"></script>
     <script src="{% static 'maps/js/geometry_canvas.js' %}"></script>
-    <!-- Then load enhanced graticule -->
+    <!-- Load enhanced graticule (split into multiple files) -->
+    <script src="{% static 'maps/js/graticule_projection.js' %}"></script>
     <script src="{% static 'maps/js/enhanced_graticule.js' %}"></script>
+    <script src="{% static 'maps/js/graticule_drawing.js' %}"></script>
+    <script src="{% static 'maps/js/graticule_tools.js' %}"></script>
     <!-- Load course plotting extension -->
     <script src="{% static 'maps/js/course_plotter_enhanced.js' %}"></script>
     

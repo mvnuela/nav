@@ -5,7 +5,7 @@
  * Features:
  * - Two-point placement with locked geodesic distance
  * - Drag to move entire divider while maintaining distance
- * - Rotate around center point
+ * - Rotate around point A (pivot end)
  * - Geodesic distance calculation in nautical miles
  * - Scales correctly with map zoom
  * - Traditional nautical appearance
@@ -135,26 +135,23 @@ class NauticalDivider {
     }
     
     /**
-     * Rotate divider around center by angle in degrees
+     * Rotate divider around pointA (pivot end) by angle in degrees
      */
     rotateBy(angleDelta) {
-        const currentBearing = this.calculateBearing(this.center, this.pointB);
-        const newBearing = (currentBearing + angleDelta) % 360;
-        
-        // Recalculate both points maintaining locked distance
-        const halfDistance = this.lockedDistance / 2;
-        
-        this.pointA = this.calculateDestination(this.center, (newBearing + 180) % 360, halfDistance);
-        this.pointB = this.calculateDestination(this.center, newBearing, halfDistance);
+        const currentBearing = this.calculateBearing(this.pointA, this.pointB);
+        const newBearing = (currentBearing + angleDelta + 360) % 360;
+
+        // Recalculate pointB from pointA maintaining locked distance
+        this.pointB = this.calculateDestination(this.pointA, newBearing, this.lockedDistance);
+        this.updateCenter();
     }
-    
+
     /**
-     * Set rotation to specific angle (bearing from center to pointB)
+     * Set rotation to specific angle (bearing from pointA to pointB)
      */
     setRotation(bearing) {
-        const halfDistance = this.lockedDistance / 2;
-        this.pointA = this.calculateDestination(this.center, (bearing + 180) % 360, halfDistance);
-        this.pointB = this.calculateDestination(this.center, bearing, halfDistance);
+        this.pointB = this.calculateDestination(this.pointA, bearing, this.lockedDistance);
+        this.updateCenter();
     }
     
     /**
@@ -165,11 +162,11 @@ class NauticalDivider {
         const screenB = this.mapper.geographicToScreen(this.pointB.lat, this.pointB.lon);
         const screenCenter = this.mapper.geographicToScreen(this.center.lat, this.center.lon);
         
-        // Check rotate handle
-        const bearing = this.calculateBearing(this.center, this.pointB);
+        // Check rotate handle (positioned at pointA pivot end)
+        const bearing = this.calculateBearing(this.pointA, this.pointB);
         const rotateAngle = (bearing - 90) * Math.PI / 180; // Perpendicular to divider
-        const rotateX = screenCenter.x + Math.cos(rotateAngle) * this.rotateHandleDistance;
-        const rotateY = screenCenter.y + Math.sin(rotateAngle) * this.rotateHandleDistance;
+        const rotateX = screenA.x + Math.cos(rotateAngle) * this.rotateHandleDistance;
+        const rotateY = screenA.y + Math.sin(rotateAngle) * this.rotateHandleDistance;
         const distToRotate = Math.sqrt(Math.pow(screenX - rotateX, 2) + Math.pow(screenY - rotateY, 2));
         if (distToRotate < this.handleRadius + 2) {
             return 'rotate';
@@ -279,18 +276,18 @@ class NauticalDivider {
             // Center handle (larger, different color)
             this.drawHandle(ctx, screenCenter.x, screenCenter.y, this.centerHandleRadius, this.style.centerColor);
             
-            // Rotation handle (perpendicular to divider)
-            const bearing = this.calculateBearing(this.center, this.pointB);
+            // Rotation handle (perpendicular to divider, at pointA pivot)
+            const bearing = this.calculateBearing(this.pointA, this.pointB);
             const rotateAngle = (bearing - 90) * Math.PI / 180;
-            const rotateX = screenCenter.x + Math.cos(rotateAngle) * this.rotateHandleDistance;
-            const rotateY = screenCenter.y + Math.sin(rotateAngle) * this.rotateHandleDistance;
-            
-            // Draw line to rotate handle
+            const rotateX = screenA.x + Math.cos(rotateAngle) * this.rotateHandleDistance;
+            const rotateY = screenA.y + Math.sin(rotateAngle) * this.rotateHandleDistance;
+
+            // Draw line to rotate handle from pointA
             ctx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
             ctx.lineWidth = 1;
             ctx.setLineDash([3, 3]);
             ctx.beginPath();
-            ctx.moveTo(screenCenter.x, screenCenter.y);
+            ctx.moveTo(screenA.x, screenA.y);
             ctx.lineTo(rotateX, rotateY);
             ctx.stroke();
             
@@ -460,7 +457,7 @@ class NauticalDividerManager {
                 
                 if (handleType === 'rotate') {
                     divider.isRotating = true;
-                    this.dragStartRotation = divider.calculateBearing(divider.center, divider.pointB);
+                    this.dragStartRotation = divider.calculateBearing(divider.pointA, divider.pointB);
                 }
                 
                 return true;
@@ -491,15 +488,15 @@ class NauticalDividerManager {
                 
                 this.dragStartGeo = currentGeo;
             } else if (divider.dragType === 'rotate') {
-                // Rotate around center
-                const center = this.mapper.geographicToScreen(divider.center.lat, divider.center.lon);
+                // Rotate around pointA (pivot end)
+                const pivot = this.mapper.geographicToScreen(divider.pointA.lat, divider.pointA.lon);
                 const startAngle = Math.atan2(
-                    this.lastMouseScreen.y - center.y,
-                    this.lastMouseScreen.x - center.x
+                    this.lastMouseScreen.y - pivot.y,
+                    this.lastMouseScreen.x - pivot.x
                 ) * 180 / Math.PI;
                 const currentAngle = Math.atan2(
-                    screenY - center.y,
-                    screenX - center.x
+                    screenY - pivot.y,
+                    screenX - pivot.x
                 ) * 180 / Math.PI;
                 
                 let angleDelta = currentAngle - startAngle;
