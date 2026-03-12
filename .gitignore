@@ -77,3 +77,4 @@ npm-debug.log
 *.bak
 /nav_app/staticfiles/
 *.md
+/nav_app/staticfiles/

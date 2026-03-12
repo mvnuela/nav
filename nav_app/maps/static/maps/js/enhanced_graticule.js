@@ -27,7 +27,7 @@ class EnhancedGraticuleSystem {
 
         // Zoom and pan state
         this.zoom = 1.0;
-        this.minZoom = 0.5;
+        this.minZoom = 1.0;
         this.maxZoom = 10.0;
         this.panX = 0;
         this.panY = 0;
@@ -216,7 +216,7 @@ class EnhancedGraticuleSystem {
     }
 
     zoomOut() {
-        const newZoom = Math.max(this.minZoom, this.zoom / 1.25);
+        const newZoom = Math.max(1.0, this.zoom / 1.25);
         if (newZoom !== this.zoom) {
             const centerX = this.canvas.width / 2;
             const centerY = this.canvas.height / 2;
@@ -547,7 +547,7 @@ class EnhancedGraticuleSystem {
         // Handle region fitting in fit mode
         if (this.mode === 'fit' && this.mapRegion) {
             const handle = this.mapRegion.hitTest(x, y);
-            if (handle) {
+            if (handle && !(handle === 'center' && this.zoom > 1)) {
                 this.mapRegion.isDragging = true;
                 this.mapRegion.dragHandle = handle;
                 this.mapRegion.dragStartX = x;
