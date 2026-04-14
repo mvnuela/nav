@@ -318,7 +318,7 @@
         createControl() {
             const GPXControl = L.Control.extend({
                 options: {
-                    position: 'topleft'
+                    position: 'topright'
                 },
 
                 onAdd: (map) => {

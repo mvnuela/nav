@@ -62,7 +62,8 @@
             id: positionCounter,
             timestamp: timestamp,
             lat: lat,
-            lng: lng
+            lng: lng,
+            description: ''
         };
 
         // Create popup content
@@ -82,6 +83,30 @@
         updatePositionList();
 
         return marker;
+    }
+
+    /**
+     * Split a stored fraction string ("num/den") back into its parts
+     */
+    function parseFraction(str) {
+        if (!str) return { numerator: '', denominator: '' };
+        const idx = str.indexOf('/');
+        if (idx === -1) return { numerator: str, denominator: '' };
+        return {
+            numerator: str.slice(0, idx),
+            denominator: str.slice(idx + 1)
+        };
+    }
+
+    /**
+     * Escape HTML for safe attribute insertion
+     */
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
     }
 
     /**
@@ -110,22 +135,71 @@
                 <div style="margin-bottom: 8px; color: #666;">
                     <strong>Time:</strong> ${formatTime(data.timestamp)}
                 </div>
-                <button onclick="window.deleteObservedPosition(${data.id})"
-                    style="background: #D32F2F; color: white; border: none; padding: 4px 10px;
-                    border-radius: 3px; cursor: pointer; font-size: 11px; width: 100%;">
-                    Delete
-                </button>
+                <div style="margin-bottom: 6px;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 3px;">Description:</label>
+                    <div style="display: inline-flex; flex-direction: column; align-items: center; font-family: monospace;">
+                        <input id="observedPositionNum-${data.id}" type="text"
+                            value="${escapeHtml(parseFraction(data.description).numerator)}"
+                            style="width: 60px; text-align: center; padding: 2px; font-size: 12px;
+                            border: 1px solid #ccc; border-radius: 3px; font-family: inherit;">
+                        <div style="width: 60px; border-top: 1px solid #333; margin: 2px 0;"></div>
+                        <input id="observedPositionDen-${data.id}" type="text"
+                            value="${escapeHtml(parseFraction(data.description).denominator)}"
+                            style="width: 60px; text-align: center; padding: 2px; font-size: 12px;
+                            border: 1px solid #ccc; border-radius: 3px; font-family: inherit;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                    <button onclick="window.saveObservedPositionDescription(${data.id})"
+                        style="flex: 1; background: #1976D2; color: white; border: none; padding: 4px 10px;
+                        border-radius: 3px; cursor: pointer; font-size: 11px;">
+                        Save
+                    </button>
+                    <button onclick="window.deleteObservedPosition(${data.id})"
+                        style="flex: 1; background: #D32F2F; color: white; border: none; padding: 4px 10px;
+                        border-radius: 3px; cursor: pointer; font-size: 11px;">
+                        Delete
+                    </button>
+                </div>
             </div>
         `;
     }
 
     /**
+     * Save description (numerator/denominator fraction) from popup inputs
+     */
+    window.saveObservedPositionDescription = function(id) {
+        const numEl = document.getElementById('observedPositionNum-' + id);
+        const denEl = document.getElementById('observedPositionDen-' + id);
+        if (!numEl || !denEl) return;
+        const num = numEl.value.trim();
+        const den = denEl.value.trim();
+        const fraction = (num || den) ? `${num}/${den}` : '';
+        observedPositionLayer.eachLayer(function(layer) {
+            if (layer.positionData && layer.positionData.id === id) {
+                layer.positionData.description = fraction;
+                layer.setPopupContent(createPopupContent(layer));
+            }
+        });
+        updatePositionList();
+    };
+
+    /**
      * Delete observed position by ID
      */
     window.deleteObservedPosition = function(id) {
+        // Collect first, then remove — mutating during eachLayer can skip entries
+        const toRemove = [];
         observedPositionLayer.eachLayer(function(layer) {
             if (layer.positionData && layer.positionData.id === id) {
-                observedPositionLayer.removeLayer(layer);
+                toRemove.push(layer);
+            }
+        });
+        toRemove.forEach(function(layer) {
+            layer.closePopup && layer.closePopup();
+            observedPositionLayer.removeLayer(layer);
+            if (map && map.hasLayer(layer)) {
+                map.removeLayer(layer);
             }
         });
         updatePositionList();
@@ -141,11 +215,31 @@
     }
 
     /**
+     * Attach a single delegated click listener to the side list so that
+     * rebuilding via innerHTML doesn't drop the delete handlers.
+     */
+    function ensureListDelegation(listContainer) {
+        if (listContainer._deleteDelegationAttached) return;
+        listContainer._deleteDelegationAttached = true;
+        listContainer.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-delete-id]');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const id = parseInt(btn.getAttribute('data-delete-id'), 10);
+            if (!Number.isNaN(id)) {
+                window.deleteObservedPosition(id);
+            }
+        });
+    }
+
+    /**
      * Update the position list in the control panel
      */
     function updatePositionList() {
         const listContainer = document.getElementById('observedPositionList');
         if (!listContainer) return;
+        ensureListDelegation(listContainer);
 
         const positions = [];
         observedPositionLayer.eachLayer(function(layer) {
@@ -171,15 +265,26 @@
                 ? decimalToNautical(pos.lng, false)
                 : pos.lng.toFixed(4);
 
+            const descBlock = pos.description
+                ? `<div style="margin-top: 3px; color: #555; font-style: italic;">${escapeHtml(pos.description)}</div>`
+                : '';
+
             html += `
                 <div style="padding: 5px; margin-bottom: 4px; background: #f5f5f5; border-radius: 3px; font-size: 11px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
                         <span style="font-weight: bold; color: #D32F2F;">#${pos.id}</span>
-                        <span style="color: #666;">${formatTime(pos.timestamp)}</span>
+                        <span style="color: #666; flex: 1; text-align: right;">${formatTime(pos.timestamp)}</span>
+                        <button type="button" data-delete-id="${pos.id}"
+                            title="Remove this position"
+                            style="background: #D32F2F; color: white; border: none; padding: 2px 6px;
+                            border-radius: 3px; cursor: pointer; font-size: 11px; line-height: 1;">
+                            ×
+                        </button>
                     </div>
                     <div style="margin-top: 2px; color: #333;">
                         ${latStr}, ${lngStr}
                     </div>
+                    ${descBlock}
                 </div>
             `;
         });

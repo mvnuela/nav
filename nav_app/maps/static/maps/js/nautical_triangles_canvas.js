@@ -1,38 +1,34 @@
 /**
  * Nautical Plotting Triangle Component - Canvas Version
  * Professional maritime navigation plotting triangle for course plotting
- * Designed for use with canvas-based map systems (enhanced graticule)
+ * Matches the SVG/Leaflet version's visual style.
  *
  * Technical Specifications (based on standard nautical plotting triangle):
- * - Isosceles right triangle (45°-45°-90°)
- * - Hypotenuse at TOP (horizontal), 90° vertex pointing DOWN
- * - Reference point O = 90° vertex (bottom point) = center of protractor scale
+ * - Isosceles right triangle (45-45-90)
+ * - Hypotenuse at TOP (horizontal), 90 vertex pointing DOWN
+ * - Reference point O = 90 vertex (bottom point) = center of protractor scale
  * - Semicircular protractor scale centered at hypotenuse, opening downward
- * - Two concentric scales: 0°-180° (outer, black), 180°-360° (inner, red)
+ * - Two concentric scales: 0-180 (outer, black), 180-360 (inner, red)
+ * - Compass direction labels (N, S, E, W, etc.)
+ * - Ruler scale along legs
  *
  * Controls:
  * - Drag to move triangle
- * - Ctrl + drag to rotate
- * - Touch: 2 fingers to rotate
+ * - Z + drag to rotate
+ * - Arrow keys to nudge selected triangle
  */
 
 class CanvasPlottingTriangle {
-    /**
-     * Create a plotting triangle instrument
-     * @param {string} id - Unique identifier
-     * @param {string} name - Display name
-     * @param {number} size - Base size (hypotenuse length)
-     */
-    constructor(id, name = 'Triangle', size = 300) {
+    constructor(id, name = 'Triangle', size = 340) {
         this.id = id;
         this.name = name;
         this.size = size;
 
-        // Position (reference point O = bottom vertex in canvas coordinates)
+        // Position (reference point O = bottom vertex)
         this.x = 0;
         this.y = 0;
 
-        // Rotation angle in degrees (0° = default orientation, clockwise positive)
+        // Rotation angle in degrees (clockwise positive)
         this.rotation = 0;
 
         // Interaction state
@@ -40,15 +36,44 @@ class CanvasPlottingTriangle {
         this.isRotating = false;
         this.dragOffset = { x: 0, y: 0 };
         this.rotationStartAngle = 0;
-        this.initialRotation = 0;
 
-        // Geometry parameters
+        // Geometry
         this.hypotenuseLength = size;
-        this.height = size / 2;  // Height from hypotenuse to vertex
-        this.scaleRadius = size * 0.42;  // Protractor arc radius
-        this.innerScaleOffset = size * 0.05;
+        this.height = size / 2;
+        this.scaleRadius = size * 0.42;
+        // Wider gap so inner-scale (red) labels no longer collide with the
+        // outer-scale (black) tick marks
+        this.innerScaleOffset = size * 0.14;
 
-        // Visual properties
+        // Tick marks, labels, and ruler grow proportionally with the triangle.
+        // 340 is the baseline size; factor > 1 at larger sizes makes the scale
+        // text and tick marks clearly readable on high-resolution charts.
+        const factor = size / 340;
+        this.sizeFactor = factor;
+        this.cfg = {
+            // Thin outline — intentionally kept delicate at all zoom levels
+            strokeWidth: 1.5 * factor,
+            // Thin tick stroke
+            thinStroke: 0.9 * factor,
+            // Major/medium/minor tick lengths (significantly enlarged)
+            tickShort: 12 * factor,
+            tickMedium: 20 * factor,
+            tickLong: 30 * factor,
+            // Label offsets from scale arc
+            labelOffset: 30 * factor,
+            innerLabelOffset: 24 * factor,
+            // Ruler tick spacing along legs
+            rulerSpacing: 20 * factor,
+            // Font sizes — larger base so degree numbers are readable
+            outerLabelFont: 16 * factor,
+            innerLabelFont: 13 * factor,
+            compassFont: 13 * factor,
+            rulerFont: 12 * factor,
+            nameFont: 14 * factor,
+            angleFont: 12 * factor
+        };
+
+        // Colors matching SVG version
         this.colors = {
             stroke: '#1a1a1a',
             outerScale: '#000000',
@@ -58,48 +83,22 @@ class CanvasPlottingTriangle {
             labelText: '#000000',
             innerLabelText: '#cc0000',
             compassLabel: '#666666',
-            highlight: '#FF5722'
+            highlight: '#FF5722',
+            shadow: 'rgba(0,0,0,0.18)'
         };
 
         this.isHighlighted = false;
     }
 
-    /**
-     * Set position (O = bottom vertex position)
-     */
-    setPosition(x, y) {
-        this.x = x;
-        this.y = y;
-    }
+    setPosition(x, y) { this.x = x; this.y = y; }
+    setRotation(degrees) { this.rotation = degrees; }
+    getRotation() { return ((this.rotation % 360) + 360) % 360; }
 
-    /**
-     * Set rotation angle
-     */
-    setRotation(degrees) {
-        this.rotation = degrees;
-    }
-
-    /**
-     * Get normalized rotation angle (0-360)
-     */
-    getRotation() {
-        return ((this.rotation % 360) + 360) % 360;
-    }
-
-    /**
-     * Start dragging
-     */
     startDrag(mouseX, mouseY) {
         this.isDragging = true;
-        this.dragOffset = {
-            x: mouseX - this.x,
-            y: mouseY - this.y
-        };
+        this.dragOffset = { x: mouseX - this.x, y: mouseY - this.y };
     }
 
-    /**
-     * Update drag position
-     */
     updateDrag(mouseX, mouseY) {
         if (!this.isDragging) return false;
         this.x = mouseX - this.dragOffset.x;
@@ -107,49 +106,26 @@ class CanvasPlottingTriangle {
         return true;
     }
 
-    /**
-     * Stop dragging
-     */
-    stopDrag() {
-        this.isDragging = false;
-    }
+    stopDrag() { this.isDragging = false; }
 
-    /**
-     * Start rotation
-     */
     startRotation(mouseX, mouseY) {
         this.isRotating = true;
-        const height = this.height;
-        this.rotationStartAngle = Math.atan2(mouseY - (this.y - height), mouseX - this.x) * 180 / Math.PI;
+        this.rotationStartAngle = Math.atan2(mouseY - (this.y - this.height), mouseX - this.x) * 180 / Math.PI;
     }
 
-    /**
-     * Update rotation by mouse position (incremental to avoid atan2 wrap-around jumps)
-     */
     updateRotationByMouse(mouseX, mouseY) {
         if (!this.isRotating) return false;
-        const height = this.height;
-        const currentAngle = Math.atan2(mouseY - (this.y - height), mouseX - this.x) * 180 / Math.PI;
+        const currentAngle = Math.atan2(mouseY - (this.y - this.height), mouseX - this.x) * 180 / Math.PI;
         let delta = currentAngle - this.rotationStartAngle;
-        // Normalize to [-180, 180] so crossing the ±180° boundary never causes a jump
         delta = ((delta + 180) % 360 + 360) % 360 - 180;
         this.rotation += delta;
         this.rotationStartAngle = currentAngle;
         return true;
     }
 
-    /**
-     * Stop rotation
-     */
-    stopRotation() {
-        this.isRotating = false;
-    }
+    stopRotation() { this.isRotating = false; }
 
-    /**
-     * Check if point is within the triangle bounds
-     */
     containsPoint(px, py) {
-        // Transform point to local coordinates, pivot = hypotenuse midpoint
         const height = this.height;
         const dx = px - this.x;
         const dy = py - (this.y - height);
@@ -157,244 +133,307 @@ class CanvasPlottingTriangle {
         const localX = dx * Math.cos(angleRad) - dy * Math.sin(angleRad);
         const localY = dx * Math.sin(angleRad) + dy * Math.cos(angleRad) - height;
 
-        // Triangle vertices in local coordinates (O at origin)
         const halfHyp = this.hypotenuseLength / 2;
-        const height = this.height;
-
-        // Check if point is within triangle bounds (simple bounding box first)
-        if (localX < -halfHyp - 20 || localX > halfHyp + 20) return false;
-        if (localY < -height - 20 || localY > 40) return false;
-
-        // More precise check: point-in-triangle test
-        // Vertices: O(0,0), A(-halfHyp, -height), B(halfHyp, -height)
-        const v0x = 0, v0y = 0;
-        const v1x = -halfHyp, v1y = -height;
-        const v2x = halfHyp, v2y = -height;
-
-        // Expand triangle for easier interaction
         const expand = 25;
-
-        // Check if within expanded bounding box
-        const minX = Math.min(v0x, v1x, v2x) - expand;
-        const maxX = Math.max(v0x, v1x, v2x) + expand;
-        const minY = Math.min(v0y, v1y, v2y) - expand;
-        const maxY = Math.max(v0y, v1y, v2y) + expand;
+        const minX = -halfHyp - expand;
+        const maxX = halfHyp + expand;
+        const minY = -height - expand;
+        const maxY = 0 + expand;
 
         return localX >= minX && localX <= maxX && localY >= minY && localY <= maxY;
     }
 
-    /**
-     * Set highlight state
-     */
-    setHighlight(enabled) {
-        this.isHighlighted = enabled;
-    }
+    setHighlight(enabled) { this.isHighlighted = enabled; }
 
-    /**
-     * Draw the triangle on canvas
-     */
+    // ─── Drawing ───
+
     draw(ctx) {
         ctx.save();
 
-        // Rotate around hypotenuse midpoint
         const halfHyp = this.hypotenuseLength / 2;
         const height = this.height;
+
+        // Pivot = hypotenuse midpoint
         ctx.translate(this.x, this.y - height);
         ctx.rotate(this.rotation * Math.PI / 180);
         ctx.translate(0, height);
 
-        // Draw triangle outline
+        // ── Drop shadow ──
+        ctx.save();
+        ctx.shadowColor = this.colors.shadow;
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        // Draw invisible fill just for shadow
         ctx.beginPath();
-        ctx.moveTo(0, 0);  // Vertex O (bottom)
-        ctx.lineTo(-halfHyp, -height);  // Top-left
-        ctx.lineTo(halfHyp, -height);  // Top-right
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-halfHyp, -height);
+        ctx.lineTo(halfHyp, -height);
         ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.01)';
+        ctx.fill();
+        ctx.restore();
 
+        // ── Triangle outline (transparent body, just stroke) ──
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-halfHyp, -height);
+        ctx.lineTo(halfHyp, -height);
+        ctx.closePath();
         ctx.strokeStyle = this.isHighlighted ? this.colors.highlight : this.colors.stroke;
-        ctx.lineWidth = this.isHighlighted ? 4 : 3;
+        // Thin outline at all zooms; highlight slightly thicker but still light
+        ctx.lineWidth = this.isHighlighted ? this.cfg.strokeWidth * 2.5 : this.cfg.strokeWidth;
         ctx.stroke();
 
-        // Protractor arc radii (arcs removed; kept for tick mark positioning)
-        const arcCenterX = 0;
-        const arcCenterY = -height;
-        const outerRadius = this.scaleRadius;
-        const innerRadius = outerRadius - this.innerScaleOffset;
+        // Arc positioning
+        const arcCX = 0;
+        const arcCY = -height;
+        const outerR = this.scaleRadius;
+        const innerR = outerR - this.innerScaleOffset;
 
-        // Draw tick marks
-        this.drawTickMarks(ctx, arcCenterX, arcCenterY, outerRadius, innerRadius);
+        // ── Tick marks ──
+        this.drawTickMarks(ctx, arcCX, arcCY, outerR, innerR);
 
-        // Draw directional lines
+        // ── Directional lines ──
         this.drawDirectionalLines(ctx, halfHyp, height);
 
-        // Draw angle labels
-        this.drawLabels(ctx, arcCenterX, arcCenterY, outerRadius, innerRadius);
+        // ── Angle labels ──
+        this.drawLabels(ctx, arcCX, arcCY, outerR, innerR);
 
+        // ── Compass direction labels ──
+        this.drawCompassLabels(ctx, arcCX, arcCY, outerR, innerR);
 
-        // Draw triangle name and angle
-        ctx.fillStyle = this.colors.labelText;
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.name, 0, 24);
+        // ── Ruler scale along legs ──
+        this.drawRulerScale(ctx, halfHyp, height);
 
-        ctx.fillStyle = this.colors.innerScale;
-        ctx.font = 'bold 11px monospace';
+        // ── Name and angle readout ──
         const normalizedAngle = this.getRotation();
-        ctx.fillText(`${Math.round(normalizedAngle)}°`, 0, 38);
+        // Name
+        ctx.fillStyle = this.colors.labelText;
+        ctx.font = `bold ${this.cfg.nameFont}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(this.name, 0, this.cfg.nameFont * 2.2);
+        // Angle
+        ctx.fillStyle = this.colors.innerScale;
+        ctx.font = `${this.cfg.angleFont}px monospace`;
+        ctx.fillText(Math.round(normalizedAngle) + '\u00B0', 0, this.cfg.nameFont * 2.2 + this.cfg.angleFont * 1.4);
 
         ctx.restore();
     }
 
-    /**
-     * Draw tick marks for the protractor scale
-     */
-    drawTickMarks(ctx, centerX, centerY, outerRadius, innerRadius) {
-        // Outer scale ticks (0° - 180°)
+    drawTickMarks(ctx, cx, cy, outerR, innerR) {
+        const cfg = this.cfg;
+
+        // Outer scale (0-180, black)
         for (let deg = 0; deg <= 180; deg++) {
-            let tickLen;
-            if (deg % 10 === 0) {
-                tickLen = 16;
-            } else if (deg % 5 === 0) {
-                tickLen = 11;
-            } else {
-                tickLen = 6;
-            }
+            let tickLen, lw;
+            if (deg % 10 === 0) { tickLen = cfg.tickLong; lw = cfg.strokeWidth; }
+            else if (deg % 5 === 0) { tickLen = cfg.tickMedium; lw = cfg.thinStroke; }
+            else { tickLen = cfg.tickShort; lw = cfg.thinStroke; }
 
-            // Map scale degrees to SVG angles
-            // 0° scale -> 180° SVG (pointing left)
-            // 180° scale -> 0° SVG (pointing right)
-            const svgAngle = (180 - deg) * Math.PI / 180;
-
-            const outerX = centerX + outerRadius * Math.cos(svgAngle);
-            const outerY = centerY + outerRadius * Math.sin(svgAngle);
-            const innerX = centerX + (outerRadius + tickLen) * Math.cos(svgAngle);
-            const innerY = centerY + (outerRadius + tickLen) * Math.sin(svgAngle);
+            const a = (180 - deg) * Math.PI / 180;
+            const x1 = cx + outerR * Math.cos(a);
+            const y1 = cy + outerR * Math.sin(a);
+            const x2 = cx + (outerR + tickLen) * Math.cos(a);
+            const y2 = cy + (outerR + tickLen) * Math.sin(a);
 
             ctx.beginPath();
-            ctx.moveTo(outerX, outerY);
-            ctx.lineTo(innerX, innerY);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
             ctx.strokeStyle = this.colors.outerScale;
-            ctx.lineWidth = deg % 10 === 0 ? 2 : 1;
+            ctx.lineWidth = lw;
             ctx.stroke();
         }
 
-        // Inner scale ticks (180° - 360°)
+        // Inner scale (180-360, red)
         for (let deg = 180; deg <= 360; deg++) {
-            let tickLen;
-            if (deg % 10 === 0) {
-                tickLen = 14;
-            } else if (deg % 5 === 0) {
-                tickLen = 9;
-            } else {
-                tickLen = 5;
-            }
+            let tickLen, lw;
+            if (deg % 10 === 0) { tickLen = cfg.tickLong * 0.85; lw = cfg.strokeWidth; }
+            else if (deg % 5 === 0) { tickLen = cfg.tickMedium * 0.85; lw = cfg.thinStroke; }
+            else { tickLen = cfg.tickShort * 0.85; lw = cfg.thinStroke; }
 
-            const mappedDeg = deg - 180;
-            const svgAngle = (180 - mappedDeg) * Math.PI / 180;
-
-            const outerX = centerX + innerRadius * Math.cos(svgAngle);
-            const outerY = centerY + innerRadius * Math.sin(svgAngle);
-            const innerX = centerX + (innerRadius + tickLen) * Math.cos(svgAngle);
-            const innerY = centerY + (innerRadius + tickLen) * Math.sin(svgAngle);
+            const mapped = deg - 180;
+            const a = (180 - mapped) * Math.PI / 180;
+            const x1 = cx + innerR * Math.cos(a);
+            const y1 = cy + innerR * Math.sin(a);
+            const x2 = cx + (innerR + tickLen) * Math.cos(a);
+            const y2 = cy + (innerR + tickLen) * Math.sin(a);
 
             ctx.beginPath();
-            ctx.moveTo(outerX, outerY);
-            ctx.lineTo(innerX, innerY);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
             ctx.strokeStyle = this.colors.innerScale;
-            ctx.lineWidth = deg % 10 === 0 ? 1.8 : 0.9;
+            ctx.lineWidth = lw;
             ctx.stroke();
         }
     }
 
-    /**
-     * Draw directional lines
-     */
     drawDirectionalLines(ctx, halfHyp, height) {
+        // Main solid lines
         ctx.strokeStyle = this.colors.centerLine;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = this.cfg.strokeWidth;
+        ctx.setLineDash([]);
 
-        // Main vertical line (90° / 270°) - from vertex O to hypotenuse center
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, -height + 2);
-        ctx.stroke();
+        // Vertical (90/270)
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -height + 2); ctx.stroke();
+        // Left leg (0/360)
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-halfHyp + 3, -height + 3); ctx.stroke();
+        // Right leg (180)
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(halfHyp - 3, -height + 3); ctx.stroke();
 
-        // Line along left leg (0° / 360°)
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(-halfHyp + 3, -height + 3);
-        ctx.stroke();
-
-        // Line along right leg (180°)
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(halfHyp - 3, -height + 3);
-        ctx.stroke();
-
-        // Auxiliary lines (45° and 135°) - dashed
+        // Auxiliary dashed lines (45 and 135)
         ctx.strokeStyle = this.colors.directionLine;
-        ctx.setLineDash([5, 3]);
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = this.cfg.strokeWidth * 0.9;
+        ctx.setLineDash([4, 2]);
 
-        // 45° line from hypotenuse center to left leg
-        ctx.beginPath();
-        ctx.moveTo(0, -height + 2);
-        ctx.lineTo(-halfHyp / 2, -halfHyp / 2);
-        ctx.stroke();
-
-        // 135° line from hypotenuse center to right leg
-        ctx.beginPath();
-        ctx.moveTo(0, -height + 2);
-        ctx.lineTo(halfHyp / 2, -halfHyp / 2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -height + 2); ctx.lineTo(-halfHyp / 2, -halfHyp / 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -height + 2); ctx.lineTo(halfHyp / 2, -halfHyp / 2); ctx.stroke();
 
         ctx.setLineDash([]);
     }
 
-    /**
-     * Draw angle labels
-     */
-    drawLabels(ctx, centerX, centerY, outerRadius, innerRadius) {
-        const labelOffset = 24;
-        const innerLabelOffset = 20;
+    drawLabels(ctx, cx, cy, outerR, innerR) {
+        const cfg = this.cfg;
 
-        // Outer scale labels (0° - 180°) every 10°
+        // Outer labels (0-180) every 10 degrees
         ctx.fillStyle = this.colors.labelText;
-        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         for (let deg = 0; deg <= 180; deg += 10) {
-            const svgAngle = (180 - deg) * Math.PI / 180;
-            const labelRadius = outerRadius + labelOffset;
-            const x = centerX + labelRadius * Math.cos(svgAngle);
-            const y = centerY + labelRadius * Math.sin(svgAngle);
+            const a = (180 - deg) * Math.PI / 180;
+            const r = outerR + cfg.labelOffset;
+            const x = cx + r * Math.cos(a);
+            const y = cy + r * Math.sin(a);
 
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate((90 - deg) * Math.PI / 180);
+            ctx.font = `bold ${cfg.outerLabelFont}px Arial`;
+            ctx.fillStyle = this.colors.labelText;
             ctx.fillText(deg.toString(), 0, 0);
             ctx.restore();
         }
 
-        // Inner scale labels (180° - 360°) every 10°
-        ctx.fillStyle = this.colors.innerLabelText;
-        ctx.font = 'bold 11px Arial';
-
+        // Inner labels (180-360) every 10 degrees
         for (let deg = 180; deg <= 360; deg += 10) {
-            const mappedDeg = deg - 180;
-            const svgAngle = (180 - mappedDeg) * Math.PI / 180;
-            const labelRadius = innerRadius + innerLabelOffset;
-            const x = centerX + labelRadius * Math.cos(svgAngle);
-            const y = centerY + labelRadius * Math.sin(svgAngle);
+            const mapped = deg - 180;
+            const a = (180 - mapped) * Math.PI / 180;
+            const r = innerR + cfg.innerLabelOffset;
+            const x = cx + r * Math.cos(a);
+            const y = cy + r * Math.sin(a);
 
             ctx.save();
             ctx.translate(x, y);
-            ctx.rotate((90 - mappedDeg) * Math.PI / 180);
+            ctx.rotate((90 - mapped) * Math.PI / 180);
+            ctx.font = `bold ${cfg.innerLabelFont}px Arial`;
+            ctx.fillStyle = this.colors.innerLabelText;
             ctx.fillText(deg.toString(), 0, 0);
             ctx.restore();
         }
     }
+
+    drawCompassLabels(ctx, cx, cy, outerR, innerR) {
+        const cfg = this.cfg;
+        const outerLabelR = outerR + cfg.labelOffset + 20 * this.sizeFactor;
+        const innerLabelR = innerR + cfg.innerLabelOffset + 15 * this.sizeFactor;
+
+        // Outer compass points (0-180)
+        const outerPoints = [
+            [0, 'N'], [22.5, 'NNO'], [45, 'NO'], [67.5, 'ONO'],
+            [90, 'O'], [112.5, 'OSO'], [135, 'SO'], [157.5, 'SSO'], [180, 'S']
+        ];
+
+        ctx.font = `bold ${cfg.compassFont}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (const [deg, label] of outerPoints) {
+            const a = (180 - deg) * Math.PI / 180;
+            const x = cx + outerLabelR * Math.cos(a);
+            const y = cy + outerLabelR * Math.sin(a);
+            ctx.fillStyle = this.colors.compassLabel;
+            ctx.fillText(label, x, y);
+        }
+
+        // Inner compass points (180-360)
+        const innerPoints = [
+            [202.5, 'SSW'], [225, 'SW'], [247.5, 'WSW'],
+            [270, 'W'], [292.5, 'WNW'], [315, 'NW'], [337.5, 'NNW']
+        ];
+
+        for (const [deg, label] of innerPoints) {
+            const mapped = deg - 180;
+            const a = (180 - mapped) * Math.PI / 180;
+            const x = cx + innerLabelR * Math.cos(a);
+            const y = cy + innerLabelR * Math.sin(a);
+            ctx.fillStyle = this.colors.innerLabelText;
+            ctx.fillText(label, x, y);
+        }
+    }
+
+    drawRulerScale(ctx, halfHyp, height) {
+        const spacing = this.cfg.rulerSpacing;
+        const legLen = Math.sqrt(halfHyp * halfHyp + height * height);
+        const tickCount = Math.floor(legLen / spacing);
+
+        // Directions along each leg (normalised)
+        const leftDx = -halfHyp / legLen;
+        const leftDy = -height / legLen;
+        const rightDx = halfHyp / legLen;
+        const rightDy = -height / legLen;
+
+        // Perpendicular (inward) for tick direction
+        const leftPerpX = -leftDy;
+        const leftPerpY = leftDx;
+        const rightPerpX = rightDy;
+        const rightPerpY = -rightDx;
+
+        ctx.strokeStyle = this.colors.stroke;
+        ctx.fillStyle = this.colors.labelText;
+        ctx.font = `${this.cfg.rulerFont}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let i = 0; i <= tickCount; i++) {
+            const t = i * spacing;
+            const isMajor = i % 5 === 0;
+            const tickLen = (isMajor ? 12 : 6) * this.sizeFactor;
+            const lw = isMajor ? this.cfg.strokeWidth : this.cfg.thinStroke;
+
+            // Left leg
+            const lx = leftDx * t;
+            const ly = leftDy * t;
+            ctx.beginPath();
+            ctx.moveTo(lx, ly);
+            ctx.lineTo(lx + leftPerpX * tickLen, ly + leftPerpY * tickLen);
+            ctx.lineWidth = lw;
+            ctx.stroke();
+
+            // Right leg
+            const rx = rightDx * t;
+            const ry = rightDy * t;
+            ctx.beginPath();
+            ctx.moveTo(rx, ry);
+            ctx.lineTo(rx + rightPerpX * tickLen, ry + rightPerpY * tickLen);
+            ctx.lineWidth = lw;
+            ctx.stroke();
+
+            // Labels on major ticks
+            if (isMajor && i > 0) {
+                const labelDist = tickLen + 6 * this.sizeFactor;
+                ctx.fillText(i.toString(),
+                    lx + leftPerpX * labelDist,
+                    ly + leftPerpY * labelDist);
+                ctx.fillText(i.toString(),
+                    rx + rightPerpX * labelDist,
+                    ry + rightPerpY * labelDist);
+            }
+        }
+    }
 }
+
 
 /**
  * Manager for multiple canvas-based plotting triangles
@@ -403,17 +442,13 @@ class NauticalTriangleManager {
     constructor() {
         this.triangles = new Map();
         this.activeTriangle = null;
-        this.selectedTriangle = null;  // persists after mouseup for arrow-key movement
+        this.selectedTriangle = null;
         this.zKeyPressed = false;
-        this.onPositionChange = null;  // callback() to trigger canvas redraw
+        this.onPositionChange = null;
 
-        // Track keyboard state
         this.setupKeyboardListeners();
     }
 
-    /**
-     * Setup keyboard listeners for Z key (rotation) and arrow keys (movement)
-     */
     setupKeyboardListeners() {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'z' || e.key === 'Z') {
@@ -439,62 +474,35 @@ class NauticalTriangleManager {
             }
         });
 
-        // Also handle blur to reset state
         window.addEventListener('blur', () => {
             this.zKeyPressed = false;
         });
     }
 
-    /**
-     * Create a triangle
-     */
-    createTriangle(id, name, x, y, size = 300) {
+    createTriangle(id, name, x, y, size = 340) {
         const triangle = new CanvasPlottingTriangle(id, name, size);
         triangle.setPosition(x, y);
         this.triangles.set(id, triangle);
         return triangle;
     }
 
-    /**
-     * Create a standard pair of triangles
-     */
-    createStandardPair(canvasWidth, canvasHeight, size = 300) {
-        const trianglePort = this.createTriangle(
-            'port',
-            'Port',
-            canvasWidth * 0.35,
-            canvasHeight * 0.55,
-            size
-        );
-
-        const triangleStarboard = this.createTriangle(
-            'starboard',
-            'Starboard',
-            canvasWidth * 0.65,
-            canvasHeight * 0.55,
-            size
-        );
-
-        return { port: trianglePort, starboard: triangleStarboard };
+    createStandardPair(canvasWidth, canvasHeight, size = 340) {
+        const port = this.createTriangle('port', 'Port', canvasWidth * 0.35, canvasHeight * 0.55, size);
+        const starboard = this.createTriangle('starboard', 'Starboard', canvasWidth * 0.65, canvasHeight * 0.55, size);
+        return { port, starboard };
     }
 
-    /**
-     * Handle mouse down
-     */
     handleMouseDown(x, y) {
         const isRotateMode = this.zKeyPressed;
 
-        // Find which triangle was clicked
         for (const [id, triangle] of this.triangles) {
             if (triangle.containsPoint(x, y)) {
-                // Clean up any previous interaction
                 if (this.activeTriangle) {
                     this.activeTriangle.stopDrag();
                     this.activeTriangle.stopRotation();
                     this.activeTriangle.setHighlight(false);
                 }
 
-                // Reset flags
                 triangle.isDragging = false;
                 triangle.isRotating = false;
 
@@ -510,28 +518,19 @@ class NauticalTriangleManager {
                 return true;
             }
         }
-
         return false;
     }
 
-    /**
-     * Handle mouse move
-     */
     handleMouseMove(x, y) {
         if (!this.activeTriangle) return false;
-
         if (this.activeTriangle.isRotating) {
             return this.activeTriangle.updateRotationByMouse(x, y);
         } else if (this.activeTriangle.isDragging) {
             return this.activeTriangle.updateDrag(x, y);
         }
-
         return false;
     }
 
-    /**
-     * Handle mouse up
-     */
     handleMouseUp() {
         if (this.activeTriangle) {
             this.activeTriangle.stopDrag();
@@ -543,9 +542,6 @@ class NauticalTriangleManager {
         return false;
     }
 
-    /**
-     * Update cursor based on position
-     */
     updateCursor(x, y) {
         for (const [id, triangle] of this.triangles) {
             if (triangle.containsPoint(x, y)) {
@@ -555,18 +551,12 @@ class NauticalTriangleManager {
         return 'default';
     }
 
-    /**
-     * Draw all triangles
-     */
     drawAll(ctx) {
         for (const [id, triangle] of this.triangles) {
             triangle.draw(ctx);
         }
     }
 
-    /**
-     * Get rotation angles
-     */
     getRotationAngles() {
         const angles = {};
         for (const [id, triangle] of this.triangles) {
@@ -575,32 +565,18 @@ class NauticalTriangleManager {
         return angles;
     }
 
-    /**
-     * Get triangle by ID
-     */
-    getTriangle(id) {
-        return this.triangles.get(id);
-    }
+    getTriangle(id) { return this.triangles.get(id); }
 
-    /**
-     * Set triangle rotation
-     */
     setTriangleRotation(id, degrees) {
         const triangle = this.triangles.get(id);
-        if (triangle) {
-            triangle.setRotation(degrees);
-        }
+        if (triangle) triangle.setRotation(degrees);
     }
 
-    /**
-     * Remove all triangles
-     */
     removeAll() {
         this.triangles.clear();
         this.activeTriangle = null;
     }
 }
 
-// Export globally
 window.CanvasPlottingTriangle = CanvasPlottingTriangle;
 window.NauticalTriangleManager = NauticalTriangleManager;

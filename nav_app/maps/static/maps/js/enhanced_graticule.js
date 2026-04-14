@@ -824,13 +824,13 @@ class EnhancedGraticuleSystem {
                 this.geometryManager.drawAll(this.ctx);
             }
 
+            // Draw nautical triangles (inside zoom/pan so they scale with the map)
+            if (this.trianglesVisible && this.triangleManager) {
+                this.triangleManager.drawAll(this.ctx);
+            }
+
             // Restore context state
             this.ctx.restore();
-        }
-
-        // Draw nautical triangles in screen coordinates (unaffected by zoom/pan)
-        if (this.trianglesVisible && this.triangleManager) {
-            this.triangleManager.drawAll(this.ctx);
         }
 
         // Draw zoom indicator (not affected by zoom transform)

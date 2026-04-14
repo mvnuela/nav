@@ -9,7 +9,10 @@
 EnhancedGraticuleSystem.prototype.initTriangles = function() {
     if (!this.triangleManager) {
         this.triangleManager = new NauticalTriangleManager();
-        const triangleSize = Math.min(this.canvas.width, this.canvas.height) * 0.25;
+        // Larger default so degree scale is legible out of the box, but cap
+        // so both triangles still fit side-by-side on small canvases.
+        const baseline = Math.min(this.canvas.width, this.canvas.height) * 0.38;
+        const triangleSize = Math.max(500, Math.min(baseline, 1000));
         this.triangleManager.createStandardPair(
             this.canvas.width,
             this.canvas.height,
@@ -48,6 +51,26 @@ EnhancedGraticuleSystem.prototype.getTriangleAngles = function() {
         return this.triangleManager.getRotationAngles();
     }
     return null;
+};
+
+EnhancedGraticuleSystem.prototype.resizeTriangles = function(newSize) {
+    if (!this.triangleManager) return;
+
+    // Recreate each triangle at same position/rotation but with new size
+    const entries = [];
+    for (const [id, tri] of this.triangleManager.triangles) {
+        entries.push({ id, name: tri.name, x: tri.x, y: tri.y, rotation: tri.rotation });
+    }
+
+    this.triangleManager.removeAll();
+
+    for (const e of entries) {
+        const tri = this.triangleManager.createTriangle(e.id, e.name, e.x, e.y, newSize);
+        tri.setRotation(e.rotation);
+    }
+
+    this.triangleManager.onPositionChange = () => this.render();
+    this.render();
 };
 
 // ——— Nautical Divider ———

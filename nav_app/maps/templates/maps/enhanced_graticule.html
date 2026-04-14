@@ -49,6 +49,7 @@
         .container {
             display: flex;
             height: calc(100vh - 60px);
+            position: relative;
         }
 
         .sidebar {
@@ -57,6 +58,47 @@
             padding: 20px;
             overflow-y: auto;
             box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+            transition: width 0.25s ease, padding 0.25s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            padding-left: 0;
+            padding-right: 0;
+            overflow: hidden;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            top: 12px;
+            left: 350px;
+            transform: translateX(-100%);
+            z-index: 1001;
+            background: #0078A8;
+            color: white;
+            border: none;
+            border-radius: 0 6px 6px 0;
+            width: 24px;
+            height: 48px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
+            transition: left 0.25s ease, transform 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .sidebar-toggle.collapsed {
+            left: 0;
+            transform: translateX(0);
+            border-radius: 0 6px 6px 0;
+        }
+
+        .sidebar-toggle:hover {
+            background: #005F87;
         }
 
         .panel {
@@ -291,7 +333,8 @@
     </div>
 
     <div class="container">
-        <div class="sidebar">
+        <button id="sidebarToggle" class="sidebar-toggle" title="Hide / show side panel" aria-label="Toggle side panel">◀</button>
+        <div class="sidebar" id="sidebar">
             <div class="panel">
                 <h3>📁 1. Upload Map Image</h3>
                 <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg,application/pdf,.pdf">
@@ -437,6 +480,16 @@
                     <strong>Current Angles:</strong>
                     <div id="portAngle" style="margin-top:5px;">Port: 0°</div>
                     <div id="starboardAngle" style="margin-top:5px;">Starboard: 0°</div>
+                </div>
+
+                <div id="triangleSizeControl" style="display:none; background:#fafafa; border:1px solid #ddd; border-radius:4px; padding:10px; margin-top:10px;">
+                    <label style="font-size:0.85em; font-weight:bold; display:block; margin-bottom:6px;">Triangle Size:</label>
+                    <input type="range" id="triangleSizeSlider" min="250" max="1800" step="10" value="1000" style="width:100%;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.75em; color:#666; margin-top:2px;">
+                        <span>Small</span>
+                        <span id="triangleSizeValue">1000px</span>
+                        <span>Large (300%+)</span>
+                    </div>
                 </div>
             </div>
             
@@ -840,6 +893,7 @@
             document.getElementById('viewModeBtn').addEventListener('click', () => setMode('view'));
             document.getElementById('courseModeBtn').addEventListener('click', () => setMode('course'));
             document.getElementById('toggleTrianglesBtn').addEventListener('click', toggleTriangles);
+            document.getElementById('triangleSizeSlider').addEventListener('input', resizeTriangles);
             document.getElementById('toggleDividerBtn').addEventListener('click', toggleDivider);
             document.getElementById('addDividerBtn').addEventListener('click', addDivider);
             document.getElementById('deleteDividerBtn').addEventListener('click', deleteSelectedDivider);
@@ -1221,13 +1275,15 @@
             const btn = document.getElementById('toggleTrianglesBtn');
             const info = document.getElementById('trianglesInfo');
             const angles = document.getElementById('triangleAngles');
-            
+            const sizeCtrl = document.getElementById('triangleSizeControl');
+
             if (isVisible) {
                 btn.textContent = 'Hide Triangles';
                 btn.classList.remove('btn-primary');
                 btn.classList.add('btn-secondary');
                 info.style.display = 'block';
                 angles.style.display = 'block';
+                sizeCtrl.style.display = 'block';
                 updateTriangleAngles();
             } else {
                 btn.textContent = 'Show Triangles';
@@ -1235,7 +1291,16 @@
                 btn.classList.add('btn-primary');
                 info.style.display = 'none';
                 angles.style.display = 'none';
+                sizeCtrl.style.display = 'none';
             }
+        }
+
+        function resizeTriangles() {
+            const slider = document.getElementById('triangleSizeSlider');
+            const label = document.getElementById('triangleSizeValue');
+            const newSize = parseInt(slider.value);
+            label.textContent = newSize + 'px';
+            graticuleSystem.resizeTriangles(newSize);
         }
         
         function updateTriangleAngles() {
@@ -2120,11 +2185,44 @@
             a.click();
         }
 
+        // Sidebar collapse toggle — frees up horizontal space for the map
+        function initSidebarToggle() {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            if (!sidebar || !toggle) return;
+
+            function syncToggleOffset() {
+                if (sidebar.classList.contains('collapsed')) {
+                    toggle.style.left = '0px';
+                } else {
+                    toggle.style.left = sidebar.offsetWidth + 'px';
+                }
+            }
+
+            toggle.addEventListener('click', function() {
+                const collapsed = sidebar.classList.toggle('collapsed');
+                toggle.classList.toggle('collapsed', collapsed);
+                toggle.textContent = collapsed ? '▶' : '◀';
+                toggle.title = collapsed ? 'Show side panel' : 'Hide side panel';
+                // Let the sidebar finish its width transition before repositioning
+                setTimeout(syncToggleOffset, 260);
+                // Let the canvas/map pick up the new viewport size
+                window.dispatchEvent(new Event('resize'));
+            });
+
+            window.addEventListener('resize', syncToggleOffset);
+            syncToggleOffset();
+        }
+
         // Initialize when DOM is ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
+            document.addEventListener('DOMContentLoaded', function() {
+                init();
+                initSidebarToggle();
+            });
         } else {
             init();
+            initSidebarToggle();
         }
     </script>
 </body>

@@ -26,6 +26,7 @@ class NauticalDivider {
         
         // Visual state
         this.isSelected = false;
+        this.isHovered = false;
         this.isDragging = false;
         this.isRotating = false;
         this.dragType = null; // 'center', 'pointA', 'pointB', 'rotate'
@@ -265,17 +266,16 @@ class NauticalDivider {
         ctx.lineTo(screenB.x, screenB.y);
         ctx.stroke();
         
+        // Always draw endpoint markers as hollow crosshair rings so the exact
+        // pixel stays visible against the latitude scale
+        this.drawEndpointMarker(ctx, screenA.x, screenA.y, this.style.handleColor);
+        this.drawEndpointMarker(ctx, screenB.x, screenB.y, this.style.handleColor);
+
         // Draw handles when selected
         if (this.isSelected) {
-            // Point A handle
-            this.drawHandle(ctx, screenA.x, screenA.y, this.handleRadius, this.style.handleColor);
-            
-            // Point B handle
-            this.drawHandle(ctx, screenB.x, screenB.y, this.handleRadius, this.style.handleColor);
-            
             // Center handle (larger, different color)
             this.drawHandle(ctx, screenCenter.x, screenCenter.y, this.centerHandleRadius, this.style.centerColor);
-            
+
             // Rotation handle (perpendicular to divider, at pointA pivot)
             const bearing = this.calculateBearing(this.pointA, this.pointB);
             const rotateAngle = (bearing - 90) * Math.PI / 180;
@@ -290,14 +290,54 @@ class NauticalDivider {
             ctx.moveTo(screenA.x, screenA.y);
             ctx.lineTo(rotateX, rotateY);
             ctx.stroke();
-            
+
             // Draw rotate handle
             this.drawHandle(ctx, rotateX, rotateY, this.handleRadius, this.style.rotateHandleColor);
-            
-            // Draw distance label
+        }
+
+        // Distance label appears on hover (or during drag)
+        if (this.isHovered || this.isDragging) {
             this.drawLabel(ctx, screenCenter.x, screenCenter.y);
         }
-        
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw an endpoint as a hollow ring with a crosshair — keeps the
+     * underlying chart pixel visible for precise alignment with the scale.
+     */
+    drawEndpointMarker(ctx, x, y, color) {
+        const r = this.handleRadius;
+
+        ctx.save();
+        ctx.setLineDash([]);
+
+        // White halo so the ring stays readable on dark chart areas
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Colored ring (no fill so the chart shows through)
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Crosshair through the center so the exact point is identifiable
+        const tick = r + 3;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - tick, y);
+        ctx.lineTo(x + tick, y);
+        ctx.moveTo(x, y - tick);
+        ctx.lineTo(x, y + tick);
+        ctx.stroke();
+
         ctx.restore();
     }
     
@@ -553,22 +593,39 @@ class NauticalDividerManager {
      */
     updateCursor(screenX, screenY) {
         if (this.placementMode) {
+            this.dividers.forEach(d => d.isHovered = false);
             return 'crosshair';
         }
-        
+
         if (this.isDragging && this.selectedDivider) {
             return this.selectedDivider.getCursor(this.selectedDivider.dragType);
         }
-        
-        // Check hover over dividers
+
+        // Check hover over dividers and update hover state for label visibility
+        let hoveredCursor = 'default';
+        let anyHovered = false;
         for (const divider of this.dividers) {
             const handleType = divider.hitTest(screenX, screenY);
-            if (handleType) {
-                return divider.getCursor(handleType);
+            const nowHovered = handleType !== null;
+            if (nowHovered && !anyHovered) {
+                hoveredCursor = divider.getCursor(handleType);
+                divider.isHovered = true;
+                anyHovered = true;
+            } else {
+                divider.isHovered = false;
             }
         }
-        
-        return 'default';
+        return hoveredCursor;
+    }
+
+    /**
+     * Returns true when hover state changed since last check
+     */
+    hoverStateChanged() {
+        const snapshot = this.dividers.map(d => d.isHovered).join(',');
+        const changed = snapshot !== this._lastHoverSnapshot;
+        this._lastHoverSnapshot = snapshot;
+        return changed;
     }
     
     /**

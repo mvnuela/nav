@@ -42,12 +42,6 @@
         if (typeof initCoursePlotter === 'function') {
             initCoursePlotter(map);
         }
-        if (typeof initDeadReckoning === 'function') {
-            initDeadReckoning(map);
-        }
-        if (typeof initMaritimeObjects === 'function') {
-            initMaritimeObjects(map);
-        }
         if (typeof initNauticalTriangles === 'function') {
             initNauticalTriangles(map);
         }
@@ -62,6 +56,12 @@
         }
         if (typeof initGeometry === 'function') {
             initGeometry(map);
+        }
+        if (typeof initNauticalLatitudeScale === 'function') {
+            initNauticalLatitudeScale(map);
+        }
+        if (typeof initMagneticDeclination === 'function') {
+            initMagneticDeclination(map);
         }
 
         console.log('✓ Nautical map initialized successfully');

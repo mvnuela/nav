@@ -1,0 +1,307 @@
+/**
+ * Nautical Latitude Scale (Vertical)
+ *
+ * Classic nautical chart latitude scale placed on the LEFT side of the map.
+ * 1 minute of latitude = 1 nautical mile (NM).
+ * Users can transfer distances from the map to this scale using dividers.
+ *
+ * Uses Leaflet's built-in projection (latLngToContainerPoint) for Mercator-correct positioning.
+ */
+
+(function() {
+    'use strict';
+
+    var map = null;
+    var svgContainer = null;
+    var svgNS = 'http://www.w3.org/2000/svg';
+
+    // Layout constants
+    var SCALE_WIDTH = 60;
+    var LEFT_OFFSET = 14;
+    var MAJOR_TICK_LEN = 30;
+    var MEDIUM_TICK_LEN = 20;
+    var MINOR_TICK_LEN = 10;
+
+    // Alternating band width (for the classic black/white minute blocks)
+    var BAND_WIDTH = 8;
+
+    /**
+     * Determine which tick levels to show based on zoom.
+     * Returns { minor: minutes, medium: minutes, major: minutes, showBands: bool }
+     */
+    function getTickConfig(zoom) {
+        if (zoom >= 13) {
+            // Very high zoom: show every 1' tick, bands per 1'
+            return { minor: 1, medium: 10, major: 60, showBands: true, bandMinutes: 1 };
+        } else if (zoom >= 11) {
+            // High zoom: show 1' ticks, 10' medium, 1 degree major
+            return { minor: 1, medium: 10, major: 60, showBands: true, bandMinutes: 1 };
+        } else if (zoom >= 9) {
+            // Medium-high zoom: 2' minor, 10' medium, 1 degree major
+            return { minor: 2, medium: 10, major: 60, showBands: true, bandMinutes: 2 };
+        } else if (zoom >= 7) {
+            // Medium zoom: 10' minor, 30' medium, 1 degree major
+            return { minor: 10, medium: 30, major: 60, showBands: true, bandMinutes: 10 };
+        } else if (zoom >= 5) {
+            // Low-medium zoom: 30' minor, 1 degree medium, 5 degree major
+            return { minor: 30, medium: 60, major: 300, showBands: true, bandMinutes: 30 };
+        } else if (zoom >= 3) {
+            // Low zoom: 1 degree minor, 5 degree medium, 10 degree major
+            return { minor: 60, medium: 300, major: 600, showBands: false, bandMinutes: 60 };
+        } else {
+            // Very low zoom: 5 degree only
+            return { minor: 300, medium: 600, major: 1800, showBands: false, bandMinutes: 300 };
+        }
+    }
+
+    /**
+     * Format latitude for label display.
+     * minutesTotal: total minutes from equator (can be negative)
+     */
+    function formatLatLabel(minutesTotal) {
+        var absMin = Math.abs(minutesTotal);
+        var deg = Math.floor(absMin / 60);
+        var min = absMin % 60;
+        var hemisphere = minutesTotal >= 0 ? 'N' : 'S';
+
+        if (min === 0) {
+            return deg + '\u00B0' + hemisphere;
+        }
+        return deg + '\u00B0' + min + '\u2032' + hemisphere;
+    }
+
+    /**
+     * Check pixel density: skip individual 1' ticks if they'd be < minPx apart
+     */
+    function shouldSkipMinor(map, lat, config) {
+        if (config.minor > 1) return false;
+        var lon = map.getBounds().getWest();
+        var p1 = map.latLngToContainerPoint([lat, lon]);
+        var p2 = map.latLngToContainerPoint([lat + 1 / 60, lon]);
+        return Math.abs(p2.y - p1.y) < 3;
+    }
+
+    /**
+     * Build and render the full scale into the SVG.
+     */
+    function drawScale() {
+        if (!map || !svgContainer) return;
+
+        // Clear previous content
+        while (svgContainer.firstChild) {
+            svgContainer.removeChild(svgContainer.firstChild);
+        }
+
+        var size = map.getSize();
+        var mapH = size.y;
+        svgContainer.setAttribute('height', mapH);
+
+        var bounds = map.getBounds();
+        var zoom = map.getZoom();
+        var config = getTickConfig(zoom);
+
+        // Reference longitude: left edge of map
+        var refLon = bounds.getWest();
+
+        // Latitude range in total arc-minutes
+        var southMin = Math.floor(bounds.getSouth() * 60);
+        var northMin = Math.ceil(bounds.getNorth() * 60);
+
+        // Clamp to valid latitude range
+        southMin = Math.max(southMin, -90 * 60);
+        northMin = Math.min(northMin, 90 * 60);
+
+        // Snap to minor interval
+        var startMin = Math.floor(southMin / config.minor) * config.minor;
+        var endMin = Math.ceil(northMin / config.minor) * config.minor;
+
+        // Safety: limit total ticks to avoid perf issues
+        var totalTicks = (endMin - startMin) / config.minor;
+        if (totalTicks > 2000) {
+            // Fallback: increase minor interval
+            config.minor = Math.ceil((endMin - startMin) / 2000);
+            startMin = Math.floor(southMin / config.minor) * config.minor;
+            endMin = Math.ceil(northMin / config.minor) * config.minor;
+        }
+
+        // The x position of the right border (ticks grow leftward from here)
+        var scaleX = SCALE_WIDTH;
+
+        // Draw background strip
+        var bg = document.createElementNS(svgNS, 'rect');
+        bg.setAttribute('x', 0);
+        bg.setAttribute('y', 0);
+        bg.setAttribute('width', SCALE_WIDTH);
+        bg.setAttribute('height', mapH);
+        bg.setAttribute('fill', 'rgba(255,255,255,0.85)');
+        svgContainer.appendChild(bg);
+
+        // Draw border line on right side of scale
+        var borderLine = document.createElementNS(svgNS, 'line');
+        borderLine.setAttribute('x1', scaleX);
+        borderLine.setAttribute('y1', 0);
+        borderLine.setAttribute('x2', scaleX);
+        borderLine.setAttribute('y2', mapH);
+        borderLine.setAttribute('stroke', '#333');
+        borderLine.setAttribute('stroke-width', '1.5');
+        svgContainer.appendChild(borderLine);
+
+        // Draw alternating black/white bands (classic nautical chart style)
+        if (config.showBands) {
+            drawBands(refLon, startMin, endMin, config, scaleX, mapH);
+        }
+
+        // Draw ticks and labels
+        for (var m = startMin; m <= endMin; m += config.minor) {
+            var lat = m / 60;
+            var pt = map.latLngToContainerPoint([lat, refLon]);
+            var y = pt.y;
+
+            // Skip if outside viewport
+            if (y < -10 || y > mapH + 10) continue;
+
+            var tickLen;
+            var strokeWidth;
+            var showLabel = false;
+
+            if (m % config.major === 0) {
+                // Major tick (degree boundary)
+                tickLen = MAJOR_TICK_LEN;
+                strokeWidth = 2;
+                showLabel = true;
+            } else if (m % config.medium === 0) {
+                // Medium tick
+                tickLen = MEDIUM_TICK_LEN;
+                strokeWidth = 1.5;
+                // Show label for medium ticks at higher zooms
+                if (zoom >= 9) showLabel = true;
+            } else {
+                // Minor tick
+                tickLen = MINOR_TICK_LEN;
+                strokeWidth = 0.8;
+            }
+
+            // Draw tick mark (from right border leftward)
+            var tick = document.createElementNS(svgNS, 'line');
+            tick.setAttribute('x1', scaleX);
+            tick.setAttribute('y1', y);
+            tick.setAttribute('x2', scaleX - tickLen);
+            tick.setAttribute('y2', y);
+            tick.setAttribute('stroke', '#333');
+            tick.setAttribute('stroke-width', strokeWidth);
+            svgContainer.appendChild(tick);
+
+            // Draw label
+            if (showLabel) {
+                var label = document.createElementNS(svgNS, 'text');
+                label.setAttribute('x', scaleX - tickLen - 3);
+                label.setAttribute('y', y + 4);
+                label.setAttribute('text-anchor', 'end');
+                label.setAttribute('font-size', m % config.major === 0 ? '11' : '9');
+                label.setAttribute('font-family', 'Arial, sans-serif');
+                label.setAttribute('font-weight', m % config.major === 0 ? 'bold' : 'normal');
+                label.setAttribute('fill', '#222');
+                label.textContent = formatLatLabel(m);
+                svgContainer.appendChild(label);
+            }
+        }
+
+        // Draw "NM" title at top
+        var title = document.createElementNS(svgNS, 'text');
+        title.setAttribute('x', SCALE_WIDTH / 2);
+        title.setAttribute('y', 14);
+        title.setAttribute('text-anchor', 'middle');
+        title.setAttribute('font-size', '10');
+        title.setAttribute('font-family', 'Arial, sans-serif');
+        title.setAttribute('font-weight', 'bold');
+        title.setAttribute('fill', '#0078A8');
+        title.textContent = 'LAT / NM';
+        svgContainer.appendChild(title);
+    }
+
+    /**
+     * Draw alternating black/white bands between minor tick intervals
+     * (classic nautical chart pattern for easy divider reading).
+     */
+    function drawBands(refLon, startMin, endMin, config, scaleX, mapH) {
+        var bandMin = config.bandMinutes;
+        var bandStart = Math.floor(startMin / bandMin) * bandMin;
+        var toggle = ((bandStart / bandMin) % 2 === 0);
+
+        for (var m = bandStart; m < endMin; m += bandMin) {
+            var lat1 = m / 60;
+            var lat2 = (m + bandMin) / 60;
+
+            var p1 = map.latLngToContainerPoint([lat1, refLon]);
+            var p2 = map.latLngToContainerPoint([lat2, refLon]);
+
+            var y1 = Math.min(p1.y, p2.y);
+            var y2 = Math.max(p1.y, p2.y);
+            var h = y2 - y1;
+
+            // Clip to viewport
+            if (y2 < 0 || y1 > mapH) {
+                toggle = !toggle;
+                continue;
+            }
+
+            var clippedY = Math.max(y1, 0);
+            var clippedH = Math.min(y2, mapH) - clippedY;
+
+            if (clippedH > 0) {
+                var band = document.createElementNS(svgNS, 'rect');
+                band.setAttribute('x', scaleX - BAND_WIDTH - 1);
+                band.setAttribute('y', clippedY);
+                band.setAttribute('width', BAND_WIDTH);
+                band.setAttribute('height', clippedH);
+                band.setAttribute('fill', toggle ? '#333' : '#fff');
+                band.setAttribute('stroke', '#333');
+                band.setAttribute('stroke-width', '0.5');
+                svgContainer.appendChild(band);
+            }
+
+            toggle = !toggle;
+        }
+    }
+
+    /**
+     * Create the SVG container and attach it to the map.
+     */
+    function createContainer() {
+        var mapContainer = map.getContainer();
+        var size = map.getSize();
+
+        svgContainer = document.createElementNS(svgNS, 'svg');
+        svgContainer.setAttribute('width', SCALE_WIDTH);
+        svgContainer.setAttribute('height', size.y);
+        svgContainer.style.position = 'absolute';
+        svgContainer.style.top = '0';
+        svgContainer.style.left = LEFT_OFFSET + 'px';
+        svgContainer.style.zIndex = '800';
+        svgContainer.style.pointerEvents = 'none';
+        svgContainer.style.overflow = 'hidden';
+
+        mapContainer.appendChild(svgContainer);
+    }
+
+    /**
+     * Global initialization function (called from main_map.js).
+     */
+    window.initNauticalLatitudeScale = function(leafletMap) {
+        map = leafletMap;
+
+        createContainer();
+        drawScale();
+
+        map.on('moveend', drawScale);
+        map.on('zoomend', drawScale);
+        map.on('resize', function() {
+            var size = map.getSize();
+            svgContainer.setAttribute('height', size.y);
+            drawScale();
+        });
+
+        console.log('Nautical latitude scale initialized');
+    };
+
+})();

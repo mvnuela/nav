@@ -273,35 +273,56 @@
             });
         }
 
-        // Scale slider - recreates triangles with new size
+        // Scale slider - recreates triangles with new size while preserving
+        // their on-screen pivot (hypotenuse midpoint) so they stay put
         if (scaleSlider && scaleValue) {
             scaleSlider.addEventListener('input', function() {
                 const scale = parseFloat(this.value);
                 scaleValue.textContent = Math.round(scale * 100) + '%';
 
                 if (triangleManager && trianglesVisible) {
-                    // Store current rotations and positions
+                    // Base hypotenuse/2 from PlottingTriangle config — scaled height
+                    const BASE_HEIGHT = 170;
+                    const newHeight = BASE_HEIGHT * scale;
+
+                    // Snapshot current pivot (x, y - scaled height) so it stays fixed
                     const triangleA = triangleManager.getTriangle('triangleA');
                     const triangleB = triangleManager.getTriangle('triangleB');
 
-                    const stateA = triangleA ? { x: triangleA.x, y: triangleA.y, rotation: triangleA.rotation } : null;
-                    const stateB = triangleB ? { x: triangleB.x, y: triangleB.y, rotation: triangleB.rotation } : null;
+                    const stateA = triangleA
+                        ? {
+                            pivotX: triangleA.x,
+                            pivotY: triangleA.y - BASE_HEIGHT * triangleA.scale,
+                            rotation: triangleA.rotation
+                        }
+                        : null;
+                    const stateB = triangleB
+                        ? {
+                            pivotX: triangleB.x,
+                            pivotY: triangleB.y - BASE_HEIGHT * triangleB.scale,
+                            rotation: triangleB.rotation
+                        }
+                        : null;
 
-                    // Remove existing triangles
                     triangleManager.removeAll();
 
-                    // Recreate with new scale
                     const size = map.getSize();
 
                     if (stateA) {
-                        const newA = triangleManager.createTriangle('triangleA', 'Triangle A', stateA.x, stateA.y, scale);
+                        const newA = triangleManager.createTriangle(
+                            'triangleA', 'Triangle A',
+                            stateA.pivotX, stateA.pivotY + newHeight, scale
+                        );
                         newA.setRotation(stateA.rotation);
                     } else {
                         triangleManager.createTriangle('triangleA', 'Triangle A', size.x * 0.35, size.y * 0.55, scale);
                     }
 
                     if (stateB) {
-                        const newB = triangleManager.createTriangle('triangleB', 'Triangle B', stateB.x, stateB.y, scale);
+                        const newB = triangleManager.createTriangle(
+                            'triangleB', 'Triangle B',
+                            stateB.pivotX, stateB.pivotY + newHeight, scale
+                        );
                         newB.setRotation(stateB.rotation);
                     } else {
                         triangleManager.createTriangle('triangleB', 'Triangle B', size.x * 0.65, size.y * 0.55, scale);

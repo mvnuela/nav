@@ -238,7 +238,7 @@
             const handled = dividerManager.handleMouseMove(x, y);
             const cursor = dividerManager.updateCursor(x, y);
             dividerCanvas.style.cursor = cursor;
-            
+
             if (handled) {
                 renderDividers();
                 updateDividerInfo();
@@ -246,6 +246,8 @@
                 e.stopPropagation();
             } else if (dividerManager.placementMode) {
                 renderDividers(); // Render preview
+            } else if (dividerManager.hoverStateChanged()) {
+                renderDividers(); // Toggle distance label on hover
             }
         });
         
@@ -266,6 +268,7 @@
         dividerCanvas.addEventListener('mouseleave', function(e) {
             if (!dividersVisible || !dividerManager) return;
             dividerManager.handleMouseUp();
+            dividerManager.dividers.forEach(d => d.isHovered = false);
             enableMapInteractions();
             renderDividers();
         });
