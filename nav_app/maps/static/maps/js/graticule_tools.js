@@ -316,6 +316,28 @@ EnhancedGraticuleSystem.prototype.deleteSelectedObservedPosition = function() {
     return false;
 };
 
+EnhancedGraticuleSystem.prototype.deleteObservedPositionById = function(id) {
+    if (this.observedPositionManager) {
+        const deleted = this.observedPositionManager.deleteById(id);
+        if (deleted) {
+            this.render();
+        }
+        return deleted;
+    }
+    return false;
+};
+
+EnhancedGraticuleSystem.prototype.setObservedPositionDescription = function(id, description) {
+    if (this.observedPositionManager) {
+        const ok = this.observedPositionManager.setDescription(id, description);
+        if (ok) {
+            this.render();
+        }
+        return ok;
+    }
+    return false;
+};
+
 EnhancedGraticuleSystem.prototype.clearAllObservedPositions = function() {
     if (this.observedPositionManager) {
         this.observedPositionManager.clearAll();

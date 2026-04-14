@@ -1571,6 +1571,24 @@
             }
         }
 
+        function deleteObservedPositionById(id) {
+            const deleted = graticuleSystem.deleteObservedPositionById(id);
+            if (deleted) {
+                updateObservedPositionUI();
+            }
+        }
+
+        function saveObservedPositionDescription(id) {
+            const numEl = document.getElementById('obsPosNum-' + id);
+            const denEl = document.getElementById('obsPosDen-' + id);
+            if (!numEl || !denEl) return;
+            const num = (numEl.value || '').trim();
+            const den = (denEl.value || '').trim();
+            const fraction = (num || den) ? `${num}/${den}` : '';
+            graticuleSystem.setObservedPositionDescription(id, fraction);
+            updateObservedPositionUI();
+        }
+
         function updateObservedPositionUI() {
             if (!graticuleSystem.observedPositionManager) return;
 
@@ -1619,8 +1637,13 @@
                 addBtn.disabled = false;
             }
 
-            // Update position list
+            // Update position list — but don't clobber an input the user is
+            // currently typing in (the 200ms refresh would reset their text).
             const listContent = document.getElementById('observedPositionListContent');
+            const active = document.activeElement;
+            if (active && active.id && /^obsPos(Num|Den)-/.test(active.id)) {
+                return;
+            }
             if (positions.length === 0) {
                 listContent.innerHTML = '<p style="color:#999; font-size:0.85em; text-align:center;">No positions marked</p>';
             } else {
@@ -1637,14 +1660,41 @@
                         minute: '2-digit'
                     });
 
+                    const desc = pos.description || '';
+                    const slashIdx = desc.indexOf('/');
+                    const numVal = slashIdx === -1 ? desc : desc.slice(0, slashIdx);
+                    const denVal = slashIdx === -1 ? '' : desc.slice(slashIdx + 1);
+                    const numEsc = String(numVal).replace(/"/g, '&quot;');
+                    const denEsc = String(denVal).replace(/"/g, '&quot;');
+
                     html += `
                         <div style="padding:6px; margin-bottom:4px; background:#f5f5f5; border-radius:4px; font-size:0.85em;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
                                 <span style="font-weight:bold;">⊗ #${pos.id}</span>
-                                <span style="color:#666;">${timeStr}</span>
+                                <span style="color:#666; flex:1; text-align:right;">${timeStr}</span>
+                                <button type="button" title="Remove this position"
+                                    onclick="deleteObservedPositionById(${pos.id})"
+                                    style="background:#D32F2F; color:white; border:none; padding:2px 6px;
+                                    border-radius:3px; cursor:pointer; font-size:12px; line-height:1;">×</button>
                             </div>
                             <div style="margin-top:2px; color:#333; font-family:monospace; font-size:0.9em;">
                                 ${latStr}, ${lonStr}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+                                <span style="color:#555; font-size:0.85em;">Description:</span>
+                                <div style="display:inline-flex; flex-direction:column; align-items:center; font-family:monospace;">
+                                    <input type="text" id="obsPosNum-${pos.id}" value="${numEsc}"
+                                        style="width:48px; text-align:center; padding:1px 2px; font-size:11px;
+                                        border:1px solid #ccc; border-radius:3px;">
+                                    <div style="width:48px; border-top:1px solid #333; margin:1px 0;"></div>
+                                    <input type="text" id="obsPosDen-${pos.id}" value="${denEsc}"
+                                        style="width:48px; text-align:center; padding:1px 2px; font-size:11px;
+                                        border:1px solid #ccc; border-radius:3px;">
+                                </div>
+                                <button type="button"
+                                    onclick="saveObservedPositionDescription(${pos.id})"
+                                    style="background:#1976D2; color:white; border:none; padding:2px 8px;
+                                    border-radius:3px; cursor:pointer; font-size:11px;">Save</button>
                             </div>
                         </div>
                     `;

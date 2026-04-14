@@ -523,12 +523,20 @@ class NauticalTriangleManager {
 
     handleMouseMove(x, y) {
         if (!this.activeTriangle) return false;
-        if (this.activeTriangle.isRotating) {
-            return this.activeTriangle.updateRotationByMouse(x, y);
-        } else if (this.activeTriangle.isDragging) {
-            return this.activeTriangle.updateDrag(x, y);
+        const tri = this.activeTriangle;
+
+        // Z pressed → rotation only; Z released → drag only. Re-evaluating on
+        // every move lets the user swap modes mid-gesture without the
+        // triangle sliding when they meant to rotate.
+        if (this.zKeyPressed) {
+            if (tri.isDragging) tri.stopDrag();
+            if (!tri.isRotating) tri.startRotation(x, y);
+            return tri.updateRotationByMouse(x, y);
+        } else {
+            if (tri.isRotating) tri.stopRotation();
+            if (!tri.isDragging) tri.startDrag(x, y);
+            return tri.updateDrag(x, y);
         }
-        return false;
     }
 
     handleMouseUp() {

@@ -14,8 +14,9 @@ class ObservedPositionManagerCanvas {
         this.dragOffset = { x: 0, y: 0 };
         this.placementMode = false;
 
-        // Icon settings
-        this.iconSize = 24;
+        // Icon settings — 4× larger than the previous default so the fix
+        // symbol is clearly visible at chart scale.
+        this.iconSize = 96;
         this.iconColor = '#000';
         this.strokeWidth = 2;
     }
@@ -58,7 +59,8 @@ class ObservedPositionManagerCanvas {
             canvasY: canvasY,
             lat: geo.lat,
             lon: geo.lon,
-            timestamp: new Date()
+            timestamp: new Date(),
+            description: ''
         };
 
         this.positions.push(position);
@@ -96,6 +98,16 @@ class ObservedPositionManagerCanvas {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Set description (fraction string) on a position by id
+     */
+    setDescription(id, description) {
+        const pos = this.positions.find(p => p.id === id);
+        if (!pos) return false;
+        pos.description = description || '';
+        return true;
     }
 
     /**
