@@ -240,6 +240,56 @@ EnhancedGraticuleSystem.prototype.exportSVG = function() {
         return null;
     }
 
+    // Build a composite raster of the full canvas (base image + graticule +
+    // dividers + GPX + observed positions + geometry + courses, excluding
+    // nautical triangles) and embed it inside the SVG as an <image> so the
+    // SVG export matches the PNG export content.
+    const compositeCanvas = document.createElement('canvas');
+    compositeCanvas.width = this.canvas.width;
+    compositeCanvas.height = this.canvas.height;
+    const compositeCtx = compositeCanvas.getContext('2d');
+
+    if (this.uploadedImage) {
+        compositeCtx.drawImage(this.uploadedImage, 0, 0);
+    }
+
+    const originalCtx = this.ctx;
+    this.ctx = compositeCtx;
+    try {
+        this.drawGraticule();
+        if (this.dividerManager) this.dividerManager.drawAll(compositeCtx);
+        if (this.gpxManager) this.gpxManager.drawAll(compositeCtx, this.mapper);
+        if (this.observedPositionManager) this.observedPositionManager.drawAll(compositeCtx);
+        if (this.geometryManager) this.geometryManager.drawAll(compositeCtx);
+        if (typeof this.drawCourses === 'function') this.drawCourses();
+    } finally {
+        this.ctx = originalCtx;
+    }
+
+    const dataUrl = compositeCanvas.toDataURL('image/png');
+
+    const width = this.mapRegion.width;
+    const height = this.mapRegion.height;
+    const imgX = -this.mapRegion.x;
+    const imgY = -this.mapRegion.y;
+    const imgW = this.canvas.width;
+    const imgH = this.canvas.height;
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <image x="${imgX}" y="${imgY}" width="${imgW}" height="${imgH}" xlink:href="${dataUrl}"/>
+</svg>`;
+};
+
+// Legacy vector-only graticule SVG, kept for callers that need it specifically.
+EnhancedGraticuleSystem.prototype.exportGraticuleSVG = function() {
+    if (!this.mapper || !this.geoBounds) return null;
+
+    if (!this.latInterval || this.latInterval <= 0 || !this.lonInterval || this.lonInterval <= 0) {
+        console.error('Invalid grid intervals for SVG export');
+        return null;
+    }
+
     const width = this.mapRegion.width;
     const height = this.mapRegion.height;
 
@@ -332,36 +382,34 @@ EnhancedGraticuleSystem.prototype.exportHighResPNG = function(scaleFactor = 2) {
     const tempCtx = tempCanvas.getContext('2d');
     tempCtx.scale(scaleFactor, scaleFactor);
 
-    // Draw image
     tempCtx.drawImage(this.uploadedImage, 0, 0);
 
-    // Temporarily scale mapper
-    const originalRegion = {...this.mapRegion};
-    this.mapRegion = new MapRegion(
-        originalRegion.x * scaleFactor,
-        originalRegion.y * scaleFactor,
-        originalRegion.width * scaleFactor,
-        originalRegion.height * scaleFactor
-    );
-
-    const originalMapper = this.mapper;
-    this.mapper = new CoordinateMapper(
-        this.mapRegion,
-        this.geoBounds,
-        this.projection
-    );
-
-    // Save original context and temporarily use temp context
     const originalCtx = this.ctx;
     this.ctx = tempCtx;
 
-    // Draw graticule
-    this.drawGraticule();
-
-    // Restore
-    this.ctx = originalCtx;
-    this.mapRegion = originalRegion;
-    this.mapper = originalMapper;
+    try {
+        if (this.mapper) {
+            this.drawGraticule();
+        }
+        if (this.dividerManager) {
+            this.dividerManager.drawAll(tempCtx);
+        }
+        if (this.gpxManager && this.mapper) {
+            this.gpxManager.drawAll(tempCtx, this.mapper);
+        }
+        if (this.observedPositionManager) {
+            this.observedPositionManager.drawAll(tempCtx);
+        }
+        if (this.geometryManager) {
+            this.geometryManager.drawAll(tempCtx);
+        }
+        if (typeof this.drawCourses === 'function') {
+            this.drawCourses();
+        }
+        // Nautical triangles deliberately excluded from export.
+    } finally {
+        this.ctx = originalCtx;
+    }
 
     return tempCanvas.toDataURL('image/png');
 };

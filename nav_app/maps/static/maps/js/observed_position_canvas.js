@@ -14,9 +14,7 @@ class ObservedPositionManagerCanvas {
         this.dragOffset = { x: 0, y: 0 };
         this.placementMode = false;
 
-        // Icon settings — 4× larger than the previous default so the fix
-        // symbol is clearly visible at chart scale.
-        this.iconSize = 96;
+        this.iconSize = 48;
         this.iconColor = '#000';
         this.strokeWidth = 2;
     }

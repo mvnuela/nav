@@ -41,9 +41,7 @@ class CanvasPlottingTriangle {
         this.hypotenuseLength = size;
         this.height = size / 2;
         this.scaleRadius = size * 0.42;
-        // Wider gap so inner-scale (red) labels no longer collide with the
-        // outer-scale (black) tick marks
-        this.innerScaleOffset = size * 0.14;
+        this.innerScaleOffset = size * 0.09;
 
         // Tick marks, labels, and ruler grow proportionally with the triangle.
         // 340 is the baseline size; factor > 1 at larger sizes makes the scale
@@ -61,12 +59,12 @@ class CanvasPlottingTriangle {
             tickLong: 30 * factor,
             // Label offsets from scale arc
             labelOffset: 30 * factor,
-            innerLabelOffset: 24 * factor,
+            innerLabelOffset: 14 * factor,
             // Ruler tick spacing along legs
             rulerSpacing: 20 * factor,
             // Font sizes — larger base so degree numbers are readable
             outerLabelFont: 16 * factor,
-            innerLabelFont: 13 * factor,
+            innerLabelFont: 11 * factor,
             compassFont: 13 * factor,
             rulerFont: 12 * factor,
             nameFont: 14 * factor,
@@ -249,9 +247,9 @@ class CanvasPlottingTriangle {
         // Inner scale (180-360, red)
         for (let deg = 180; deg <= 360; deg++) {
             let tickLen, lw;
-            if (deg % 10 === 0) { tickLen = cfg.tickLong * 0.85; lw = cfg.strokeWidth; }
-            else if (deg % 5 === 0) { tickLen = cfg.tickMedium * 0.85; lw = cfg.thinStroke; }
-            else { tickLen = cfg.tickShort * 0.85; lw = cfg.thinStroke; }
+            if (deg % 10 === 0) { tickLen = cfg.tickLong * 0.65; lw = cfg.strokeWidth; }
+            else if (deg % 5 === 0) { tickLen = cfg.tickMedium * 0.65; lw = cfg.thinStroke; }
+            else { tickLen = cfg.tickShort * 0.65; lw = cfg.thinStroke; }
 
             const mapped = deg - 180;
             const a = (180 - mapped) * Math.PI / 180;
@@ -487,9 +485,9 @@ class NauticalTriangleManager {
     }
 
     createStandardPair(canvasWidth, canvasHeight, size = 340) {
-        const port = this.createTriangle('port', 'Port', canvasWidth * 0.35, canvasHeight * 0.55, size);
-        const starboard = this.createTriangle('starboard', 'Starboard', canvasWidth * 0.65, canvasHeight * 0.55, size);
-        return { port, starboard };
+        const triangleA = this.createTriangle('triangleA', 'Triangle A', canvasWidth * 0.35, canvasHeight * 0.55, size);
+        const triangleB = this.createTriangle('triangleB', 'Triangle B', canvasWidth * 0.65, canvasHeight * 0.55, size);
+        return { triangleA, triangleB };
     }
 
     handleMouseDown(x, y) {

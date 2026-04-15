@@ -476,10 +476,27 @@
                     </ul>
                 </div>
                 
-                <div id="triangleAngles" style="display:none; background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px; margin-top:10px; font-family:monospace; font-size:0.9em;">
-                    <strong>Current Angles:</strong>
-                    <div id="portAngle" style="margin-top:5px;">Port: 0°</div>
-                    <div id="starboardAngle" style="margin-top:5px;">Starboard: 0°</div>
+                <div id="triangleAngles" style="display:none; background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px; margin-top:10px;">
+                    <strong style="font-size:0.85em; color:#666;">Current Rotations:</strong>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="font-size:0.8em; font-weight:bold; min-width:70px;">Triangle A:</label>
+                            <input type="number" id="triangleAAngle" min="0" max="360" value="0"
+                                style="width:60px; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:monospace; font-size:0.8em;">
+                            <span style="font-size:0.8em;">°</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="font-size:0.8em; font-weight:bold; min-width:70px;">Triangle B:</label>
+                            <input type="number" id="triangleBAngle" min="0" max="360" value="0"
+                                style="width:60px; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:monospace; font-size:0.8em;">
+                            <span style="font-size:0.8em;">°</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:6px; margin-top:10px;">
+                        <button id="resetTriangleA" style="flex:1; padding:6px; font-size:0.75em; cursor:pointer; background:#f5f5f5; border:1px solid #ddd; border-radius:3px;">Reset A</button>
+                        <button id="resetTriangleB" style="flex:1; padding:6px; font-size:0.75em; cursor:pointer; background:#f5f5f5; border:1px solid #ddd; border-radius:3px;">Reset B</button>
+                        <button id="resetBothTriangles" style="flex:1; padding:6px; font-size:0.75em; cursor:pointer; background:#f5f5f5; border:1px solid #ddd; border-radius:3px;">Reset Both</button>
+                    </div>
                 </div>
 
                 <div id="triangleSizeControl" style="display:none; background:#fafafa; border:1px solid #ddd; border-radius:4px; padding:10px; margin-top:10px;">
@@ -1305,13 +1322,44 @@
         
         function updateTriangleAngles() {
             const angles = graticuleSystem.getTriangleAngles();
-            if (angles) {
-                document.getElementById('portAngle').textContent =
-                    `Port: ${Math.round(angles.port)}°`;
-                document.getElementById('starboardAngle').textContent =
-                    `Starboard: ${Math.round(angles.starboard)}°`;
+            if (!angles) return;
+            const inputA = document.getElementById('triangleAAngle');
+            const inputB = document.getElementById('triangleBAngle');
+            if (inputA && angles.triangleA !== undefined && document.activeElement !== inputA) {
+                inputA.value = Math.round(angles.triangleA);
+            }
+            if (inputB && angles.triangleB !== undefined && document.activeElement !== inputB) {
+                inputB.value = Math.round(angles.triangleB);
             }
         }
+
+        function setupTriangleRotationControls() {
+            const inputA = document.getElementById('triangleAAngle');
+            const inputB = document.getElementById('triangleBAngle');
+            const resetA = document.getElementById('resetTriangleA');
+            const resetB = document.getElementById('resetTriangleB');
+            const resetBoth = document.getElementById('resetBothTriangles');
+
+            const applyRotation = (id, value) => {
+                const mgr = graticuleSystem.triangleManager;
+                if (!mgr) return;
+                const angle = ((parseFloat(value) || 0) % 360 + 360) % 360;
+                mgr.setTriangleRotation(id, angle);
+                graticuleSystem.render();
+            };
+
+            if (inputA) inputA.addEventListener('change', function() { applyRotation('triangleA', this.value); });
+            if (inputB) inputB.addEventListener('change', function() { applyRotation('triangleB', this.value); });
+            if (resetA) resetA.addEventListener('click', () => { applyRotation('triangleA', 0); if (inputA) inputA.value = '0'; });
+            if (resetB) resetB.addEventListener('click', () => { applyRotation('triangleB', 0); if (inputB) inputB.value = '0'; });
+            if (resetBoth) resetBoth.addEventListener('click', () => {
+                applyRotation('triangleA', 0);
+                applyRotation('triangleB', 0);
+                if (inputA) inputA.value = '0';
+                if (inputB) inputB.value = '0';
+            });
+        }
+        setupTriangleRotationControls();
         
         // Update triangle angles periodically when visible
         setInterval(() => {
