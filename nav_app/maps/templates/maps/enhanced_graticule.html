@@ -793,11 +793,11 @@
             <div class="panel" id="exportPanel" style="display:none;">
                 <h3>💾 Export</h3>
                 <div class="export-group">
-                    <button id="exportSVGBtn" class="btn btn-primary">
+                    <button id="exportSVGBtn" class="btn btn-primary" style="display:none;">
                         SVG
                     </button>
                     <button id="exportPNGBtn" class="btn btn-primary">
-                        High-Res PNG
+                        PNG
                     </button>
                 </div>
             </div>
@@ -810,18 +810,17 @@
                     <li>Drag handles to select actual map content area</li>
                     <li>Enter geographic bounds for that region</li>
                     <li>Click "Apply" to generate accurate Mercator graticule</li>
-                    <li>Export as SVG or high-resolution PNG</li>
+                    <li>Export as PNG</li>
                 </ol>
                 <div class="info-box" style="margin-top:15px; background:#fff3cd; border-left-color:#ffc107;">
                     <strong>💡 Key Features:</strong>
                     <p style="margin:5px 0 0 0; font-size:0.85em;">
-                        • Proper Mercator projection (not linear)<br>
-                        • Interactive region fitting for images with margins<br>
+
                         • Drag corners/edges to resize region<br>
                         • Geographic accuracy preserved at all scales
                     </p>
                 </div>
-                <div class="info-box" style="margin-top:10px; background:#e3f2fd; border-left-color:#0078A8;">
+                <div class="info-box" style="display:none; margin-top:10px; background:#e3f2fd; border-left-color:#0078A8;">
                     <strong>🔍 Zoom & Pan:</strong>
                     <p style="margin:5px 0 0 0; font-size:0.85em;">
                         • Mouse wheel to zoom in/out<br>
@@ -1163,7 +1162,7 @@
                     document.getElementById('dividerPanel').style.display = 'block';
                     document.getElementById('observedPositionPanel').style.display = 'block';
                     document.getElementById('geometryPanel').style.display = 'block';
-                    document.getElementById('courseCalculatorPanel').style.display = 'block';
+                    // Temporarily hidden: document.getElementById('courseCalculatorPanel').style.display = 'block';
                     document.getElementById('gpxPanel').style.display = 'block';
                 }
                 if (graticuleSystem.trianglesVisible) {

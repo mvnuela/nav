@@ -20,6 +20,9 @@
     let connectionLines = {};
     let rayLines = {};
 
+    // Cursor preview shown while "Place Point" mode is active
+    let previewCircle = null;
+
     // Colors
     const COLORS = {
         point: '#E91E63',
@@ -50,7 +53,7 @@
     function addPoint(lat, lng) {
         const pt = store.addPoint(lat, lng);
         const marker = L.circleMarker([lat, lng], {
-            radius: 7,
+            radius: 5,
             color: '#fff',
             weight: 2,
             fillColor: COLORS.point,
@@ -101,7 +104,7 @@
         if (!marker) return;
         marker.setStyle({
             fillColor: highlight ? COLORS.pointPending : COLORS.point,
-            radius: highlight ? 10 : 7,
+            radius: highlight ? 7 : 5,
             weight: highlight ? 3 : 2
         });
     }
@@ -266,6 +269,65 @@
         const mapContainer = document.getElementById('map');
         if (mapContainer) {
             mapContainer.style.cursor = mode === 'place_point' ? 'crosshair' : '';
+        }
+
+        if (mode === 'place_point') {
+            enableCursorPreview();
+        } else {
+            disableCursorPreview();
+        }
+    }
+
+    /**
+     * Subtle semi-transparent ring that follows the cursor while the user is
+     * in "Place Point" mode — previews where the next point will land.
+     */
+    function enableCursorPreview() {
+        if (previewCircle || !map) return;
+        previewCircle = L.circleMarker(map.getCenter(), {
+            radius: 10,
+            color: COLORS.point,
+            weight: 1.5,
+            opacity: 0.6,
+            fillColor: COLORS.point,
+            fillOpacity: 0.18,
+            interactive: false,
+            bubblingMouseEvents: false
+        });
+        map.on('mousemove', updatePreviewCircle);
+        map.on('mouseout', hidePreviewCircle);
+        map.on('mouseover', showPreviewCircle);
+    }
+
+    function disableCursorPreview() {
+        if (!map) return;
+        map.off('mousemove', updatePreviewCircle);
+        map.off('mouseout', hidePreviewCircle);
+        map.off('mouseover', showPreviewCircle);
+        if (previewCircle) {
+            map.removeLayer(previewCircle);
+            previewCircle = null;
+        }
+    }
+
+    function updatePreviewCircle(e) {
+        if (!previewCircle) return;
+        previewCircle.setLatLng(e.latlng);
+        if (!map.hasLayer(previewCircle)) {
+            previewCircle.addTo(map);
+        }
+    }
+
+    function hidePreviewCircle() {
+        if (previewCircle && map.hasLayer(previewCircle)) {
+            map.removeLayer(previewCircle);
+        }
+    }
+
+    function showPreviewCircle(e) {
+        if (previewCircle && !map.hasLayer(previewCircle)) {
+            previewCircle.setLatLng(e.latlng);
+            previewCircle.addTo(map);
         }
     }
 

@@ -16,7 +16,7 @@ class GeometryManagerCanvas {
         this.pendingFirstPointId = null;
 
         // Visual settings
-        this.pointRadius = 6;
+        this.pointRadius = 8;
         this.colors = {
             point: '#E91E63',
             pointSelected: '#FF5722',
@@ -33,6 +33,9 @@ class GeometryManagerCanvas {
 
         // Callback for state changes (to update UI)
         this.onStateChange = null;
+
+        // Cursor preview state for "place_point" mode
+        this.previewMouse = { x: 0, y: 0, visible: false };
     }
 
     setMapper(mapper) {
@@ -43,7 +46,14 @@ class GeometryManagerCanvas {
         this.mode = mode;
         this.pendingFirstPointId = null;
         this.store.clearSelection();
+        if (mode !== 'place_point') {
+            this.previewMouse.visible = false;
+        }
         this.onStateChange?.();
+    }
+
+    hidePreviewMouse() {
+        this.previewMouse.visible = false;
     }
 
     // ——— Hit Testing ———
@@ -143,6 +153,14 @@ class GeometryManagerCanvas {
     }
 
     handleMouseMove(x, y) {
+        if (this.mode === 'place_point') {
+            this.previewMouse.x = x;
+            this.previewMouse.y = y;
+            this.previewMouse.visible = true;
+            // return true so enhanced_graticule re-renders the canvas and the
+            // preview stays in sync with the pointer
+            return true;
+        }
         return false;
     }
 
@@ -280,6 +298,29 @@ class GeometryManagerCanvas {
         this._drawRays(ctx);
         this._drawPoints(ctx);
         this._drawModeOverlay(ctx);
+        this._drawPlacePreview(ctx);
+    }
+
+    _drawPlacePreview(ctx) {
+        if (this.mode !== 'place_point') return;
+        if (!this.previewMouse.visible) return;
+
+        const { x, y } = this.previewMouse;
+        ctx.save();
+        ctx.fillStyle = 'rgba(233, 30, 99, 0.18)';
+        ctx.strokeStyle = 'rgba(233, 30, 99, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Tiny center dot at the exact click point
+        ctx.fillStyle = 'rgba(233, 30, 99, 0.85)';
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     _drawPoints(ctx) {

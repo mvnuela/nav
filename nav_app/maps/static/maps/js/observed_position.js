@@ -11,6 +11,7 @@
     let observedPositionLayer = null;
     let isPlacingMode = false;
     let positionCounter = 0;
+    let previewCircle = null;
 
     /**
      * Create SVG icon for observed position (circle with X)
@@ -45,7 +46,7 @@
     function addObservedPosition(lat, lng) {
         positionCounter++;
         const timestamp = new Date();
-        const iconSize = 28;
+        const iconSize = 20;
 
         const marker = L.marker([lat, lng], {
             icon: L.divIcon({
@@ -222,13 +223,24 @@
         if (listContainer._deleteDelegationAttached) return;
         listContainer._deleteDelegationAttached = true;
         listContainer.addEventListener('click', function(e) {
-            const btn = e.target.closest('[data-delete-id]');
-            if (!btn) return;
-            e.preventDefault();
-            e.stopPropagation();
-            const id = parseInt(btn.getAttribute('data-delete-id'), 10);
-            if (!Number.isNaN(id)) {
-                window.deleteObservedPosition(id);
+            const deleteBtn = e.target.closest('[data-delete-id]');
+            if (deleteBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const id = parseInt(deleteBtn.getAttribute('data-delete-id'), 10);
+                if (!Number.isNaN(id)) {
+                    window.deleteObservedPosition(id);
+                }
+                return;
+            }
+            const saveBtn = e.target.closest('[data-save-id]');
+            if (saveBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const id = parseInt(saveBtn.getAttribute('data-save-id'), 10);
+                if (!Number.isNaN(id)) {
+                    window.saveObservedPositionDescriptionFromList(id);
+                }
             }
         });
     }
@@ -253,6 +265,13 @@
             return;
         }
 
+        // Don't rebuild if the user is currently typing into one of the
+        // list's fraction inputs — the re-render would clobber their text.
+        const active = document.activeElement;
+        if (active && active.id && /^observedPositionList(Num|Den)-/.test(active.id)) {
+            return;
+        }
+
         // Sort by ID
         positions.sort((a, b) => a.id - b.id);
 
@@ -265,32 +284,64 @@
                 ? decimalToNautical(pos.lng, false)
                 : pos.lng.toFixed(4);
 
-            const descBlock = pos.description
-                ? `<div style="margin-top: 3px; color: #555; font-style: italic;">${escapeHtml(pos.description)}</div>`
-                : '';
+            const { numerator: numVal, denominator: denVal } = parseFraction(pos.description);
+            const numEsc = escapeHtml(numVal);
+            const denEsc = escapeHtml(denVal);
 
             html += `
-                <div style="padding: 5px; margin-bottom: 4px; background: #f5f5f5; border-radius: 3px; font-size: 11px;">
+                <div style="padding: 6px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; font-size: 0.85em;">
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                        <span style="font-weight: bold; color: #D32F2F;">#${pos.id}</span>
+                        <span style="font-weight: bold; color: #D32F2F;">⊗ #${pos.id}</span>
                         <span style="color: #666; flex: 1; text-align: right;">${formatTime(pos.timestamp)}</span>
                         <button type="button" data-delete-id="${pos.id}"
                             title="Remove this position"
                             style="background: #D32F2F; color: white; border: none; padding: 2px 6px;
-                            border-radius: 3px; cursor: pointer; font-size: 11px; line-height: 1;">
-                            ×
-                        </button>
+                            border-radius: 3px; cursor: pointer; font-size: 12px; line-height: 1;">×</button>
                     </div>
-                    <div style="margin-top: 2px; color: #333;">
+                    <div style="margin-top: 2px; color: #333; font-family: monospace; font-size: 0.9em;">
                         ${latStr}, ${lngStr}
                     </div>
-                    ${descBlock}
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                        <span style="color: #555; font-size: 0.85em;">Description:</span>
+                        <div style="display: inline-flex; flex-direction: column; align-items: center; font-family: monospace;">
+                            <input type="text" id="observedPositionListNum-${pos.id}" value="${numEsc}"
+                                style="width: 48px; text-align: center; padding: 1px 2px; font-size: 11px;
+                                border: 1px solid #ccc; border-radius: 3px;">
+                            <div style="width: 48px; border-top: 1px solid #333; margin: 1px 0;"></div>
+                            <input type="text" id="observedPositionListDen-${pos.id}" value="${denEsc}"
+                                style="width: 48px; text-align: center; padding: 1px 2px; font-size: 11px;
+                                border: 1px solid #ccc; border-radius: 3px;">
+                        </div>
+                        <button type="button" data-save-id="${pos.id}"
+                            style="background: #1976D2; color: white; border: none; padding: 2px 8px;
+                            border-radius: 3px; cursor: pointer; font-size: 11px;">Save</button>
+                    </div>
                 </div>
             `;
         });
 
         listContainer.innerHTML = html;
     }
+
+    /**
+     * Save description edited via the side-panel list (distinct IDs from the
+     * marker popup so the two editors can coexist).
+     */
+    window.saveObservedPositionDescriptionFromList = function(id) {
+        const numEl = document.getElementById('observedPositionListNum-' + id);
+        const denEl = document.getElementById('observedPositionListDen-' + id);
+        if (!numEl || !denEl) return;
+        const num = numEl.value.trim();
+        const den = denEl.value.trim();
+        const fraction = (num || den) ? `${num}/${den}` : '';
+        observedPositionLayer.eachLayer(function(layer) {
+            if (layer.positionData && layer.positionData.id === id) {
+                layer.positionData.description = fraction;
+                layer.setPopupContent(createPopupContent(layer));
+            }
+        });
+        updatePositionList();
+    };
 
     /**
      * Handle map click when in placing mode
@@ -322,6 +373,66 @@
         const mapContainer = document.getElementById('map');
         if (mapContainer) {
             mapContainer.style.cursor = enabled ? 'crosshair' : '';
+        }
+
+        if (enabled) {
+            enableCursorPreview();
+        } else {
+            disableCursorPreview();
+        }
+    }
+
+    /**
+     * Cursor preview circle: semi-transparent ring that trails the mouse while
+     * placement mode is active, so the user can see exactly where the next fix
+     * will land before clicking.
+     */
+    function enableCursorPreview() {
+        if (previewCircle || !map) return;
+        previewCircle = L.circleMarker(map.getCenter(), {
+            radius: 12,
+            color: '#D32F2F',
+            weight: 1.5,
+            opacity: 0.65,
+            fillColor: '#D32F2F',
+            fillOpacity: 0.15,
+            interactive: false,
+            bubblingMouseEvents: false
+        });
+        map.on('mousemove', updatePreviewCircle);
+        map.on('mouseout', hidePreviewCircle);
+        map.on('mouseover', showPreviewCircle);
+    }
+
+    function disableCursorPreview() {
+        if (!map) return;
+        map.off('mousemove', updatePreviewCircle);
+        map.off('mouseout', hidePreviewCircle);
+        map.off('mouseover', showPreviewCircle);
+        if (previewCircle) {
+            map.removeLayer(previewCircle);
+            previewCircle = null;
+        }
+    }
+
+    function updatePreviewCircle(e) {
+        if (!previewCircle) return;
+        previewCircle.setLatLng(e.latlng);
+        if (!map.hasLayer(previewCircle)) {
+            previewCircle.addTo(map);
+        }
+    }
+
+    function hidePreviewCircle() {
+        if (previewCircle && map.hasLayer(previewCircle)) {
+            map.removeLayer(previewCircle);
+        }
+    }
+
+    function showPreviewCircle(e) {
+        if (previewCircle && !map.hasLayer(previewCircle)) {
+            previewCircle.setLatLng(e.latlng);
+            previewCircle.addTo(map);
         }
     }
 

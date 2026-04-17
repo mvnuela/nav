@@ -13,6 +13,7 @@
     let outputElement = null;
     let courseLayer = null;
     let plotterModeActive = false;
+    let previewCircle = null;
 
     /**
      * Initialize course plotter on the map
@@ -113,6 +114,7 @@
                 courseLayer.removeLayer(tempLine);
                 tempLine = null;
             }
+            enableCursorPreview();
             updateOutput('Click on the map to select<br><strong>first point</strong>');
         } else {
             // Mode is now OFF
@@ -124,6 +126,7 @@
                 courseLayer.removeLayer(tempLine);
                 tempLine = null;
             }
+            disableCursorPreview();
             updateOutput('Enable Plotter Mode to begin');
         }
     }
@@ -220,6 +223,64 @@
 
         // Reset for next plot
         startPoint = null;
+
+        // Auto-disable Plotter Mode after a completed course (start + end)
+        if (plotterModeActive) {
+            togglePlotterMode();
+        }
+    }
+
+    /**
+     * Cursor preview circle: subtle marker that follows the mouse while
+     * plotter mode is active, previewing where a click would place a point.
+     */
+    function enableCursorPreview() {
+        if (previewCircle || !map) return;
+        previewCircle = L.circleMarker(map.getCenter(), {
+            radius: 10,
+            color: '#2196F3',
+            weight: 1.5,
+            opacity: 0.6,
+            fillColor: '#2196F3',
+            fillOpacity: 0.18,
+            interactive: false,
+            bubblingMouseEvents: false
+        });
+        map.on('mousemove', updatePreviewCircle);
+        map.on('mouseout', hidePreviewCircle);
+        map.on('mouseover', showPreviewCircle);
+    }
+
+    function disableCursorPreview() {
+        if (!map) return;
+        map.off('mousemove', updatePreviewCircle);
+        map.off('mouseout', hidePreviewCircle);
+        map.off('mouseover', showPreviewCircle);
+        if (previewCircle) {
+            map.removeLayer(previewCircle);
+            previewCircle = null;
+        }
+    }
+
+    function updatePreviewCircle(e) {
+        if (!previewCircle) return;
+        previewCircle.setLatLng(e.latlng);
+        if (!map.hasLayer(previewCircle)) {
+            previewCircle.addTo(map);
+        }
+    }
+
+    function hidePreviewCircle() {
+        if (previewCircle && map.hasLayer(previewCircle)) {
+            map.removeLayer(previewCircle);
+        }
+    }
+
+    function showPreviewCircle(e) {
+        if (previewCircle && !map.hasLayer(previewCircle)) {
+            previewCircle.setLatLng(e.latlng);
+            previewCircle.addTo(map);
+        }
     }
 
     /**

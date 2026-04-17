@@ -237,11 +237,14 @@
     const originalRender = EnhancedGraticuleSystem.prototype.render;
     EnhancedGraticuleSystem.prototype.render = function() {
         originalRender.call(this);
-        
+
         // Draw courses on top
         if (this.mapper && (this.courses || this.currentCourse)) {
             this.drawCourses();
         }
+
+        // Cursor preview circle drawn last so it sits above everything
+        this.drawCursorPreview();
     };
 
     // Override handleMouseDown to support course mode
@@ -269,15 +272,52 @@
         const scaleY = this.canvas.height / rect.height;
         const x = (e.clientX - rect.left) * scaleX;
         const y = (e.clientY - rect.top) * scaleY;
-        
+
         if (this.mode === 'course' && this.mapper) {
             // Show coordinates in course mode
             this.showCoordinates(x, y);
             this.canvas.style.cursor = 'crosshair';
+            this.cursorPreview = { x: x, y: y, visible: true };
+            this.render();
             return;
         }
-        
+
         originalHandleMouseMove.call(this, e);
+    };
+
+    // Hide the cursor preview circle when the pointer leaves the canvas
+    const originalHandleMouseUp = EnhancedGraticuleSystem.prototype.handleMouseUp;
+    EnhancedGraticuleSystem.prototype.handleMouseUp = function(e) {
+        // Only hide on genuine mouseleave events (the canvas wires mouseleave
+        // to handleMouseUp); mouseup events still carry a button value.
+        if (e && e.type === 'mouseleave' && this.cursorPreview) {
+            this.cursorPreview.visible = false;
+            this.render();
+        }
+        originalHandleMouseUp.call(this, e);
+    };
+
+    // Draw a subtle semi-transparent circle around the cursor in course mode
+    EnhancedGraticuleSystem.prototype.drawCursorPreview = function() {
+        if (this.mode !== 'course') return;
+        if (!this.cursorPreview || !this.cursorPreview.visible) return;
+
+        const { x, y } = this.cursorPreview;
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(33, 150, 243, 0.18)';
+        this.ctx.strokeStyle = 'rgba(33, 150, 243, 0.6)';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 10, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        // Small crosshair dot at the exact cursor position
+        this.ctx.fillStyle = 'rgba(33, 150, 243, 0.8)';
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.restore();
     };
 
     console.log('Course plotting extension loaded');
