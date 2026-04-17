@@ -21,6 +21,7 @@
     var MAJOR_TICK_LEN = 30;
     var MEDIUM_TICK_LEN = 20;
     var MINOR_TICK_LEN = 10;
+    var SUB_MINOR_TICK_LEN = 5;
 
     // Alternating band width (for the classic black/white minute blocks)
     var BAND_WIDTH = 8;
@@ -149,6 +150,55 @@
         // Draw alternating black/white bands (classic nautical chart style)
         if (config.showBands) {
             drawBands(refLon, startMin, endMin, config, scaleX, mapH);
+        }
+
+        // Pick a sub-minor interval that subdivides each band into arc-minutes,
+        // but keep ticks at least ~3 px apart to stay readable.
+        var subMinor = null;
+        if (config.minor > 1) {
+            var midLat = ((startMin + endMin) / 2) / 60;
+            var pa = map.latLngToContainerPoint([midLat, refLon]);
+            var pb = map.latLngToContainerPoint([midLat + 1 / 60, refLon]);
+            var pxPerMin = Math.abs(pb.y - pa.y);
+            var subCandidates = [1, 2, 5, 10, 15];
+            for (var si = 0; si < subCandidates.length; si++) {
+                if (subCandidates[si] < config.minor &&
+                    subCandidates[si] * pxPerMin >= 3) {
+                    subMinor = subCandidates[si];
+                    break;
+                }
+            }
+        }
+
+        // Draw sub-minor ticks (minute subdivisions inside each band)
+        if (subMinor !== null) {
+            var subStart = Math.floor(southMin / subMinor) * subMinor;
+            var subEnd = Math.ceil(northMin / subMinor) * subMinor;
+            for (var sm = subStart; sm <= subEnd; sm += subMinor) {
+                // Skip positions already drawn by the main tick loop
+                if (sm % config.minor === 0) continue;
+
+                var sLat = sm / 60;
+                var sPt = map.latLngToContainerPoint([sLat, refLon]);
+                var sY = sPt.y;
+                if (sY < -5 || sY > mapH + 5) continue;
+
+                // Bands alternate: even bandIdx = dark fill → red tick for contrast
+                var onDarkBand = false;
+                if (config.showBands) {
+                    var bandIdx = Math.floor(sm / config.bandMinutes);
+                    onDarkBand = (((bandIdx % 2) + 2) % 2 === 0);
+                }
+
+                var subTick = document.createElementNS(svgNS, 'line');
+                subTick.setAttribute('x1', scaleX);
+                subTick.setAttribute('y1', sY);
+                subTick.setAttribute('x2', scaleX - SUB_MINOR_TICK_LEN);
+                subTick.setAttribute('y2', sY);
+                subTick.setAttribute('stroke', onDarkBand ? '#e53935' : '#555');
+                subTick.setAttribute('stroke-width', onDarkBand ? '1' : '0.5');
+                svgContainer.appendChild(subTick);
+            }
         }
 
         // Draw ticks and labels
