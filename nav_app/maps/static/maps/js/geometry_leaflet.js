@@ -470,4 +470,65 @@
         }, 100);
     }
 
+    // ——— External Point API ———
+    // Lets other modules (e.g. observed_position.js) register their own
+    // markers as geometry points so Connect / Ray / Delete can target them.
+    // The external module owns the marker's rendering; we just hold the
+    // point in the store and redraw any lines that reference it.
+
+    function rebuildLinesForPoint(pointId) {
+        store.getConnectionsForPoint(pointId).forEach(conn => {
+            if (!connectionLines[conn.id]) return;
+            geometryLayer.removeLayer(connectionLines[conn.id]);
+            const ptA = store.getPoint(conn.pointAId);
+            const ptB = store.getPoint(conn.pointBId);
+            const line = L.polyline([[ptA.lat, ptA.lon], [ptB.lat, ptB.lon]], {
+                color: COLORS.connection, weight: 3, opacity: 0.8
+            });
+            line.connectionId = conn.id;
+            line.on('click', function(e) {
+                L.DomEvent.stopPropagation(e);
+                if (mode === 'delete') deleteConnection(conn.id);
+            });
+            line.addTo(geometryLayer);
+            connectionLines[conn.id] = line;
+        });
+        store.getRaysForPoint(pointId).forEach(ray => {
+            if (!rayLines[ray.id]) return;
+            geometryLayer.removeLayer(rayLines[ray.id]);
+            const line = buildRayPolyline(ray);
+            line.rayId = ray.id;
+            line.on('click', function(e) {
+                L.DomEvent.stopPropagation(e);
+                if (mode === 'delete') deleteRay(ray.id);
+            });
+            line.addTo(geometryLayer);
+            rayLines[ray.id] = line;
+        });
+    }
+
+    window.GeometryLeaflet = {
+        registerExternalPoint: function(lat, lng) {
+            const pt = store.addPoint(lat, lng);
+            updateElementList();
+            return pt.id;
+        },
+        updateExternalPoint: function(pointId, lat, lng) {
+            const pt = store.getPoint(pointId);
+            if (!pt) return;
+            pt.lat = lat;
+            pt.lon = lng;
+            rebuildLinesForPoint(pointId);
+        },
+        removeExternalPoint: function(pointId) {
+            deletePointWithCascade(pointId);
+        },
+        isGeometryInteractionMode: function() {
+            return mode === 'connect' || mode === 'ray' || mode === 'delete';
+        },
+        handleExternalPointClick: function(pointId) {
+            handlePointClick(pointId);
+        }
+    };
+
 })();

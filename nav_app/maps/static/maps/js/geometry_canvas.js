@@ -67,6 +67,10 @@ class GeometryManagerCanvas {
         const hitRadius = this.pointRadius + this.hitTolerance;
         for (let i = this.store.points.length - 1; i >= 0; i--) {
             const pt = this.store.points[i];
+            // External points (e.g. observed positions) are owned and hit-tested
+            // by their original manager; skip them here so geometry interactions
+            // don't fight with the observed-position X icon.
+            if (pt.external) continue;
             const screen = this._pointScreenPos(pt);
             if (!screen) continue;
             const dx = x - screen.x;
@@ -262,6 +266,36 @@ class GeometryManagerCanvas {
         return false;
     }
 
+    // Entry point for clicks on points managed externally (e.g. observed
+    // positions). We already know which point was hit — skip hit-testing and
+    // run the same connect/ray logic as an internal point click.
+    handleExternalPointClick(pointId) {
+        const pt = this.store.getPoint(pointId);
+        if (!pt) return false;
+
+        if (this.mode === 'connect' || this.mode === 'ray') {
+            if (this.pendingFirstPointId === null) {
+                this.pendingFirstPointId = pointId;
+                this.onStateChange?.();
+                return true;
+            }
+            if (pointId === this.pendingFirstPointId) return true;
+            if (this.mode === 'connect') {
+                this.store.addConnection(this.pendingFirstPointId, pointId);
+            } else {
+                this.store.addRay(this.pendingFirstPointId, pointId);
+            }
+            this.pendingFirstPointId = null;
+            this.onStateChange?.();
+            return true;
+        }
+        return false;
+    }
+
+    isGeometryInteractionMode() {
+        return this.mode === 'connect' || this.mode === 'ray' || this.mode === 'delete';
+    }
+
     _handleSelectionClick(x, y) {
         this.store.clearSelection();
 
@@ -325,6 +359,9 @@ class GeometryManagerCanvas {
 
     _drawPoints(ctx) {
         for (const pt of this.store.points) {
+            // External points are drawn by their owning manager (e.g. the
+            // observed-position X icon). Skip them to avoid double-drawing.
+            if (pt.external) continue;
             const screen = this._pointScreenPos(pt);
             if (!screen) continue;
 

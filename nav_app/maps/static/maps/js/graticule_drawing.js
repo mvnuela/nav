@@ -17,7 +17,7 @@ EnhancedGraticuleSystem.prototype.drawGraticule = function() {
     }
 
     this.ctx.save();
-    this.ctx.strokeStyle = '#FF0000';
+    this.ctx.strokeStyle = '#ff0000';
     this.ctx.lineWidth = 1.5;
     this.ctx.setLineDash([5, 5]);
     this.ctx.globalAlpha = 0.7;

@@ -223,11 +223,6 @@
 
         // Reset for next plot
         startPoint = null;
-
-        // Auto-disable Plotter Mode after a completed course (start + end)
-        if (plotterModeActive) {
-            togglePlotterMode();
-        }
     }
 
     /**

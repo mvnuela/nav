@@ -259,6 +259,11 @@ EnhancedGraticuleSystem.prototype.initObservedPosition = function() {
     if (!this.observedPositionManager && this.mapper) {
         this.observedPositionManager = new ObservedPositionManagerCanvas(this.mapper);
     }
+    // Link to geometry if it's already around so Connect / Ray can target
+    // observed positions. The reverse link happens in initGeometry().
+    if (this.observedPositionManager && this.geometryManager) {
+        this.observedPositionManager.setGeometryManager(this.geometryManager);
+    }
     return this.observedPositionManager;
 };
 
@@ -365,6 +370,11 @@ EnhancedGraticuleSystem.prototype.isObservedPositionPlacementMode = function() {
 EnhancedGraticuleSystem.prototype.initGeometry = function() {
     if (!this.geometryManager && this.mapper) {
         this.geometryManager = new GeometryManagerCanvas(this.mapper);
+    }
+    // If observed positions were placed before the geometry tool was opened,
+    // back-fill them as external geometry points so they become connectable.
+    if (this.geometryManager && this.observedPositionManager) {
+        this.observedPositionManager.setGeometryManager(this.geometryManager);
     }
     return this.geometryManager;
 };

@@ -71,12 +71,33 @@
         const popupContent = createPopupContent(marker);
         marker.bindPopup(popupContent, { maxWidth: 250 });
 
+        // Register as a geometry point so the Connect / Ray / Delete tools
+        // can target this marker. Route clicks accordingly: when a geometry
+        // interaction mode is active, forward to the geometry handler instead
+        // of opening the info popup.
+        if (window.GeometryLeaflet) {
+            marker.pointId = window.GeometryLeaflet.registerExternalPoint(lat, lng);
+        }
+        marker.off('click');
+        marker.on('click', function(e) {
+            L.DomEvent.stopPropagation(e);
+            const geo = window.GeometryLeaflet;
+            if (geo && geo.isGeometryInteractionMode() && marker.pointId) {
+                geo.handleExternalPointClick(marker.pointId);
+            } else {
+                marker.openPopup();
+            }
+        });
+
         // Update position data when dragged
         marker.on('dragend', function(e) {
             const newPos = e.target.getLatLng();
             marker.positionData.lat = newPos.lat;
             marker.positionData.lng = newPos.lng;
             marker.setPopupContent(createPopupContent(marker));
+            if (window.GeometryLeaflet && marker.pointId) {
+                window.GeometryLeaflet.updateExternalPoint(marker.pointId, newPos.lat, newPos.lng);
+            }
             updatePositionList();
         });
 
@@ -197,6 +218,9 @@
             }
         });
         toRemove.forEach(function(layer) {
+            if (window.GeometryLeaflet && layer.pointId) {
+                window.GeometryLeaflet.removeExternalPoint(layer.pointId);
+            }
             layer.closePopup && layer.closePopup();
             observedPositionLayer.removeLayer(layer);
             if (map && map.hasLayer(layer)) {
@@ -210,6 +234,13 @@
      * Clear all observed positions
      */
     function clearAllPositions() {
+        if (window.GeometryLeaflet) {
+            observedPositionLayer.eachLayer(function(layer) {
+                if (layer.pointId) {
+                    window.GeometryLeaflet.removeExternalPoint(layer.pointId);
+                }
+            });
+        }
         observedPositionLayer.clearLayers();
         positionCounter = 0;
         updatePositionList();

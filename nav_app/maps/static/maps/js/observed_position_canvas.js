@@ -17,6 +17,11 @@ class ObservedPositionManagerCanvas {
         this.iconSize = 48;
         this.iconColor = '#000';
         this.strokeWidth = 2;
+
+        // Optional link to the geometry manager. When set, every observed
+        // position is also registered as an "external" point in the geometry
+        // store so the Connect / Ray / Delete tools can target it.
+        this.geometryManager = null;
     }
 
     /**
@@ -24,6 +29,21 @@ class ObservedPositionManagerCanvas {
      */
     setMapper(mapper) {
         this.mapper = mapper;
+    }
+
+    /**
+     * Link this manager to the geometry manager. Back-fills external points
+     * for any observed positions that were placed before the link was made.
+     */
+    setGeometryManager(geometryManager) {
+        this.geometryManager = geometryManager;
+        if (!geometryManager) return;
+        for (const pos of this.positions) {
+            if (pos.geometryPointId != null) continue;
+            const pt = geometryManager.store.addPoint(pos.lat, pos.lon);
+            pt.external = true;
+            pos.geometryPointId = pt.id;
+        }
     }
 
     /**
@@ -65,6 +85,12 @@ class ObservedPositionManagerCanvas {
         this.selectedPosition = position;
         this.placementMode = false;
 
+        if (this.geometryManager) {
+            const pt = this.geometryManager.store.addPoint(geo.lat, geo.lon);
+            pt.external = true;
+            position.geometryPointId = pt.id;
+        }
+
         return position;
     }
 
@@ -76,6 +102,7 @@ class ObservedPositionManagerCanvas {
 
         const index = this.positions.findIndex(p => p.id === this.selectedPosition.id);
         if (index !== -1) {
+            this._cascadeDeleteGeometry(this.positions[index]);
             this.positions.splice(index, 1);
             this.selectedPosition = null;
             return true;
@@ -89,6 +116,7 @@ class ObservedPositionManagerCanvas {
     deleteById(id) {
         const index = this.positions.findIndex(p => p.id === id);
         if (index !== -1) {
+            this._cascadeDeleteGeometry(this.positions[index]);
             if (this.selectedPosition && this.selectedPosition.id === id) {
                 this.selectedPosition = null;
             }
@@ -96,6 +124,11 @@ class ObservedPositionManagerCanvas {
             return true;
         }
         return false;
+    }
+
+    _cascadeDeleteGeometry(pos) {
+        if (!this.geometryManager || pos.geometryPointId == null) return;
+        this.geometryManager.store.deletePoint(pos.geometryPointId);
     }
 
     /**
@@ -112,6 +145,13 @@ class ObservedPositionManagerCanvas {
      * Clear all positions
      */
     clearAll() {
+        if (this.geometryManager) {
+            for (const pos of this.positions) {
+                if (pos.geometryPointId != null) {
+                    this.geometryManager.store.deletePoint(pos.geometryPointId);
+                }
+            }
+        }
         this.positions = [];
         this.selectedPosition = null;
         this.positionCounter = 0;
@@ -168,6 +208,23 @@ class ObservedPositionManagerCanvas {
             return true;
         }
 
+        // When the geometry tool is in Connect / Ray / Delete mode, a click
+        // on an observed position is interpreted as a point click for that
+        // tool rather than a select/drag of the marker.
+        const geom = this.geometryManager;
+        if (geom && geom.isGeometryInteractionMode && geom.isGeometryInteractionMode()) {
+            const hit = this.hitTest(x, y);
+            if (hit && hit.geometryPointId != null) {
+                if (geom.mode === 'delete') {
+                    this.deleteById(hit.id);
+                } else {
+                    geom.handleExternalPointClick(hit.geometryPointId);
+                }
+                return true;
+            }
+            return false;
+        }
+
         // Check for hit on existing position
         const hit = this.hitTest(x, y);
         if (hit) {
@@ -205,6 +262,16 @@ class ObservedPositionManagerCanvas {
                 );
                 this.selectedPosition.lat = geo.lat;
                 this.selectedPosition.lon = geo.lon;
+
+                // Keep the geometry-store point in sync so any Connect / Ray
+                // lines attached to this observed position follow the drag.
+                if (this.geometryManager && this.selectedPosition.geometryPointId != null) {
+                    const pt = this.geometryManager.store.getPoint(this.selectedPosition.geometryPointId);
+                    if (pt) {
+                        pt.lat = geo.lat;
+                        pt.lon = geo.lon;
+                    }
+                }
             }
             return true;
         }
@@ -232,6 +299,10 @@ class ObservedPositionManagerCanvas {
 
         const hit = this.hitTest(x, y);
         if (hit) {
+            const geom = this.geometryManager;
+            if (geom && geom.isGeometryInteractionMode && geom.isGeometryInteractionMode()) {
+                return 'pointer';
+            }
             if (this.isDragging) {
                 return 'grabbing';
             }
