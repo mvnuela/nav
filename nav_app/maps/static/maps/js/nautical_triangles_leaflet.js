@@ -254,13 +254,13 @@
                             <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <label style="font-size: 11px; font-weight: bold; min-width: 70px;">Triangle A:</label>
-                                    <input type="number" id="triangleAAngle" min="0" max="360" value="0"
+                                    <input type="number" id="triangleAAngle" min="0" max="360" step="0.5" value="0"
                                         style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px;">
                                     <span style="font-size: 11px;">°</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <label style="font-size: 11px; font-weight: bold; min-width: 70px;">Triangle B:</label>
-                                    <input type="number" id="triangleBAngle" min="0" max="360" value="0"
+                                    <input type="number" id="triangleBAngle" min="0" max="360" step="0.5" value="0"
                                         style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px;">
                                     <span style="font-size: 11px;">°</span>
                                 </div>
@@ -556,6 +556,16 @@
     }
 
     /**
+     * Round to the nearest half-degree and drop the trailing ".0" when the
+     * result happens to be a whole number, so "45°" stays "45" but a rotation
+     * of 12.5° shows as "12.5".
+     */
+    function formatAngleDegrees(a) {
+        const snapped = Math.round(a * 2) / 2;
+        return snapped % 1 === 0 ? snapped.toFixed(0) : snapped.toFixed(1);
+    }
+
+    /**
      * Update the angle display in the control panel
      */
     function updateAngleDisplay(angles) {
@@ -563,10 +573,10 @@
         const triangleBInput = document.getElementById('triangleBAngle');
 
         if (triangleAInput && angles.triangleA !== undefined) {
-            triangleAInput.value = Math.round(angles.triangleA);
+            triangleAInput.value = formatAngleDegrees(angles.triangleA);
         }
         if (triangleBInput && angles.triangleB !== undefined) {
-            triangleBInput.value = Math.round(angles.triangleB);
+            triangleBInput.value = formatAngleDegrees(angles.triangleB);
         }
     }
 

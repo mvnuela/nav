@@ -879,11 +879,15 @@ class PlottingTriangle {
         const halfHyp = this.s(this.config.hypotenuseLength) / 2;
         this.groupElement.setAttribute('transform', `rotate(${this.rotation}, 0, ${-halfHyp})`);
 
-        // Update angle display
+        // Update angle display — snap to nearest half-degree so free-form
+        // drag rotations still read cleanly (e.g. "12.5°"), while whole
+        // degrees render without a trailing ".0".
         const angleDisplay = this.svgElement.querySelector('.angle-display');
         if (angleDisplay) {
             const normalizedAngle = ((this.rotation % 360) + 360) % 360;
-            angleDisplay.textContent = `${Math.round(normalizedAngle)}°`;
+            const snapped = Math.round(normalizedAngle * 2) / 2;
+            const label = snapped % 1 === 0 ? snapped.toFixed(0) : snapped.toFixed(1);
+            angleDisplay.textContent = `${label}°`;
         }
     }
 
