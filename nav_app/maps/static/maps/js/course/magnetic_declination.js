@@ -1,5 +1,5 @@
 /**
- * World Magnetic Model 2025 (WMM2025) - Magnetic Declination Calculator
+ * World Magnetic Model 2025 (WMM2025) - Magnetic Declination Calculator for Open Sea Map
  *
  * Calculates magnetic declination (variation) for any point on Earth.
  * Based on NOAA/NCEI World Magnetic Model, valid 2025.0 - 2030.0

@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Navigation Task Schema - UJ 2026",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task", "poi", "solution"],
+
+  "properties": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["meta", "navigation", "chart"],
+      "properties": {
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "desc", "author", "content_md"],
+          "properties": {
+            "title": { "type": "string", "minLength": 1 },
+            "desc": { "type": "string", "minLength": 1 },
+            "author": { "type": "string", "minLength": 1 },
+            "content_md": { "type": "string" }
+          }
+        },
+        "navigation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timezone", "magnetic_variation_list", "compass_deviation_table", "leeway"],
+          "properties": {
+            "timezone": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "offset"],
+              "properties": {
+                "name": { "type": "string" },
+                "offset": {
+                  "type": "string",
+                  "pattern": "^[+-](0[0-9]|1[0-4]):[0-5][0-9]$"
+                }
+              }
+            },
+            "magnetic_variation_list": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["base_deg", "base_year", "annual_change_deg", "lat", "lon", "range_nm"],
+                "properties": {
+                  "base_deg": { "$ref": "#/$defs/decimal4" },
+                  "base_year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+                  "annual_change_deg": { "$ref": "#/$defs/decimal4" },
+                  "lat": { "$ref": "#/$defs/lat" },
+                  "lon": { "$ref": "#/$defs/lon" },
+                  "range_nm": { "$ref": "#/$defs/decimal4_nonneg" }
+                }
+              }
+            },
+            "compass_deviation_table": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["heading_deg", "deviation_deg"],
+                "properties": {
+                  "heading_deg": { "$ref": "#/$defs/angle360" },
+                  "deviation_deg": { "$ref": "#/$defs/decimal4" }
+                }
+              }
+            },
+            "leeway": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["close_hauled", "beam_reach", "broad_reach", "running"],
+              "properties": {
+                "close_hauled": { "$ref": "#/$defs/leewayRange" },
+                "beam_reach": { "$ref": "#/$defs/leewayRange" },
+                "broad_reach": { "$ref": "#/$defs/leewayRange" },
+                "running": { "$ref": "#/$defs/leewayRange" }
+              }
+            }
+          }
+        },
+        "chart": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file_name", "bounds", "margins"],
+          "properties": {
+            "file_name": { "type": "string", "minLength": 1 },
+            "bounds": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["north_lat_deg", "south_lat_deg", "west_lon_deg", "east_lon_deg"],
+              "properties": {
+                "north_lat_deg": { "$ref": "#/$defs/lat" },
+                "south_lat_deg": { "$ref": "#/$defs/lat" },
+                "west_lon_deg": { "$ref": "#/$defs/lon" },
+                "east_lon_deg": { "$ref": "#/$defs/lon" }
+              }
+            },
+            "margins": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["top", "bottom", "left", "right"],
+              "properties": {
+                "top": { "$ref": "#/$defs/decimal4_nonneg" },
+                "bottom": { "$ref": "#/$defs/decimal4_nonneg" },
+                "left": { "$ref": "#/$defs/decimal4_nonneg" },
+                "right": { "$ref": "#/$defs/decimal4_nonneg" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "poi": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "type", "description", "lat", "lon"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^poi-\\d+$" },
+          "name": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "lat": { "$ref": "#/$defs/lat" },
+          "lon": { "$ref": "#/$defs/lon" }
+        }
+      }
+    },
+    "solution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trk", "comment"],
+      "properties": {
+        "trk": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id", "time", "position", "distance_nm", "log_nm",
+              "course_compass_deg", "course_true_deg", "course_over_ground_deg",
+              "wind_true_deg", "wind_app_deg", "speed_kn"
+            ],
+            "properties": {
+              "id": { "type": "string", "pattern": "^trk-\\d+$" },
+              "time": { "type": "string", "format": "date-time" },
+              "position": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["lat", "lon", "position_txt"],
+                "properties": {
+                  "lat": { "$ref": "#/$defs/lat" },
+                  "lon": { "$ref": "#/$defs/lon" },
+                  "position_txt": { "type": "string" }
+                }
+              },
+              "distance_nm": { "$ref": "#/$defs/decimal4_nonneg" },
+              "log_nm": { "$ref": "#/$defs/decimal4_nonneg" },
+              "course_compass_deg": { "$ref": "#/$defs/angle360" },
+              "course_true_deg": { "$ref": "#/$defs/angle360" },
+              "course_over_ground_deg": { "$ref": "#/$defs/angle360" },
+              "wind_true_deg": { "$ref": "#/$defs/angle360" },
+              "wind_app_deg": { "$ref": "#/$defs/angle360" },
+              "speed_kn": { "$ref": "#/$defs/decimal4_nonneg" }
+            }
+          }
+        },
+        "comment": { "type": ["string", "null"] }
+      }
+    }
+  },
+
+  "$defs": {
+    "decimal4": { "type": "number", "multipleOf": 0.0001 },
+    "decimal4_nonneg": { "type": "number", "minimum": 0, "multipleOf": 0.0001 },
+    "lat": { "type": "number", "minimum": -90, "maximum": 90, "multipleOf": 0.0001 },
+    "lon": { "type": "number", "minimum": -180, "maximum": 180, "multipleOf": 0.0001 },
+    "angle360": { "type": "number", "minimum": 0, "exclusiveMaximum": 360, "multipleOf": 0.0001 },
+    "leewayRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["range", "value_deg"],
+      "properties": {
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min_deg", "max_deg"],
+          "properties": {
+            "min_deg": { "$ref": "#/$defs/angle360" },
+            "max_deg": { "$ref": "#/$defs/angle360" }
+          }
+        },
+        "value_deg": { "$ref": "#/$defs/decimal4" }
+      }
+    }
+  }
+}
