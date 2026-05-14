@@ -215,7 +215,11 @@ class CanvasPlottingTriangle {
         // Angle
         ctx.fillStyle = this.colors.innerScale;
         ctx.font = `${this.cfg.angleFont}px monospace`;
-        ctx.fillText(Math.round(normalizedAngle) + '\u00B0', 0, this.cfg.nameFont * 2.2 + this.cfg.angleFont * 1.4);
+        // Snap to nearest half-degree so drag rotations still read cleanly;
+        // whole degrees drop the trailing ".0".
+        const snapped = Math.round(normalizedAngle * 2) / 2;
+        const angleLabel = snapped % 1 === 0 ? snapped.toFixed(0) : snapped.toFixed(1);
+        ctx.fillText(angleLabel + '\u00B0', 0, this.cfg.nameFont * 2.2 + this.cfg.angleFont * 1.4);
 
         ctx.restore();
     }

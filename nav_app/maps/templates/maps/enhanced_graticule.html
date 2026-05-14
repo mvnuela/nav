@@ -481,13 +481,13 @@
                     <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <label style="font-size:0.8em; font-weight:bold; min-width:70px;">Triangle A:</label>
-                            <input type="number" id="triangleAAngle" min="0" max="360" value="0"
+                            <input type="number" id="triangleAAngle" min="0" max="360" step="0.5" value="0"
                                 style="width:60px; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:monospace; font-size:0.8em;">
                             <span style="font-size:0.8em;">°</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px;">
                             <label style="font-size:0.8em; font-weight:bold; min-width:70px;">Triangle B:</label>
-                            <input type="number" id="triangleBAngle" min="0" max="360" value="0"
+                            <input type="number" id="triangleBAngle" min="0" max="360" step="0.5" value="0"
                                 style="width:60px; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:monospace; font-size:0.8em;">
                             <span style="font-size:0.8em;">°</span>
                         </div>
@@ -1319,16 +1319,23 @@
             graticuleSystem.resizeTriangles(newSize);
         }
         
+        // Snap to the nearest half-degree so drag rotations read cleanly
+        // (e.g. "12.5"), while whole degrees stay without a trailing ".0".
+        function formatTriangleAngle(a) {
+            const snapped = Math.round(a * 2) / 2;
+            return snapped % 1 === 0 ? snapped.toFixed(0) : snapped.toFixed(1);
+        }
+
         function updateTriangleAngles() {
             const angles = graticuleSystem.getTriangleAngles();
             if (!angles) return;
             const inputA = document.getElementById('triangleAAngle');
             const inputB = document.getElementById('triangleBAngle');
             if (inputA && angles.triangleA !== undefined && document.activeElement !== inputA) {
-                inputA.value = Math.round(angles.triangleA);
+                inputA.value = formatTriangleAngle(angles.triangleA);
             }
             if (inputB && angles.triangleB !== undefined && document.activeElement !== inputB) {
-                inputB.value = Math.round(angles.triangleB);
+                inputB.value = formatTriangleAngle(angles.triangleB);
             }
         }
 

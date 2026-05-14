@@ -1,7 +1,10 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 import io
+import json
+import os
 import base64
 from PIL import Image
 import fitz  # PyMuPDF
@@ -29,6 +32,14 @@ def custom_map(request):
 def enhanced_graticule(request):
     """Enhanced interactive graticule with region fitting"""
     return render(request, "maps/enhanced_graticule.html")
+
+
+def navigation_task_form(request):
+    """Form panel for building a navigation-task JSON from user input."""
+    schema_path = os.path.join(settings.BASE_DIR, "navigation-task.schema.json")
+    with open(schema_path, "r", encoding="utf-8") as f:
+        schema = json.load(f)
+    return render(request, "maps/navigation_task_form.html", {"schema": schema})
 
 
 @csrf_exempt

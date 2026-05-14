@@ -91,7 +91,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding:4px 0;">Magnetic Declination (°):</td>
+                            <td style="padding:4px 0;">Magnetic Variation (°):</td>
                         </tr>
                         <tr>
                             <td>
@@ -119,7 +119,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding:4px 0;">Leeway/Drift (°):</td>
+                            <td style="padding:4px 0;">Leeway (°):</td>
                         </tr>
                         <tr>
                             <td>
@@ -129,11 +129,11 @@
                                        placeholder="0.0 (+stbd, -port)"
                                        value="0"
                                        style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
-                                <small style="color:#666; font-size:10px;">+Starboard / -Port</small>
+                                <small style="color:#666; font-size:10px;">+Starboard / -Port (wind drift)</small>
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding:4px 0;">Speed (knots):</td>
+                            <td style="padding:4px 0;">Boat Speed (knots, STW):</td>
                         </tr>
                         <tr>
                             <td>
@@ -143,10 +143,46 @@
                                        step="0.1"
                                        placeholder="5.0"
                                        style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
+                                <small style="color:#666; font-size:10px;">Speed through water</small>
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding:4px 0;">Time (hours):</td>
+                            <td style="padding:6px 0 2px 0; border-top:1px solid #eee;">
+                                <strong style="font-size:11px;">Sea Current</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0;">Current Set (° true, toward):</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input id="drCurrentSet"
+                                       type="number"
+                                       min="0"
+                                       max="360"
+                                       step="0.1"
+                                       placeholder="0-360"
+                                       value="0"
+                                       style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
+                                <small style="color:#666; font-size:10px;">Direction current flows TO</small>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0;">Current Drift (knots):</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input id="drCurrentDrift"
+                                       type="number"
+                                       min="0"
+                                       step="0.1"
+                                       placeholder="0.0"
+                                       value="0"
+                                       style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0; border-top:1px solid #eee;">Time (hours):</td>
                         </tr>
                         <tr>
                             <td>
@@ -207,7 +243,7 @@
                     }
 
                     // Allow Enter key to trigger calculation
-                    ['drStartLat', 'drStartLon', 'drCourse', 'drDeclination', 'drDeviation', 'drLeeway', 'drSpeed', 'drTime'].forEach(id => {
+                    ['drStartLat', 'drStartLon', 'drCourse', 'drDeclination', 'drDeviation', 'drLeeway', 'drSpeed', 'drCurrentSet', 'drCurrentDrift', 'drTime'].forEach(id => {
                         const input = document.getElementById(id);
                         if (input) {
                             input.addEventListener('keypress', function(e) {
@@ -242,6 +278,8 @@
             const deviation = parseFloat(document.getElementById('drDeviation').value) || 0;
             const leeway = parseFloat(document.getElementById('drLeeway').value) || 0;
             const speed = parseFloat(document.getElementById('drSpeed').value);
+            const currentSet = parseFloat(document.getElementById('drCurrentSet').value) || 0;
+            const currentDrift = parseFloat(document.getElementById('drCurrentDrift').value) || 0;
             const time = parseFloat(document.getElementById('drTime').value);
             
             // Get course type
@@ -267,38 +305,48 @@
                 outputElement.innerHTML = '<span style="color:#f44336;">⚠ Time must be positive</span>';
                 return;
             }
-            
-            // Calculate true course from compass or use true course directly
-            let trueCourse, magneticCourse, compassCourse;
+
+            if (currentSet < 0 || currentSet > 360) {
+                outputElement.innerHTML = '<span style="color:#f44336;">⚠ Current set must be 0-360°</span>';
+                return;
+            }
+
+            if (currentDrift < 0) {
+                outputElement.innerHTML = '<span style="color:#f44336;">⚠ Current drift must be ≥ 0</span>';
+                return;
+            }
+
+            // Build true heading from compass chain, then CTW from leeway
+            let trueHeading, magneticHeading, compassHeading;
             let courseSteps = [];
-            
+
             if (courseType === 'compass') {
-                // Compass → Magnetic → True
-                compassCourse = courseInput;
-                magneticCourse = normalize(compassCourse + deviation);
-                trueCourse = normalize(magneticCourse + declination);
-                
-                courseSteps.push(`Compass: ${compassCourse.toFixed(1)}°`);
+                // Compass → Magnetic → True (CADET: Compass +Deviation = Magnetic +Variation = True)
+                compassHeading = courseInput;
+                magneticHeading = normalize(compassHeading + deviation);
+                trueHeading = normalize(magneticHeading + declination);
+
+                courseSteps.push(`Compass HDG: ${compassHeading.toFixed(1)}°`);
                 if (deviation !== 0) {
-                    courseSteps.push(`+ Deviation ${deviation.toFixed(1)}° = Magnetic ${magneticCourse.toFixed(1)}°`);
+                    courseSteps.push(`+ Deviation ${deviation.toFixed(1)}° → Magnetic ${magneticHeading.toFixed(1)}°`);
                 }
                 if (declination !== 0) {
-                    courseSteps.push(`+ Declination ${declination.toFixed(1)}° = True ${trueCourse.toFixed(1)}°`);
+                    courseSteps.push(`+ Variation ${declination.toFixed(1)}° → True HDG ${trueHeading.toFixed(1)}°`);
+                }
+                if (deviation === 0 && declination === 0) {
+                    courseSteps.push(`True HDG: ${trueHeading.toFixed(1)}°`);
                 }
             } else {
-                // Already true course
-                trueCourse = courseInput;
-                courseSteps.push(`True Course: ${trueCourse.toFixed(1)}°`);
+                // Already a true heading
+                trueHeading = courseInput;
+                courseSteps.push(`True HDG: ${trueHeading.toFixed(1)}°`);
             }
-            
-            // Calculate COG (Course Over Ground) by adding leeway
-            const cog = normalize(trueCourse + leeway);
+
+            // Course Through Water = True heading + leeway
+            const ctw = normalize(trueHeading + leeway);
             if (leeway !== 0) {
-                courseSteps.push(`+ Leeway ${leeway.toFixed(1)}° = COG ${cog.toFixed(1)}°`);
+                courseSteps.push(`+ Leeway ${leeway.toFixed(1)}° → CTW ${ctw.toFixed(1)}°`);
             }
-            
-            // Use COG for actual movement calculation
-            const course = cog;
 
             // Parse starting position - accept both decimal and nautical formats
             let lat, lon;
@@ -336,20 +384,34 @@
                 return;
             }
 
-            // Calculate distance traveled
-            const distance = speed * time; // nautical miles
+            // Vector through water: distance = STW × time in CTW direction
+            const waterDist = speed * time;
+            const ctwRad = ctw * Math.PI / 180;
+            const waterN = waterDist * Math.cos(ctwRad);
+            const waterE = waterDist * Math.sin(ctwRad);
 
-            // Convert course to radians
-            const courseRad = course * Math.PI / 180;
+            // Current vector: drift × time in Set direction (Set = direction current flows TO)
+            const currentDist = currentDrift * time;
+            const setRad = currentSet * Math.PI / 180;
+            const currentN = currentDist * Math.cos(setRad);
+            const currentE = currentDist * Math.sin(setRad);
 
-            // Calculate change in latitude and longitude
-            // dLat in degrees = (distance in NM) / 60
-            const dLat = distance * Math.cos(courseRad) / 60;
-            
-            // dLon in degrees = (distance in NM) / (60 * cos(latitude))
-            const dLon = distance * Math.sin(courseRad) / (60 * Math.cos(lat * Math.PI / 180));
+            // Ground vector = water vector + current vector
+            const groundN = waterN + currentN;
+            const groundE = waterE + currentE;
 
-            // Calculate new position
+            const distance = Math.sqrt(groundN * groundN + groundE * groundE);
+            const cog = distance > 1e-9 ? normalize(Math.atan2(groundE, groundN) * 180 / Math.PI) : ctw;
+            const sog = time > 0 ? distance / time : 0;
+
+            if (currentDrift !== 0) {
+                courseSteps.push(`+ Current ${currentSet.toFixed(1)}°/${currentDrift.toFixed(1)}kt → COG ${cog.toFixed(1)}° / SOG ${sog.toFixed(2)}kt`);
+            }
+
+            // Change in latitude and longitude from ground vector (NM → degrees)
+            const dLat = groundN / 60;
+            const dLon = groundE / (60 * Math.cos(lat * Math.PI / 180));
+
             const newLat = lat + dLat;
             const newLon = lon + dLon;
 
@@ -375,7 +437,30 @@
             // DR position
             const drPosition = {lat: newLat, lng: newLon};
 
-            // Course line
+            // If there's a current, show the water track (heading + leeway) as a separate leg
+            if (currentDrift !== 0) {
+                const waterEndLat = lat + waterN / 60;
+                const waterEndLon = lon + waterE / (60 * Math.cos(lat * Math.PI / 180));
+                const waterEnd = {lat: waterEndLat, lng: waterEndLon};
+
+                const waterLine = L.polyline([startPos, waterEnd], {
+                    color: '#1976d2',
+                    weight: 2,
+                    opacity: 0.7,
+                    dashArray: '4, 6'
+                }).addTo(drLayer);
+                waterLine.bindPopup(`<b>Water Track</b><br>CTW: ${ctw.toFixed(1)}°<br>STW: ${speed} kts<br>Dist: ${waterDist.toFixed(2)} NM`);
+
+                const currentLine = L.polyline([waterEnd, drPosition], {
+                    color: '#9c27b0',
+                    weight: 2,
+                    opacity: 0.7,
+                    dashArray: '2, 4'
+                }).addTo(drLayer);
+                currentLine.bindPopup(`<b>Current Set</b><br>${currentSet.toFixed(1)}° @ ${currentDrift.toFixed(1)} kts<br>Dist: ${currentDist.toFixed(2)} NM`);
+            }
+
+            // Ground track (COG)
             const courseLine = L.polyline([startPos, drPosition], {
                 color: '#28a745',
                 weight: 3,
@@ -383,9 +468,8 @@
                 dashArray: '10, 10'
             }).addTo(drLayer);
 
-            const bearingFormatted = formatBearing(course);
-            const courseInfo =courseSteps.length > 1 ? courseSteps.join('<br>') : `COG: ${course.toFixed(1)}°`;
-            courseLine.bindPopup(`<b>DR Track</b><br>${courseInfo}<br>Speed: ${speed} kts<br>Time: ${time.toFixed(1)}h<br>Distance: ${distance.toFixed(2)} NM`);
+            const courseInfo = courseSteps.join('<br>');
+            courseLine.bindPopup(`<b>DR Ground Track</b><br>${courseInfo}<br>COG: ${cog.toFixed(1)}°<br>SOG: ${sog.toFixed(2)} kts<br>Time: ${time.toFixed(1)}h<br>Distance: ${distance.toFixed(2)} NM`);
 
             // DR position marker
             const drMarker = L.circleMarker(drPosition, {
@@ -398,21 +482,20 @@
             }).addTo(drLayer);
 
             const newPosition = formatCoordinatePair(newLat, newLon);
-            drMarker.bindPopup(`<b>DR Position</b><br>${newPosition}<br><small>${time.toFixed(1)}h at ${speed} kts</small>`);
+            drMarker.bindPopup(`<b>DR Position</b><br>${newPosition}<br><small>${time.toFixed(1)}h, COG ${cog.toFixed(1)}° @ SOG ${sog.toFixed(2)} kts</small>`);
 
             // Display result
-            const courseDisplay = courseSteps.length > 1 ?
-                '<div style="font-size:10px; margin:4px 0; padding:4px; background:#e3f2fd; border-radius:2px;">' +
-                courseSteps.join('<br>') + '</div>' :
-                `<b>COG:</b> ${bearingFormatted}<br>`;
-            
+            const courseDisplay = '<div style="font-size:10px; margin:4px 0; padding:4px; background:#e3f2fd; border-radius:2px;">' +
+                courseSteps.join('<br>') + '</div>';
+
             outputElement.innerHTML = `
                 <div style="color:#155724;"><b>DR Position:</b></div>
                 <div><b>New Pos:</b> ${newPosition}</div>
                 <div style="margin-top:6px; padding-top:6px; border-top:1px solid #ddd;">
                     ${courseDisplay}
-                    <b>Distance:</b> ${distance.toFixed(2)} NM<br>
-                    <b>Time:</b> ${time.toFixed(1)}h @ ${speed} kts
+                    <b>COG:</b> ${cog.toFixed(1)}° &nbsp; <b>SOG:</b> ${sog.toFixed(2)} kts<br>
+                    <b>Ground Dist:</b> ${distance.toFixed(2)} NM<br>
+                    <b>Time:</b> ${time.toFixed(1)}h
                 </div>
             `;
 
