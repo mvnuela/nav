@@ -1,0 +1,495 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Task Builder</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 24px;
+            color: #1f2937;
+        }
+        .wrap { max-width: 1100px; margin: 0 auto; }
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        header h1 { font-size: 1.6em; margin: 0; color: #1e3a8a; }
+        header a { color: #2563eb; text-decoration: none; font-size: 0.95em; }
+
+        details.section {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        details.section > summary {
+            cursor: pointer;
+            padding: 14px 18px;
+            font-weight: 600;
+            color: #1e3a8a;
+            font-size: 1.05em;
+            list-style: none;
+        }
+        details.section > summary::-webkit-details-marker { display: none; }
+        details.section > summary::before {
+            content: "▸";
+            display: inline-block;
+            margin-right: 8px;
+            transition: transform 0.15s;
+        }
+        details.section[open] > summary::before { transform: rotate(90deg); }
+        details.section .body { padding: 0 18px 18px 18px; }
+
+        /* Helper-tool panel — visually distinct from numbered data sections */
+        details.tool-panel {
+            background: linear-gradient(180deg, #eef2ff 0%, #f5f3ff 100%);
+            border: 1px solid #c7d2fe;
+            border-left: 4px solid #4f46e5;
+            border-radius: 10px;
+            margin: 24px 0 14px;
+            box-shadow: 0 1px 3px rgba(79, 70, 229, 0.08);
+        }
+        details.tool-panel > summary {
+            cursor: pointer;
+            padding: 14px 18px;
+            font-weight: 600;
+            color: #4338ca;
+            font-size: 1.05em;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        details.tool-panel > summary::-webkit-details-marker { display: none; }
+        details.tool-panel > summary::after {
+            content: "+";
+            margin-left: auto;
+            font-size: 1.4em;
+            line-height: 1;
+            color: #6366f1;
+            transition: transform 0.15s;
+        }
+        details.tool-panel[open] > summary::after { transform: rotate(45deg); }
+        details.tool-panel .body { padding: 0 18px 18px 18px; }
+        details.tool-panel .badge {
+            font-size: 0.7em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background: #4f46e5;
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 999px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+        .field { display: flex; flex-direction: column; gap: 4px; }
+        .field label {
+            font-size: 0.85em;
+            color: #4b5563;
+            font-weight: 500;
+        }
+        .field label .req { color: #dc2626; }
+        .field input, .field textarea, .field select {
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.95em;
+            font-family: inherit;
+            background: #fff;
+        }
+        .field input:focus, .field textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .field textarea { resize: vertical; min-height: 70px; }
+        .field .hint { font-size: 0.75em; color: #6b7280; }
+
+        .row {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f9fafb;
+            position: relative;
+        }
+        .row .row-title {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .row .remove-btn {
+            background: #fee2e2; color: #b91c1c;
+            border: none; padding: 4px 10px;
+            border-radius: 5px; cursor: pointer;
+            font-size: 0.8em;
+        }
+        .row .remove-btn:hover { background: #fecaca; }
+
+        .add-btn {
+            background: #2563eb; color: #fff;
+            border: none; padding: 8px 14px;
+            border-radius: 6px; cursor: pointer;
+            font-size: 0.9em; margin-top: 6px;
+        }
+        .add-btn:hover { background: #1d4ed8; }
+
+        .subgroup {
+            border-left: 3px solid #c7d2fe;
+            padding: 8px 0 8px 12px;
+            margin: 8px 0;
+        }
+        .subgroup-title {
+            font-size: 0.85em; font-weight: 600;
+            color: #4338ca; margin-bottom: 6px;
+        }
+
+        .actions {
+            position: sticky; bottom: 0;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-top: 20px;
+            display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+        }
+        .actions button.primary {
+            background: #059669; color: #fff;
+            border: none; padding: 10px 20px;
+            border-radius: 6px; cursor: pointer;
+            font-size: 1em; font-weight: 600;
+        }
+        .actions button.primary:hover { background: #047857; }
+        .actions .filename {
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px; font-size: 0.9em;
+        }
+
+        #status {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            display: none;
+        }
+        #status.ok {
+            display: block;
+            background: #d1fae5; color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+        #status.err {
+            display: block;
+            background: #fee2e2; color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        #status ul { margin: 8px 0 0 18px; padding: 0; }
+        #status li { margin: 2px 0; }
+        code.path { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 3px; }
+
+        /* Dead reckoning calculator */
+        .dr-result {
+            margin-top: 10px;
+            padding: 12px 14px;
+            background: #ecfdf5;
+            border: 1px solid #6ee7b7;
+            border-radius: 6px;
+            font-family: 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.95em;
+            color: #064e3b;
+            display: none;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+        .dr-result.show { display: block; }
+        .dr-result.err {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+        .dr-buttons { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .dr-buttons button {
+            background: #4f46e5; color: #fff;
+            border: none; padding: 8px 14px;
+            border-radius: 6px; cursor: pointer;
+            font-size: 0.9em;
+        }
+        .dr-buttons button:hover { background: #4338ca; }
+        .dr-buttons button.copy { background: #0891b2; }
+        .dr-buttons button.copy:hover { background: #0e7490; }
+        .dr-buttons button.copy.copied { background: #059669; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>⚓ Navigation Task Builder</h1>
+        <a href="{% url 'maps:index' %}">← Back to home</a>
+    </header>
+
+    <form id="ntForm" autocomplete="off">
+
+        <!-- ============ TASK / META ============ -->
+        <details class="section" open>
+            <summary>1. Task — Meta</summary>
+            <div class="body">
+                <div class="grid">
+                    <div class="field">
+                        <label>Title <span class="req">*</span></label>
+                        <input name="meta.title" required>
+                    </div>
+                    <div class="field">
+                        <label>Author <span class="req">*</span></label>
+                        <input name="meta.author" required>
+                    </div>
+                </div>
+                <div class="field" style="margin-top:10px">
+                    <label>Description <span class="req">*</span></label>
+                    <textarea name="meta.desc" required></textarea>
+                </div>
+                <div class="field" style="margin-top:10px">
+                    <label>Content (Markdown)</label>
+                    <textarea name="meta.content_md" rows="4"></textarea>
+                </div>
+            </div>
+        </details>
+
+        <!-- ============ NAVIGATION ============ -->
+        <details class="section">
+            <summary>2. Navigation</summary>
+            <div class="body">
+
+                <div class="subgroup">
+                    <div class="subgroup-title">Timezone</div>
+                    <div class="grid">
+                        <div class="field">
+                            <label>Name <span class="req">*</span></label>
+                            <input name="tz.name" placeholder="Europe/Warsaw" required>
+                        </div>
+                        <div class="field">
+                            <label>UTC offset <span class="req">*</span></label>
+                            <input name="tz.offset" placeholder="+02:00"
+                                   pattern="^[+-](0[0-9]|1[0-4]):[0-5][0-9]$" required>
+                            <span class="hint">Format ±HH:MM (e.g. +02:00)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="subgroup">
+                    <div class="subgroup-title">Magnetic variation list</div>
+                    <div id="mvList"></div>
+                    <button type="button" class="add-btn" data-add="mv">+ Add variation entry</button>
+                </div>
+
+                <div class="subgroup">
+                    <div class="subgroup-title">Compass deviation table</div>
+                    <div id="cdList"></div>
+                    <button type="button" class="add-btn" data-add="cd">+ Add deviation entry</button>
+                </div>
+
+                <div class="subgroup">
+                    <div class="subgroup-title">Leeway (degrees per point of sail)</div>
+                    <div id="leewayList"></div>
+                </div>
+            </div>
+        </details>
+
+        <!-- ============ CHART ============ -->
+        <details class="section">
+            <summary>3. Chart</summary>
+            <div class="body">
+                <div class="field">
+                    <label>File name <span class="req">*</span></label>
+                    <input name="chart.file_name" placeholder="chart.png" required>
+                </div>
+
+                <div class="subgroup">
+                    <div class="subgroup-title">Bounds (decimal degrees)</div>
+                    <div class="grid">
+                        <div class="field"><label>North lat <span class="req">*</span></label>
+                            <input type="number" step="0.0001" min="-90" max="90" name="chart.bounds.north_lat_deg" required></div>
+                        <div class="field"><label>South lat <span class="req">*</span></label>
+                            <input type="number" step="0.0001" min="-90" max="90" name="chart.bounds.south_lat_deg" required></div>
+                        <div class="field"><label>West lon <span class="req">*</span></label>
+                            <input type="number" step="0.0001" min="-180" max="180" name="chart.bounds.west_lon_deg" required></div>
+                        <div class="field"><label>East lon <span class="req">*</span></label>
+                            <input type="number" step="0.0001" min="-180" max="180" name="chart.bounds.east_lon_deg" required></div>
+                    </div>
+                </div>
+
+                <div class="subgroup">
+                    <div class="subgroup-title">Margins</div>
+                    <div class="grid">
+                        <div class="field"><label>Top <span class="req">*</span></label>
+                            <input type="number" step="0.0001" min="0" name="chart.margins.top" required></div>
+                        <div class="field"><label>Bottom <span class="req">*</span></label>
+                            <input type="number" step="0.0001" min="0" name="chart.margins.bottom" required></div>
+                        <div class="field"><label>Left <span class="req">*</span></label>
+                            <input type="number" step="0.0001" min="0" name="chart.margins.left" required></div>
+                        <div class="field"><label>Right <span class="req">*</span></label>
+                            <input type="number" step="0.0001" min="0" name="chart.margins.right" required></div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- ============ POI ============ -->
+        <details class="section">
+            <summary>4. Points of Interest (POI)</summary>
+            <div class="body">
+                <div id="poiList"></div>
+                <button type="button" class="add-btn" data-add="poi">+ Add POI</button>
+            </div>
+        </details>
+
+        <!-- ============ SOLUTION ============ -->
+        <details class="section">
+            <summary>5. Solution — Track</summary>
+            <div class="body">
+                <div id="trkList"></div>
+                <button type="button" class="add-btn" data-add="trk">+ Add track point</button>
+                <div class="field" style="margin-top:14px">
+                    <label>Comment</label>
+                    <textarea name="solution.comment" rows="3"></textarea>
+                    <span class="hint">Leave empty for null.</span>
+                </div>
+            </div>
+        </details>
+
+        <!-- ============ DEAD RECKONING CALCULATOR (helper tool, not task data) ============ -->
+        <details class="tool-panel">
+            <summary>
+                <span>Dead reckoning calculator</span>
+                <span class="badge">Helper tool</span>
+            </summary>
+            <div class="body">
+                <p style="margin:0 0 10px;color:#4b5563;font-size:0.9em">
+                    Project a new position from a starting point. Chain:
+                    Compass course + Deviation = Magnetic; + Variation = True heading; + Leeway = Course Through Water
+                    (rhumb-line, flat-Earth approximation — accurate for short legs).
+                </p>
+                <div class="grid">
+                    <div class="field">
+                        <label>Start latitude (°)</label>
+                        <input type="number" step="0.0001" min="-90" max="90" id="drStartLat">
+                    </div>
+                    <div class="field">
+                        <label>Start longitude (°)</label>
+                        <input type="number" step="0.0001" min="-180" max="180" id="drStartLon">
+                    </div>
+                    <div class="field">
+                        <label>Compass course (°)</label>
+                        <input type="number" step="0.0001" min="0" max="359.9999" id="drCourse">
+                    </div>
+                    <div class="field">
+                        <label>Compass deviation (°)</label>
+                        <input type="number" step="0.0001" id="drDeviation" value="0" placeholder="+E / -W">
+                        <span class="hint">From the deviation table for this heading.</span>
+                    </div>
+                    <div class="field">
+                        <label>Magnetic variation (°)</label>
+                        <input type="number" step="0.0001" id="drVariation" value="0" placeholder="+E / -W">
+                        <span class="hint">Local chart variation, corrected for year.</span>
+                    </div>
+                    <div class="field">
+                        <label>Leeway (°)</label>
+                        <input type="number" step="0.0001" id="drLeeway" value="0" placeholder="+stbd / -port">
+                        <span class="hint">Wind drift angle. Apply with sign of the leeward side.</span>
+                    </div>
+                    <div class="field">
+                        <label>Speed (kn)</label>
+                        <input type="number" step="0.0001" min="0" id="drSpeed">
+                    </div>
+                    <div class="field">
+                        <label>Elapsed time (hours)</label>
+                        <input type="number" step="0.0001" min="0" id="drTime" placeholder="e.g. 1.5">
+                    </div>
+                </div>
+                <div class="dr-buttons">
+                    <button type="button" id="drCalcBtn">Calculate</button>
+                    <button type="button" class="copy" id="drCopyBtn" disabled>Copy result</button>
+                    <button type="button" class="copy" id="drCopyLatLonBtn" disabled>Copy lat,lon</button>
+                </div>
+                <div id="drResult" class="dr-result"></div>
+            </div>
+        </details>
+
+        <!-- ============ COORDINATE FORMAT CONVERTER (helper tool, not task data) ============ -->
+        <details class="tool-panel">
+            <summary>
+                <span>Coordinate format converter</span>
+                <span class="badge">Helper tool</span>
+            </summary>
+            <div class="body">
+                <p style="margin:0 0 10px;color:#4b5563;font-size:0.9em">
+                    Convert degrees + decimal minutes to decimal degrees. Accepts a single coordinate
+                    (<code>54°7.071'N</code> → <code>54.1179°</code>) or a pair
+                    (<code>54°7.071'N 18°12.030'E</code> → <code>54.1179°, 18.2005°</code>).
+                </p>
+                <div class="field">
+                    <label>Input coordinate(s)</label>
+                    <input id="ccInput" placeholder="54°7.071'N    or    54°7.071'N 18°12.030'E">
+                    <span class="hint">One or two values. Accepts <code>°</code> / <code>'</code> with N/S/E/W. Separator can be space or comma.</span>
+                </div>
+                <div class="dr-buttons">
+                    <button type="button" id="ccConvertBtn">Convert</button>
+                    <button type="button" class="copy" id="ccCopyBtn" disabled>Copy result</button>
+                </div>
+                <div id="ccResult" class="dr-result"></div>
+            </div>
+        </details>
+
+        <!-- ============ DMS → DECIMAL CONVERTER (helper tool, not task data) ============ -->
+        <details class="tool-panel">
+            <summary>
+                <span>DMS → decimal degrees converter</span>
+                <span class="badge">Helper tool</span>
+            </summary>
+            <div class="body">
+                <p style="margin:0 0 10px;color:#4b5563;font-size:0.9em">
+                    Convert degrees + minutes + seconds to decimal degrees. Accepts a single coordinate
+                    (<code>54°7'4.26"N</code> → <code>54.1179°</code>) or a pair
+                    (<code>54°7'4.26"N 18°12'1.8"E</code> → <code>54.1179°, 18.2005°</code>).
+                </p>
+                <div class="field">
+                    <label>Input coordinate(s)</label>
+                    <input id="dmsInput" placeholder='54°7&apos;4.26"N    or    54°7&apos;4.26"N 18°12&apos;1.8"E'>
+                    <span class="hint">One or two values. Accepts <code>°</code> / <code>'</code> / <code>"</code> with N/S/E/W. Separator can be space or comma.</span>
+                </div>
+                <div class="dr-buttons">
+                    <button type="button" id="dmsConvertBtn">Convert</button>
+                    <button type="button" class="copy" id="dmsCopyBtn" disabled>Copy result</button>
+                </div>
+                <div id="dmsResult" class="dr-result"></div>
+            </div>
+        </details>
+
+        <div class="actions">
+            <input type="text" class="filename" id="downloadName" value="navigation-task.json">
+            <button type="button" class="primary" id="validateBtn">Validate &amp; Download JSON</button>
+            <span id="statusInline" style="font-size:0.9em;color:#6b7280"></span>
+        </div>
+
+        <div id="status"></div>
+    </form>
+</div>
+
+{{ schema|json_script:"ntSchema" }}
+<script type="module" src="{% static 'maps/js/navigation_task_form.js' %}"></script>
+</body>
+</html>
