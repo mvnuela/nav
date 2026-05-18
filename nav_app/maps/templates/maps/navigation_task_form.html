@@ -311,38 +311,43 @@
 
         <!-- ============ CHART ============ -->
         <details class="section">
-            <summary>3. Chart</summary>
+            <summary>3. Chart <span style="font-weight:400;color:#6b7280;font-size:0.85em">(optional)</span></summary>
             <div class="body">
+                <p style="margin:0 0 10px;color:#4b5563;font-size:0.9em">
+                    Optional. Leave all fields empty to omit the chart. If included, the
+                    download filename will get a <code>_chart</code> suffix.
+                    All chart fields below must be filled together.
+                </p>
                 <div class="field">
-                    <label>File name <span class="req">*</span></label>
-                    <input name="chart.file_name" placeholder="chart.png" required>
+                    <label>File name</label>
+                    <input name="chart.file_name" placeholder="chart.png">
                 </div>
 
                 <div class="subgroup">
                     <div class="subgroup-title">Bounds (decimal degrees)</div>
                     <div class="grid">
-                        <div class="field"><label>North lat <span class="req">*</span></label>
-                            <input type="number" step="0.0001" min="-90" max="90" name="chart.bounds.north_lat_deg" required></div>
-                        <div class="field"><label>South lat <span class="req">*</span></label>
-                            <input type="number" step="0.0001" min="-90" max="90" name="chart.bounds.south_lat_deg" required></div>
-                        <div class="field"><label>West lon <span class="req">*</span></label>
-                            <input type="number" step="0.0001" min="-180" max="180" name="chart.bounds.west_lon_deg" required></div>
-                        <div class="field"><label>East lon <span class="req">*</span></label>
-                            <input type="number" step="0.0001" min="-180" max="180" name="chart.bounds.east_lon_deg" required></div>
+                        <div class="field"><label>North lat</label>
+                            <input type="number" step="0.0001" min="-90" max="90" name="chart.bounds.north_lat_deg"></div>
+                        <div class="field"><label>South lat</label>
+                            <input type="number" step="0.0001" min="-90" max="90" name="chart.bounds.south_lat_deg"></div>
+                        <div class="field"><label>West lon</label>
+                            <input type="number" step="0.0001" min="-180" max="180" name="chart.bounds.west_lon_deg"></div>
+                        <div class="field"><label>East lon</label>
+                            <input type="number" step="0.0001" min="-180" max="180" name="chart.bounds.east_lon_deg"></div>
                     </div>
                 </div>
 
                 <div class="subgroup">
                     <div class="subgroup-title">Margins</div>
                     <div class="grid">
-                        <div class="field"><label>Top <span class="req">*</span></label>
-                            <input type="number" step="0.0001" min="0" name="chart.margins.top" required></div>
-                        <div class="field"><label>Bottom <span class="req">*</span></label>
-                            <input type="number" step="0.0001" min="0" name="chart.margins.bottom" required></div>
-                        <div class="field"><label>Left <span class="req">*</span></label>
-                            <input type="number" step="0.0001" min="0" name="chart.margins.left" required></div>
-                        <div class="field"><label>Right <span class="req">*</span></label>
-                            <input type="number" step="0.0001" min="0" name="chart.margins.right" required></div>
+                        <div class="field"><label>Top</label>
+                            <input type="number" step="0.0001" min="0" name="chart.margins.top"></div>
+                        <div class="field"><label>Bottom</label>
+                            <input type="number" step="0.0001" min="0" name="chart.margins.bottom"></div>
+                        <div class="field"><label>Left</label>
+                            <input type="number" step="0.0001" min="0" name="chart.margins.left"></div>
+                        <div class="field"><label>Right</label>
+                            <input type="number" step="0.0001" min="0" name="chart.margins.right"></div>
                     </div>
                 </div>
             </div>
@@ -490,6 +495,6 @@
 </div>
 
 {{ schema|json_script:"ntSchema" }}
-<script type="module" src="{% static 'maps/js/navigation_task_form.js' %}"></script>
+<script type="module" src="{% static 'maps/js/navigation/navigation_task_form.js' %}"></script>
 </body>
 </html>

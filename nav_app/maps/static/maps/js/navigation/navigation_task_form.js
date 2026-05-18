@@ -198,6 +198,29 @@ function localToIso(local, offset) {
     return `${withSeconds}${offset || "Z"}`;
 }
 
+const CHART_FIELDS = [
+    "chart.file_name",
+    "chart.bounds.north_lat_deg", "chart.bounds.south_lat_deg",
+    "chart.bounds.west_lon_deg",  "chart.bounds.east_lon_deg",
+    "chart.margins.top", "chart.margins.bottom",
+    "chart.margins.left", "chart.margins.right",
+];
+
+function hasChartData() {
+    return CHART_FIELDS.some(name => {
+        const el = document.querySelector(`[name="${CSS.escape(name)}"]`);
+        return el && el.value.trim() !== "";
+    });
+}
+
+function withChartSuffix(filename) {
+    const lower = filename.toLowerCase();
+    const ext = lower.endsWith(".json") ? ".json" : "";
+    const stem = ext ? filename.slice(0, -ext.length) : filename;
+    if (stem.toLowerCase().endsWith("_chart")) return filename;
+    return `${stem}_chart${ext}`;
+}
+
 function buildJSON() {
     const tzOffset = val("tz.offset");
 
@@ -260,36 +283,41 @@ function buildJSON() {
     const commentRaw = val("solution.comment");
     const comment = commentRaw === undefined ? null : commentRaw;
 
-    return {
-        task: {
-            meta: {
-                title:       val("meta.title"),
-                desc:        val("meta.desc"),
-                author:      val("meta.author"),
-                content_md:  val("meta.content_md") ?? "",
-            },
-            navigation: {
-                timezone: { name: val("tz.name"), offset: tzOffset },
-                magnetic_variation_list,
-                compass_deviation_table,
-                leeway,
-            },
-            chart: {
-                file_name: val("chart.file_name"),
-                bounds: {
-                    north_lat_deg: val("chart.bounds.north_lat_deg", { number: true }),
-                    south_lat_deg: val("chart.bounds.south_lat_deg", { number: true }),
-                    west_lon_deg:  val("chart.bounds.west_lon_deg",  { number: true }),
-                    east_lon_deg:  val("chart.bounds.east_lon_deg",  { number: true }),
-                },
-                margins: {
-                    top:    val("chart.margins.top",    { number: true }),
-                    bottom: val("chart.margins.bottom", { number: true }),
-                    left:   val("chart.margins.left",   { number: true }),
-                    right:  val("chart.margins.right",  { number: true }),
-                },
-            },
+    const task = {
+        meta: {
+            title:       val("meta.title"),
+            desc:        val("meta.desc"),
+            author:      val("meta.author"),
+            content_md:  val("meta.content_md") ?? "",
         },
+        navigation: {
+            timezone: { name: val("tz.name"), offset: tzOffset },
+            magnetic_variation_list,
+            compass_deviation_table,
+            leeway,
+        },
+    };
+
+    if (hasChartData()) {
+        task.chart = {
+            file_name: val("chart.file_name"),
+            bounds: {
+                north_lat_deg: val("chart.bounds.north_lat_deg", { number: true }),
+                south_lat_deg: val("chart.bounds.south_lat_deg", { number: true }),
+                west_lon_deg:  val("chart.bounds.west_lon_deg",  { number: true }),
+                east_lon_deg:  val("chart.bounds.east_lon_deg",  { number: true }),
+            },
+            margins: {
+                top:    val("chart.margins.top",    { number: true }),
+                bottom: val("chart.margins.bottom", { number: true }),
+                left:   val("chart.margins.left",   { number: true }),
+                right:  val("chart.margins.right",  { number: true }),
+            },
+        };
+    }
+
+    return {
+        task,
         poi,
         solution: { trk, comment },
     };
@@ -585,7 +613,8 @@ document.getElementById("validateBtn").addEventListener("click", () => {
     const data = buildJSON();
     const ok = validate(data);
     if (ok) {
-        const name = document.getElementById("downloadName").value.trim() || "navigation-task.json";
+        let name = document.getElementById("downloadName").value.trim() || "navigation-task.json";
+        if (data.task.chart) name = withChartSuffix(name);
         downloadJSON(data, name);
         showStatus(`✓ Valid against schema. Downloaded as <code>${name}</code>.`, "ok");
     } else {
