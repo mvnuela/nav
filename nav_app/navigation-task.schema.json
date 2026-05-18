@@ -9,7 +9,7 @@
     "task": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["meta", "navigation", "chart"],
+      "required": ["meta", "navigation"],
       "properties": {
         "meta": {
           "type": "object",
