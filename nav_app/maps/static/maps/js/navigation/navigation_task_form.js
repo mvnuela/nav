@@ -504,7 +504,7 @@ function showCCError(msg) {
     lastCC = null;
 }
 
-document.getElementById("ccConvertBtn").addEventListener("click", () => {
+document.getElementById("ccConvertBtn")?.addEventListener("click", () => {
     const raw = document.getElementById("ccInput").value.trim();
     if (!raw) return showCCError("Enter a coordinate.");
     try {
@@ -526,7 +526,7 @@ document.getElementById("ccConvertBtn").addEventListener("click", () => {
     }
 });
 
-document.getElementById("ccCopyBtn").addEventListener("click", e => {
+document.getElementById("ccCopyBtn")?.addEventListener("click", e => {
     if (!lastCC) return;
     copyToClipboard(lastCC.text, e.currentTarget);
 });

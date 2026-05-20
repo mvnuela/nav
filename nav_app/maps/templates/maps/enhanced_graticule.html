@@ -366,7 +366,7 @@
             </div>
 
             <div class="panel">
-                <h3>🎯 2. Define Map Region</h3>
+                <h3>2. Define Map Region</h3>
                 <p class="hint">Select the area containing actual map (excluding margins/legends)</p>
                 <button id="fitModeBtn" class="btn btn-secondary" disabled>
                     Enter Fit Mode
@@ -378,33 +378,33 @@
             </div>
 
             <div class="panel">
-                <h3>🌍 3. Geographic Bounds & Grid</h3>
-                <p class="hint">Set coordinates and grid spacing for the selected map region (applied together)</p>
+                <h3>3. Geographic Bounds & Grid</h3>
+                <p class="hint">Set coordinates and grid spacing for the selected map region as decimal(applied together)</p>
                 <div class="form-group">
                     <label>Min Latitude (South):</label>
-                    <input type="text" id="minLat" placeholder="54.0 or 54°00'N">
+                    <input type="text" id="minLat" placeholder="54.0">
                 </div>
                 <div class="form-group">
                     <label>Max Latitude (North):</label>
-                    <input type="text" id="maxLat" placeholder="55.0 or 55°00'N">
+                    <input type="text" id="maxLat" placeholder="55.0">
                 </div>
                 <div class="form-group">
                     <label>Min Longitude (West):</label>
-                    <input type="text" id="minLon" placeholder="18.0 or 018°00'E">
+                    <input type="text" id="minLon" placeholder="18.0">
                 </div>
                 <div class="form-group">
                     <label>Max Longitude (East):</label>
-                    <input type="text" id="maxLon" placeholder="19.0 or 019°00'E">
+                    <input type="text" id="maxLon" placeholder="19.0">
                 </div>
 
                 <!-- Grid spacing (defined at the geographic bounds step) -->
                 <div style="margin-top:12px; padding-top:12px; border-top:1px solid #ddd;">
-                    <h4 style="margin:0 0 10px 0; color:#0078A8; font-size:0.95em;">⚙️ Grid spacing</h4>
+                    <h4 style="margin:0 0 10px 0; color:#0078A8; font-size:0.95em;">⚙Grid spacing</h4>
                     <p class="hint" style="margin-top:-6px;">Choose spacing before clicking “Apply Geographic Bounds”</p>
 
                     <!-- Parallels (Latitude Lines) Configuration -->
                     <div style="background:#e8f5e9; padding:10px; border-radius:4px; margin-bottom:12px;">
-                        <h4 style="margin:0 0 8px 0; color:#2E7D32; font-size:0.95em;">📏 Parallels (Latitude)</h4>
+                        <h4 style="margin:0 0 8px 0; color:#2E7D32; font-size:0.95em;">Parallels (Latitude)</h4>
                         <div class="form-group" style="margin-bottom:8px;">
                             <label>Spacing:</label>
                             <div style="display:flex; gap:8px;">
@@ -422,7 +422,7 @@
 
                     <!-- Meridians (Longitude Lines) Configuration -->
                     <div style="background:#e3f2fd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                        <h4 style="margin:0 0 8px 0; color:#0078A8; font-size:0.95em;">📐 Meridians (Longitude)</h4>
+                        <h4 style="margin:0 0 8px 0; color:#0078A8; font-size:0.95em;">Meridians (Longitude)</h4>
                         <div class="form-group" style="margin-bottom:8px;">
                             <label>Spacing:</label>
                             <div style="display:flex; gap:8px;">
@@ -450,7 +450,7 @@
             </div>
 
             <div class="panel" id="coordinateDisplay" style="display:none;">
-                <h3>📍 Cursor Position</h3>
+                <h3>Cursor Position</h3>
                 <div class="info-box">
                     <div id="cursorCoords" style="font-family: monospace;">
                         Move mouse over map...
@@ -459,7 +459,7 @@
             </div>
 
             <div class="panel" id="trianglesPanel" style="display:none;">
-                <h3>📐 Navigation Triangles</h3>
+                <h3>Navigation Triangles</h3>
                 <p class="hint">Professional maritime navigation triangles for course plotting</p>
                 
                 <button id="toggleTrianglesBtn" class="btn btn-primary">
@@ -470,7 +470,7 @@
                     <strong>Instructions:</strong>
                     <ul style="margin:8px 0 0 20px; padding:0;">
                         <li>Drag to move triangle</li>
-                        <li><strong>Ctrl + drag</strong> to rotate</li>
+                        <li><strong>Press Z key</strong> to rotate</li>
                         <li>Outer scale: 0°-180° (black)</li>
                         <li>Inner scale: 180°-360° (red)</li>
                     </ul>
@@ -511,7 +511,7 @@
             </div>
             
             <div class="panel" id="dividerPanel" style="display:none;">
-                <h3>📏 Nautical Divider</h3>
+                <h3>Nautical Divider</h3>
                 <p class="hint">Professional chart divider for measuring distances</p>
                 
                 <button id="toggleDividerBtn" class="btn btn-primary">
@@ -552,7 +552,7 @@
             </div>
             
             <div class="panel" id="gpxPanel" style="display:none;">
-                <h3>🗺️ GPX Routes</h3>
+                <h3>GPX Routes</h3>
                 <p class="hint">Load and display GPS routes from GPX files</p>
                 
                 <button id="toggleGPXBtn" class="btn btn-primary">
@@ -687,7 +687,7 @@
             </div>
 
             <div class="panel" id="courseCalculatorPanel" style="display:none;">
-                <h3>🧭 Course Calculator & DR</h3>
+                <h3>Course Calculator & DR</h3>
                 <p class="hint">Calculate compass course and dead reckoning position</p>
                 
                 <div style="background:#fff3cd; padding:8px; border-radius:4px; margin-bottom:10px; font-size:0.85em;">
@@ -812,21 +812,12 @@
                     <li>Click "Apply" to generate accurate Mercator graticule</li>
                     <li>Export as PNG</li>
                 </ol>
-                <div class="info-box" style="margin-top:15px; background:#fff3cd; border-left-color:#ffc107;">
-                    <strong>💡 Key Features:</strong>
-                    <p style="margin:5px 0 0 0; font-size:0.85em;">
-
-                        • Drag corners/edges to resize region<br>
-                        • Geographic accuracy preserved at all scales
-                    </p>
-                </div>
                 <div class="info-box" style="display:none; margin-top:10px; background:#e3f2fd; border-left-color:#0078A8;">
                     <strong>🔍 Zoom & Pan:</strong>
                     <p style="margin:5px 0 0 0; font-size:0.85em;">
                         • Mouse wheel to zoom in/out<br>
                         • Shift + drag to pan when zoomed<br>
                         • Pinch gesture on touch devices<br>
-                        • Use toolbar buttons for precise control
                     </p>
                 </div>
             </div>
@@ -871,29 +862,29 @@
     </script>
 
     <!-- Load utilities first -->
-    <script src="{% static 'maps/js/graticule_formatter.js' %}"></script>
+    <script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
     <!-- Load course calculator -->
-    <script src="{% static 'maps/js/course_calculator.js' %}"></script>
+    <script src="{% static 'maps/js/course/course_calculator.js' %}"></script>
     <!-- Load nautical divider -->
-    <script src="{% static 'maps/js/nautical_divider.js' %}"></script>
+    <script src="{% static 'maps/js/nautical/nautical_divider.js' %}"></script>
     <!-- Load GPX parser -->
-    <script src="{% static 'maps/js/gpx_parser.js' %}"></script>
+    <script src="{% static 'maps/js/gpx/gpx_parser.js' %}"></script>
     <!-- Load GPX canvas manager -->
-    <script src="{% static 'maps/js/gpx_route_canvas.js' %}"></script>
+    <script src="{% static 'maps/js/gpx/gpx_route_canvas.js' %}"></script>
     <!-- Load nautical triangles component (canvas version for this system) -->
-    <script src="{% static 'maps/js/nautical_triangles_canvas.js' %}"></script>
+    <script src="{% static 'maps/js/nautical/nautical_triangles_canvas.js' %}"></script>
     <!-- Load observed position canvas manager -->
-    <script src="{% static 'maps/js/observed_position_canvas.js' %}"></script>
+    <script src="{% static 'maps/js/observed_position/observed_position_canvas.js' %}"></script>
     <!-- Load geometry tools (model + canvas manager) -->
-    <script src="{% static 'maps/js/geometry_model.js' %}"></script>
-    <script src="{% static 'maps/js/geometry_canvas.js' %}"></script>
+    <script src="{% static 'maps/js/geometry/geometry_model.js' %}"></script>
+    <script src="{% static 'maps/js/geometry/geometry_canvas.js' %}"></script>
     <!-- Load enhanced graticule (split into multiple files) -->
-    <script src="{% static 'maps/js/graticule_projection.js' %}"></script>
-    <script src="{% static 'maps/js/enhanced_graticule.js' %}"></script>
-    <script src="{% static 'maps/js/graticule_drawing.js' %}"></script>
-    <script src="{% static 'maps/js/graticule_tools.js' %}"></script>
+    <script src="{% static 'maps/js/graticule/graticule_projection.js' %}"></script>
+    <script src="{% static 'maps/js/graticule/enhanced_graticule.js' %}"></script>
+    <script src="{% static 'maps/js/graticule/graticule_drawing.js' %}"></script>
+    <script src="{% static 'maps/js/graticule/graticule_tools.js' %}"></script>
     <!-- Load course plotting extension -->
-    <script src="{% static 'maps/js/course_plotter_enhanced.js' %}"></script>
+    <script src="{% static 'maps/js/course/course_plotter_enhanced.js' %}"></script>
     
     <script>
         // Make graticule system globally accessible

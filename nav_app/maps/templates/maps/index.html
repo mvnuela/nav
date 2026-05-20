@@ -125,39 +125,30 @@
 
         <div class="cards">
             <a href="{% url 'maps:sea_map' %}" class="card">
-                <div class="card-icon">🗺️</div>
                 <h2>Interactive Sea Map</h2>
                 <p>Explore nautical charts with real-time coordinates and navigation tools</p>
                 <ul class="card-features">
-                    <li>OpenStreetMap with Mercator projection</li>
+                    <li>Open Sea Map with Mercator projection</li>
                     <li>Nautical coordinate grid (graticule)</li>
-                    <li>Course plotter with bearing & distance</li>
-                    <li>Dead reckoning calculator</li>
                     <li>Real-time coordinate display</li>
                 </ul>
             </a>
 
             <a href="{% url 'maps:enhanced_graticule' %}" class="card">
-                <div class="card-icon">🎯</div>
                 <h2>Enhanced Interactive Graticule</h2>
                 <p>Professional-grade graticule with region fitting and Mercator projection</p>
                 <ul class="card-features">
-                    <li>Interactive region selection for images with margins</li>
-                    <li>Proper Mercator projection (not linear)</li>
+                    <li>Interactive region selection for images</li>
+                    <li>Proper Mercator projection</li>
                     <li>Drag-and-resize map region controls</li>
-                    <li>High-resolution SVG/PNG export</li>
-                    <li>Geographic accuracy at all scales</li>
                 </ul>
             </a>
 
             <a href="{% url 'maps:navigation_task_form' %}" class="card">
-                <div class="card-icon">📝</div>
                 <h2>Navigation Task Builder</h2>
-                <p>Build a navigation task JSON from a guided form, validated against the schema</p>
+                <p>Build a navigation task JSON from a guided form</p>
                 <ul class="card-features">
                     <li>Form panel covering task, POIs and solution track</li>
-                    <li>Client-side validation against navigation-task.schema.json</li>
-                    <li>Dynamic add / remove for variations, POIs and track points</li>
                     <li>Download the result as a JSON file</li>
                 </ul>
             </a>

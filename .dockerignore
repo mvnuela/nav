@@ -38,9 +38,9 @@ docker-compose.yml
 
 # Documentation
 *.md
-ARCHITECTURE.md
-IMPLEMENTATION_ROADMAP.md
-NAUTICAL_REFERENCE.md
+docs/ARCHITECTURE.md
+docs/IMPLEMENTATION_ROADMAP.md
+docs/NAUTICAL_REFERENCE.md
 
 # Other
 *.bak

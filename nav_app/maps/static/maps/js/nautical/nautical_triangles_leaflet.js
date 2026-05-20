@@ -237,7 +237,7 @@
                             <strong style="color: #1565c0;">Instructions:</strong>
                             <ul style="margin: 6px 0 0 16px; padding: 0; color: #424242;">
                                 <li>Drag to move triangle</li>
-                                <li><strong>Ctrl + drag</strong> to rotate</li>
+                                <li><strong>Z + drag</strong> to rotate</li>
                                 <li>Touch: 2 fingers to rotate</li>
                                 <li>Scales: 0°-180° (outer), 180°-360° (inner)</li>
                                 <li><strong>Align:</strong> dedicated tool below —<br>click a triangle, then a target point.<br>The hypotenuse midpoint snaps to that point without changing rotation.</li>
