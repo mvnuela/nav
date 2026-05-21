@@ -1,6 +1,8 @@
-from django.shortcuts import render
-from django.http import JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.conf import settings
 import io
 import json
@@ -8,13 +10,25 @@ import os
 import base64
 from PIL import Image
 import fitz  # PyMuPDF
+from jsonschema import Draft202012Validator
+
+from .models import Task
+
+
+def _load_task_schema():
+    schema_path = os.path.join(settings.BASE_DIR, "navigation-task.schema.json")
+    with open(schema_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def index(request):
-    """Landing page with navigation options"""
+    """Welcome page for anonymous users, dashboard for logged-in users."""
+    if not request.user.is_authenticated:
+        return render(request, "maps/welcome.html")
     return render(request, "maps/index.html")
 
 
+@login_required
 def sea_map(request):
     """Interactive sea map with OpenStreetMap"""
     context = {
@@ -24,22 +38,83 @@ def sea_map(request):
     return render(request, "maps/sea_map.html", context)
 
 
+@login_required
 def custom_map(request):
     """Custom map with graticule overlay"""
     return render(request, "maps/custom_map.html")
 
 
+@login_required
 def enhanced_graticule(request):
     """Enhanced interactive graticule with region fitting"""
     return render(request, "maps/enhanced_graticule.html")
 
 
+@login_required
 def navigation_task_form(request):
     """Form panel for building a navigation-task JSON from user input."""
-    schema_path = os.path.join(settings.BASE_DIR, "navigation-task.schema.json")
-    with open(schema_path, "r", encoding="utf-8") as f:
-        schema = json.load(f)
-    return render(request, "maps/navigation_task_form.html", {"schema": schema})
+    if not request.user.is_teacher:
+        return HttpResponseForbidden("Only teachers can access the navigation task builder.")
+    return render(request, "maps/navigation_task_form.html", {"schema": _load_task_schema()})
+
+
+@login_required
+def task_list(request):
+    """List of all uploaded navigation tasks, visible to every authenticated user."""
+    tasks = Task.objects.select_related("owner").all()
+    return render(request, "maps/task_list.html", {"tasks": tasks})
+
+
+@login_required
+def task_upload(request):
+    """Teacher-only: upload a JSON task file, validate against the schema, save it."""
+    if not request.user.is_teacher:
+        return HttpResponseForbidden("Only teachers can upload tasks.")
+
+    error = None
+    if request.method == "POST":
+        uploaded = request.FILES.get("file")
+        if not uploaded:
+            error = "Please choose a JSON file to upload."
+        else:
+            try:
+                payload = json.loads(uploaded.read().decode("utf-8"))
+            except UnicodeDecodeError:
+                error = "File must be UTF-8 encoded JSON."
+            except json.JSONDecodeError as e:
+                error = f"Invalid JSON: {e.msg} (line {e.lineno}, column {e.colno})."
+            else:
+                validator = Draft202012Validator(_load_task_schema())
+                schema_errors = sorted(
+                    validator.iter_errors(payload), key=lambda err: list(err.path)
+                )
+                if schema_errors:
+                    error = "JSON does not match the navigation-task schema:\n" + "\n".join(
+                        f"  - {'/'.join(map(str, err.path)) or '(root)'}: {err.message}"
+                        for err in schema_errors
+                    )
+                else:
+                    meta = payload["task"]["meta"]
+                    task = Task.objects.create(
+                        owner=request.user,
+                        title=meta["title"],
+                        description=meta["desc"],
+                        author=meta["author"],
+                        payload=payload,
+                    )
+                    messages.success(request, f"Task “{task.title}” uploaded.")
+                    return redirect("maps:task_list")
+
+    return render(request, "maps/task_upload.html", {"error": error})
+
+
+@login_required
+def task_download(request, pk):
+    """Download a task's stored JSON payload."""
+    task = get_object_or_404(Task, pk=pk)
+    response = JsonResponse(task.payload, json_dumps_params={"indent": 2})
+    response["Content-Disposition"] = f'attachment; filename="task-{task.pk}.json"'
+    return response
 
 
 @csrf_exempt

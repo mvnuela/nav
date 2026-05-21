@@ -114,10 +114,40 @@
             margin-top: 50px;
             opacity: 0.8;
         }
+
+        .auth-bar {
+            text-align: right;
+            color: white;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+
+        .auth-bar a, .auth-bar button {
+            color: white;
+            text-decoration: underline;
+            margin-left: 12px;
+            background: none;
+            border: none;
+            font: inherit;
+            cursor: pointer;
+            padding: 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="auth-bar">
+            {% if user.is_authenticated %}
+                Signed in as <strong>{{ user.username }}</strong> ({{ user.get_role_display }})
+                <form method="post" action="{% url 'accounts:logout' %}" style="display:inline">
+                    {% csrf_token %}
+                    <button type="submit">Log out</button>
+                </form>
+            {% else %}
+                <a href="{% url 'accounts:login' %}">Log in</a>
+                <a href="{% url 'accounts:signup' %}">Sign up</a>
+            {% endif %}
+        </div>
         <div class="header">
             <h1>⚓ Sea Navigation Learning</h1>
             <p>Choose your navigation tool</p>
@@ -144,6 +174,16 @@
                 </ul>
             </a>
 
+            <a href="{% url 'maps:task_list' %}" class="card">
+                <h2>Navigation Tasks</h2>
+                <p>Browse all uploaded navigation tasks</p>
+                <ul class="card-features">
+                    <li>See every task uploaded by teachers</li>
+                    <li>Download the underlying JSON</li>
+                </ul>
+            </a>
+
+            {% if user.is_authenticated and user.is_teacher %}
             <a href="{% url 'maps:navigation_task_form' %}" class="card">
                 <h2>Navigation Task Builder</h2>
                 <p>Build a navigation task JSON from a guided form</p>
@@ -152,6 +192,16 @@
                     <li>Download the result as a JSON file</li>
                 </ul>
             </a>
+
+            <a href="{% url 'maps:task_upload' %}" class="card">
+                <h2>Upload Task JSON</h2>
+                <p>Upload a prepared task JSON file and validate it against the schema</p>
+                <ul class="card-features">
+                    <li>Strict navigation-task schema validation</li>
+                    <li>Saved task appears in the tasks list</li>
+                </ul>
+            </a>
+            {% endif %}
         </div>
 
         <div class="footer">
