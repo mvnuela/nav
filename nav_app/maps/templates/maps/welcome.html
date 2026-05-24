@@ -1,0 +1,103 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sea Navigation Learning - Welcome</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .welcome {
+            max-width: 640px;
+            width: 100%;
+            background: white;
+            border-radius: 15px;
+            padding: 60px 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .welcome h1 {
+            color: #667eea;
+            font-size: 2.6em;
+            margin-bottom: 16px;
+        }
+
+        .welcome p {
+            color: #555;
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        .footer {
+            margin-top: 40px;
+            color: #999;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome">
+        <h1>⚓ Sea Navigation Learning</h1>
+        <p>Interactive nautical charts, graticules, and navigation task tools for teachers and students.</p>
+
+        <div class="actions">
+            <a href="{% url 'accounts:login' %}" class="btn btn-primary">Log in</a>
+            <a href="{% url 'accounts:signup' %}" class="btn btn-secondary">Sign up</a>
+        </div>
+
+        <div class="footer">
+            <p>© 2025 Sea Navigation Learning Platform</p>
+        </div>
+    </div>
+</body>
+</html>

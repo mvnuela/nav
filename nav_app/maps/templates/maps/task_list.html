@@ -1,0 +1,154 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Tasks</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 24px;
+            color: #1f2937;
+        }
+        .wrap { max-width: 1100px; margin: 0 auto; }
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+        }
+        header h1 { font-size: 1.6em; margin: 0; color: #1e3a8a; }
+        header .actions a {
+            color: #2563eb;
+            text-decoration: none;
+            margin-left: 14px;
+            font-size: 0.95em;
+        }
+        header .actions .btn {
+            background: #2563eb;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        header .actions .btn:hover { background: #1d4ed8; }
+
+        .messages { list-style: none; padding: 0; margin: 0 0 16px; }
+        .messages li {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.95em;
+        }
+        td.actions {
+            white-space: nowrap;
+        }
+        td.actions a {
+            display: inline-block;
+            margin-right: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        td.actions a.solve-sea { background: #0e7490; color: #fff; }
+        td.actions a.solve-sea:hover { background: #155e75; text-decoration: none; }
+        td.actions a.solve-grat { background: #15803d; color: #fff; }
+        td.actions a.solve-grat:hover { background: #166534; text-decoration: none; }
+        td.actions a.download { color: #2563eb; }
+        th {
+            background: #f9fafb;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        tr:last-child td { border-bottom: none; }
+        td a { color: #2563eb; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+
+        .empty {
+            background: #fff;
+            border: 1px dashed #d1d5db;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>Navigation Tasks</h1>
+        <div class="actions">
+            <a href="{% url 'maps:index' %}">← Home</a>
+            {% if user.is_teacher %}
+                <a class="btn" href="{% url 'maps:task_upload' %}">Upload JSON</a>
+            {% endif %}
+        </div>
+    </header>
+
+    {% if messages %}
+        <ul class="messages">
+            {% for m in messages %}<li>{{ m }}</li>{% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if tasks %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Uploaded by</th>
+                    <th>Uploaded</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.title }}</td>
+                        <td>{{ task.author }}</td>
+                        <td>{{ task.owner.username }}</td>
+                        <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
+                        <td class="actions">
+                            {% if user.is_teacher %}
+                                <a class="download" href="{% url 'maps:task_download' task.pk %}">Download JSON</a>
+                            {% else %}
+                                <a class="solve-sea" href="{% url 'maps:task_solve_sea_map' task.pk %}">Solve · OpenSeaMap</a>
+                                <a class="solve-grat" href="{% url 'maps:task_solve_enhanced_graticule' task.pk %}">Solve · Enhanced Graticule</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty">
+            No tasks uploaded yet.{% if user.is_teacher %} <a href="{% url 'maps:task_upload' %}">Upload the first one.</a>{% endif %}
+        </div>
+    {% endif %}
+</div>
+</body>
+</html>

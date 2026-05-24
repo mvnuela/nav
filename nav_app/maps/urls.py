@@ -9,6 +9,8 @@ from .views import (
     task_list,
     task_upload,
     task_download,
+    task_solve_sea_map,
+    task_solve_enhanced_graticule,
 )
 
 app_name = 'maps'
@@ -22,5 +24,7 @@ urlpatterns = [
     path('tasks/', task_list, name='task_list'),
     path('tasks/upload/', task_upload, name='task_upload'),
     path('tasks/<int:pk>/download/', task_download, name='task_download'),
+    path('tasks/<int:pk>/solve/sea-map/', task_solve_sea_map, name='task_solve_sea_map'),
+    path('tasks/<int:pk>/solve/enhanced-graticule/', task_solve_enhanced_graticule, name='task_solve_enhanced_graticule'),
     path('api/convert-pdf/', convert_pdf_to_image, name='convert_pdf'),
 ]

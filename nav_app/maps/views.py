@@ -109,6 +109,28 @@ def task_upload(request):
 
 
 @login_required
+def task_solve_sea_map(request, pk):
+    """Open the OpenSeaMap panel with a task bound to it."""
+    if request.user.is_teacher:
+        return HttpResponseForbidden("Teachers cannot solve tasks.")
+    task = get_object_or_404(Task, pk=pk)
+    return render(request, "maps/sea_map.html", {
+        "lat": 54.5,
+        "lon": 18.5,
+        "task": task,
+    })
+
+
+@login_required
+def task_solve_enhanced_graticule(request, pk):
+    """Open the Enhanced Graticule panel with a task bound to it."""
+    if request.user.is_teacher:
+        return HttpResponseForbidden("Teachers cannot solve tasks.")
+    task = get_object_or_404(Task, pk=pk)
+    return render(request, "maps/enhanced_graticule.html", {"task": task})
+
+
+@login_required
 def task_download(request, pk):
     """Download a task's stored JSON payload."""
     if not request.user.is_teacher:

@@ -335,6 +335,11 @@
     <div class="container">
         <button id="sidebarToggle" class="sidebar-toggle" title="Hide / show side panel" aria-label="Toggle side panel">◀</button>
         <div class="sidebar" id="sidebar">
+            {% if task %}
+            <div class="panel" id="taskInfoPanel">
+                {% include 'maps/_task_panel.html' %}
+            </div>
+            {% endif %}
             <div class="panel">
                 <h3>📁 1. Upload Map Image</h3>
                 <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg,application/pdf,.pdf">
@@ -2320,5 +2325,6 @@
             initSidebarToggle();
         }
     </script>
+
 </body>
 </html>

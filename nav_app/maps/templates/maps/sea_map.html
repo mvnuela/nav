@@ -46,5 +46,27 @@
 <script src="{% static 'maps/js/course/magnetic_declination.js' %}"></script>
 <script src="{% static 'maps/js/core/main_map.js' %}"></script>
 
+{% if task %}
+<style>
+    #seaMapTaskWrap {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        width: 380px;
+        max-height: calc(100vh - 32px);
+        background: #fff;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        padding: 14px;
+        overflow-y: auto;
+        z-index: 4000;
+    }
+</style>
+<div id="seaMapTaskWrap">
+    {% include 'maps/_task_panel.html' %}
+</div>
+{% endif %}
+
 </body>
 </html>
