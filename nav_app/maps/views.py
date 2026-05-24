@@ -111,6 +111,8 @@ def task_upload(request):
 @login_required
 def task_download(request, pk):
     """Download a task's stored JSON payload."""
+    if not request.user.is_teacher:
+        return HttpResponseForbidden("Only teachers can download task JSON.")
     task = get_object_or_404(Task, pk=pk)
     response = JsonResponse(task.payload, json_dumps_params={"indent": 2})
     response["Content-Disposition"] = f'attachment; filename="task-{task.pk}.json"'

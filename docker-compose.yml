@@ -18,7 +18,7 @@ services:
   web:
     build: .
     container_name: nav_app
-    command: gunicorn --bind 0.0.0.0:8000 --workers 3 nav_app.wsgi:application
+    command: gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 nav_app.wsgi:application
     volumes:
       - ./nav_app:/app
       - static_volume:/app/staticfiles
