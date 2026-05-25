@@ -2,20 +2,145 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Accept invitation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accept invitation · Sea Navigation Learning</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #1f2937;
+        }
+
+        .card {
+            background: #fff;
+            max-width: 460px;
+            width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 44px 40px;
+        }
+
+        .card-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .card-header .brand {
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #9ca3af;
+            margin-bottom: 6px;
+        }
+        .card-header h1 {
+            color: #667eea;
+            font-size: 1.7em;
+        }
+
+        .invite-summary {
+            background: #f5f3ff;
+            border: 1px solid #ddd6fe;
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 24px;
+            font-size: 0.95em;
+            color: #4c1d95;
+            line-height: 1.5;
+            text-align: center;
+        }
+        .invite-summary strong { color: #5b21b6; }
+        .role-pill {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            background: #ede9fe;
+            color: #5b21b6;
+            font-size: 0.82em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        form p { margin-bottom: 16px; }
+        form label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.88em;
+            margin-bottom: 6px;
+        }
+        form input[type="text"],
+        form input[type="password"] {
+            width: 100%;
+            padding: 11px 13px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font: inherit;
+            background: #fff;
+            color: #1f2937;
+        }
+        form input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
+        }
+        form .helptext {
+            display: block;
+            margin-top: 4px;
+            font-size: 0.8em;
+            color: #6b7280;
+        }
+        form .errorlist {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 12px;
+            color: #b91c1c;
+            font-size: 0.88em;
+        }
+
+        .submit {
+            width: 100%;
+            margin-top: 8px;
+            padding: 13px;
+            background: #667eea;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font: inherit;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.35);
+        }
+    </style>
 </head>
 <body>
-    <h1>Accept invitation</h1>
+    <div class="card">
+        <div class="card-header">
+            <div class="brand">⚓ Sea Navigation Learning</div>
+            <h1>Accept your invitation</h1>
+        </div>
 
-    <p>
-        You were invited to join as a <strong>{{ invitation.get_role_display }}</strong>
-        by {{ invitation.created_by.username }}.
-    </p>
+        <div class="invite-summary">
+            Invited by <strong>{{ invitation.created_by.username }}</strong>
+            as a <span class="role-pill">{{ invitation.get_role_display }}</span>
+        </div>
 
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Create account</button>
-    </form>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="submit">Create account</button>
+        </form>
+    </div>
 </body>
 </html>

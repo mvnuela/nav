@@ -2,64 +2,227 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invitations</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 24px;
+            color: #1f2937;
+        }
+        .wrap { max-width: 1100px; margin: 0 auto; }
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+        }
+        header h1 { font-size: 1.6em; margin: 0; color: #1e3a8a; }
+        header .actions a {
+            color: #2563eb;
+            text-decoration: none;
+            margin-left: 14px;
+            font-size: 0.95em;
+        }
+        header .actions .btn {
+            background: #2563eb;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        header .actions .btn:hover { background: #1d4ed8; }
+
+        .messages { list-style: none; padding: 0; margin: 0 0 16px; }
+        .messages li {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.95em;
+            vertical-align: middle;
+        }
+        th {
+            background: #f9fafb;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        tr:last-child td { border-bottom: none; }
+
+        .role-pill {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.78em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .role-pill.teacher { background: #ede9fe; color: #5b21b6; }
+        .role-pill.student { background: #dbeafe; color: #1e40af; }
+
+        .status {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .status.active { background: #dcfce7; color: #166534; }
+        .status.used { background: #e0e7ff; color: #3730a3; }
+        .status.expired { background: #fee2e2; color: #991b1b; }
+
+        .link-cell { display: flex; align-items: center; gap: 8px; }
+        .link-cell code {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            color: #1f2937;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.82em;
+            font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+            max-width: 380px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+        .row-actions { white-space: nowrap; }
+        .row-actions button,
+        .row-actions .btn-mini {
+            font: inherit;
+            font-size: 0.82em;
+            font-weight: 600;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+        .row-actions .copy { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+        .row-actions .copy:hover { background: #e0e7ff; }
+        .row-actions .copy.copied { background: #dcfce7; color: #166534; border-color: #86efac; }
+        .row-actions .revoke { background: #fff; color: #b91c1c; border-color: #fecaca; }
+        .row-actions .revoke:hover { background: #fef2f2; }
+
+        .empty {
+            background: #fff;
+            border: 1px dashed #d1d5db;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            color: #6b7280;
+        }
+        .muted { color: #9ca3af; }
+    </style>
 </head>
 <body>
-    <h1>Invitations</h1>
+<div class="wrap">
+    <header>
+        <h1>Invitations</h1>
+        <div class="actions">
+            <a href="{% url 'maps:index' %}">← Home</a>
+            <a class="btn" href="{% url 'accounts:invitation_create' %}">+ New invitation</a>
+        </div>
+    </header>
 
     {% if messages %}
-        <ul>
-            {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+        <ul class="messages">
+            {% for m in messages %}<li>{{ m }}</li>{% endfor %}
         </ul>
     {% endif %}
 
-    <p><a href="{% url 'accounts:invitation_create' %}">Create new invitation</a></p>
-
     {% if invitations %}
-    <table border="1" cellpadding="6">
-        <thead>
-            <tr>
-                <th>Role</th>
-                <th>Note</th>
-                <th>Created</th>
-                <th>Expires</th>
-                <th>Status</th>
-                <th>Link / Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for inv in invitations %}
-            <tr>
-                <td>{{ inv.get_role_display }}</td>
-                <td>{{ inv.note|default:"—" }}</td>
-                <td>{{ inv.created_at|date:"Y-m-d H:i" }}</td>
-                <td>{{ inv.expires_at|date:"Y-m-d H:i" }}</td>
-                <td>
-                    {% if inv.is_used %}
-                        Used by {{ inv.used_by.username }}
-                    {% elif inv.is_expired %}
-                        Expired / revoked
-                    {% else %}
-                        Active
-                    {% endif %}
-                </td>
-                <td>
-                    {% if inv.is_redeemable %}
-                        <code>{{ request.scheme }}://{{ request.get_host }}{{ inv.get_absolute_url }}</code>
-                        <form method="post" action="{% url 'accounts:invitation_revoke' inv.pk %}" style="display:inline">
-                            {% csrf_token %}
-                            <button type="submit" onclick="return confirm('Revoke this invitation?')">Revoke</button>
-                        </form>
-                    {% else %}
-                        —
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        <table>
+            <thead>
+                <tr>
+                    <th>Role</th>
+                    <th>Note</th>
+                    <th>Created</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th>Invite link</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invitations %}
+                <tr>
+                    <td><span class="role-pill {{ inv.role }}">{{ inv.get_role_display }}</span></td>
+                    <td>{{ inv.note|default:"—" }}</td>
+                    <td>{{ inv.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ inv.expires_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if inv.is_used %}
+                            <span class="status used">Used by {{ inv.used_by.username }}</span>
+                        {% elif inv.is_expired %}
+                            <span class="status expired">Expired</span>
+                        {% else %}
+                            <span class="status active">Active</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if inv.is_redeemable %}
+                            <div class="link-cell">
+                                <code id="link-{{ inv.pk }}">{{ request.scheme }}://{{ request.get_host }}{{ inv.get_absolute_url }}</code>
+                                <span class="row-actions">
+                                    <button type="button" class="copy" data-target="link-{{ inv.pk }}">Copy</button>
+                                </span>
+                                <form method="post" action="{% url 'accounts:invitation_revoke' inv.pk %}" class="row-actions">
+                                    {% csrf_token %}
+                                    <button type="submit" class="revoke" onclick="return confirm('Revoke this invitation?')">Revoke</button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <span class="muted">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     {% else %}
-    <p>No invitations yet.</p>
+        <div class="empty">
+            No invitations yet. <a href="{% url 'accounts:invitation_create' %}">Create your first one.</a>
+        </div>
     {% endif %}
+</div>
+
+<script>
+    document.querySelectorAll('button.copy').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var el = document.getElementById(btn.dataset.target);
+            if (!el) return;
+            navigator.clipboard.writeText(el.textContent.trim()).then(function () {
+                var original = btn.textContent;
+                btn.textContent = 'Copied';
+                btn.classList.add('copied');
+                setTimeout(function () {
+                    btn.textContent = original;
+                    btn.classList.remove('copied');
+                }, 1500);
+            });
+        });
+    });
+</script>
 </body>
 </html>

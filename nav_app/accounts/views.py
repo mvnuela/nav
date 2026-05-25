@@ -5,6 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from django.views.generic import CreateView, ListView
 
 from .forms import InvitationCreateForm, InviteAcceptForm
@@ -17,6 +19,7 @@ class TeacherRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
         return user.is_authenticated and user.is_teacher
 
 
+@method_decorator(never_cache, name="dispatch")
 class InvitationListView(TeacherRequiredMixin, ListView):
     model = Invitation
     template_name = "accounts/invitation_list.html"
@@ -26,6 +29,7 @@ class InvitationListView(TeacherRequiredMixin, ListView):
         return Invitation.objects.filter(created_by=self.request.user)
 
 
+@method_decorator(never_cache, name="dispatch")
 class InvitationCreateView(TeacherRequiredMixin, CreateView):
     form_class = InvitationCreateForm
     template_name = "accounts/invitation_form.html"
