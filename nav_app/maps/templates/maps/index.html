@@ -139,13 +139,15 @@
         <div class="auth-bar">
             {% if user.is_authenticated %}
                 Signed in as <strong>{{ user.username }}</strong> ({{ user.get_role_display }})
+                {% if user.is_teacher %}
+                    <a href="{% url 'accounts:invitation_list' %}">Invitations</a>
+                {% endif %}
                 <form method="post" action="{% url 'accounts:logout' %}" style="display:inline">
                     {% csrf_token %}
                     <button type="submit">Log out</button>
                 </form>
             {% else %}
                 <a href="{% url 'accounts:login' %}">Log in</a>
-                <a href="{% url 'accounts:signup' %}">Sign up</a>
             {% endif %}
         </div>
         <div class="header">

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Invitations</title>
+</head>
+<body>
+    <h1>Invitations</h1>
+
+    {% if messages %}
+        <ul>
+            {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+        </ul>
+    {% endif %}
+
+    <p><a href="{% url 'accounts:invitation_create' %}">Create new invitation</a></p>
+
+    {% if invitations %}
+    <table border="1" cellpadding="6">
+        <thead>
+            <tr>
+                <th>Role</th>
+                <th>Note</th>
+                <th>Created</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th>Link / Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in invitations %}
+            <tr>
+                <td>{{ inv.get_role_display }}</td>
+                <td>{{ inv.note|default:"—" }}</td>
+                <td>{{ inv.created_at|date:"Y-m-d H:i" }}</td>
+                <td>{{ inv.expires_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                    {% if inv.is_used %}
+                        Used by {{ inv.used_by.username }}
+                    {% elif inv.is_expired %}
+                        Expired / revoked
+                    {% else %}
+                        Active
+                    {% endif %}
+                </td>
+                <td>
+                    {% if inv.is_redeemable %}
+                        <code>{{ request.scheme }}://{{ request.get_host }}{{ inv.get_absolute_url }}</code>
+                        <form method="post" action="{% url 'accounts:invitation_revoke' inv.pk %}" style="display:inline">
+                            {% csrf_token %}
+                            <button type="submit" onclick="return confirm('Revoke this invitation?')">Revoke</button>
+                        </form>
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No invitations yet.</p>
+    {% endif %}
+</body>
+</html>

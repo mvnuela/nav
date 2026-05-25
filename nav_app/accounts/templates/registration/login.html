@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Log in</title>
+</head>
+<body>
+    <h1>Log in</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Log in</button>
+    </form>
+
+    <p>Accounts are by invitation only. Ask a teacher or administrator for an invite link.</p>
+</body>
+</html>
