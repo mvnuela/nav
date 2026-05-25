@@ -454,43 +454,72 @@ document.getElementById("drCopyLatLonBtn").addEventListener("click", e => {
     copyToClipboard(txt, e.currentTarget);
 });
 
-// ---------- Coordinate format converter (DMM → decimal degrees) ----------
-const DMM_PATTERN = /(\d+(?:\.\d+)?)\s*°\s*(\d+(?:\.\d+)?)\s*['′]\s*([NSEWnsew])/g;
+// ---------- Universal coordinate format converter (DMS · DMM → decimal degrees) ----------
+// Matches one coordinate. Degrees + minutes are mandatory (this is the "conversion" job);
+// seconds and hemisphere are optional. Plain decimal input is rejected as a no-op.
+// Examples accepted: 54°7.071'N, 54°7'4.26"N, -54°7'4.26", 54 7 4.26 N
+const COORD_PATTERN = /(?<![\d.])([+-]?\d+(?:\.\d+)?)\s*°?\s*(\d+(?:\.\d+)?)\s*['′](?:\s*(\d+(?:\.\d+)?)\s*(?:"|″|''))?\s*([NSEWnsew])?/g;
 
-function parseDMM(input) {
-    const matches = [...input.matchAll(DMM_PATTERN)];
+function parseCoordinates(input) {
+    const matches = [...input.matchAll(COORD_PATTERN)].filter(m => m[0].trim() !== "");
     if (matches.length === 0) {
-        throw new Error("No coordinate found. Use e.g. 54°7.071'N or 54°7.071'N 18°12.030'E.");
+        if (/\d/.test(input)) {
+            throw new Error("Decimal degrees don't need conversion. Use DMS (54°7'4.26\"N) or DMM (54°7.071'N).");
+        }
+        throw new Error("No coordinate found. Try e.g. 54°7'4.26\"N or 54°7.071'N.");
     }
     if (matches.length > 2) {
         throw new Error(`Expected one or two coordinates, found ${matches.length}.`);
     }
+
     const parsed = matches.map(m => {
-        const deg = parseFloat(m[1]);
+        const degRaw = parseFloat(m[1]);
         const min = parseFloat(m[2]);
-        const hemi = m[3].toUpperCase();
-        const sign = (hemi === "S" || hemi === "W") ? -1 : 1;
-        const decimal = sign * (deg + min / 60);
-        const isLat = (hemi === "N" || hemi === "S");
+        const sec = m[3] !== undefined ? parseFloat(m[3]) : 0;
+        const hemi = m[4] ? m[4].toUpperCase() : null;
+
+        if (min < 0 || min >= 60) throw new Error(`Minutes out of range 0…60 (got ${min}).`);
+        if (sec < 0 || sec >= 60) throw new Error(`Seconds out of range 0…60 (got ${sec}).`);
+
+        let sign = degRaw < 0 ? -1 : 1;
+        const absDeg = Math.abs(degRaw);
+        let decimal = sign * (absDeg + min / 60 + sec / 3600);
+        if (hemi === "S" || hemi === "W") decimal = -Math.abs(decimal);
+        else if (hemi === "N" || hemi === "E") decimal = Math.abs(decimal);
+
+        const isLat = hemi ? (hemi === "N" || hemi === "S") : null;
         return { decimal, isLat, hemi };
     });
 
-    if (matches.length === 1) {
+    function checkLat(v) {
+        if (v < -90 || v > 90) throw new Error("Latitude out of range -90…90.");
+    }
+    function checkLon(v) {
+        if (v < -180 || v > 180) throw new Error("Longitude out of range -180…180.");
+    }
+
+    if (parsed.length === 1) {
         const p = parsed[0];
-        if (p.isLat && (p.decimal < -90 || p.decimal > 90)) {
-            throw new Error("Latitude out of range -90…90.");
-        }
-        if (!p.isLat && (p.decimal < -180 || p.decimal > 180)) {
-            throw new Error("Longitude out of range -180…180.");
-        }
+        if (p.isLat === true) checkLat(p.decimal);
+        else if (p.isLat === false) checkLon(p.decimal);
+        else if (p.decimal < -90 || p.decimal > 90) checkLon(p.decimal);
         return { single: p };
     }
 
-    const lat = parsed.find(p => p.isLat);
-    const lon = parsed.find(p => !p.isLat);
-    if (!lat || !lon) throw new Error("Pair must have one N/S and one E/W coordinate.");
-    if (lat.decimal < -90  || lat.decimal > 90)  throw new Error("Latitude out of range -90…90.");
-    if (lon.decimal < -180 || lon.decimal > 180) throw new Error("Longitude out of range -180…180.");
+    // Pair: prefer hemispheres; otherwise assume order is lat, lon.
+    let lat, lon;
+    const withHemi = parsed.filter(p => p.isLat !== null);
+    if (withHemi.length === 2) {
+        lat = parsed.find(p => p.isLat === true);
+        lon = parsed.find(p => p.isLat === false);
+        if (!lat || !lon) throw new Error("Pair must have one N/S and one E/W coordinate.");
+    } else if (withHemi.length === 0) {
+        [lat, lon] = parsed;
+    } else {
+        throw new Error("Mixed input: give a hemisphere on both coordinates or on neither.");
+    }
+    checkLat(lat.decimal);
+    checkLon(lon.decimal);
     return { lat: lat.decimal, lon: lon.decimal };
 }
 
@@ -508,18 +537,14 @@ document.getElementById("ccConvertBtn")?.addEventListener("click", () => {
     const raw = document.getElementById("ccInput").value.trim();
     if (!raw) return showCCError("Enter a coordinate.");
     try {
-        const result = parseDMM(raw);
+        const result = parseCoordinates(raw);
         const el = document.getElementById("ccResult");
         el.className = "dr-result show";
-        if (result.single) {
-            const text = `${result.single.decimal.toFixed(4)}°`;
-            el.textContent = text;
-            lastCC = { text };
-        } else {
-            const text = `${result.lat.toFixed(4)}°, ${result.lon.toFixed(4)}°`;
-            el.textContent = text;
-            lastCC = { text };
-        }
+        const text = result.single
+            ? `${result.single.decimal.toFixed(4)}°`
+            : `${result.lat.toFixed(4)}°, ${result.lon.toFixed(4)}°`;
+        el.textContent = text;
+        lastCC = { text };
         document.getElementById("ccCopyBtn").disabled = false;
     } catch (err) {
         showCCError(err.message);
@@ -529,84 +554,6 @@ document.getElementById("ccConvertBtn")?.addEventListener("click", () => {
 document.getElementById("ccCopyBtn")?.addEventListener("click", e => {
     if (!lastCC) return;
     copyToClipboard(lastCC.text, e.currentTarget);
-});
-
-// ---------- Coordinate format converter (DMS → decimal degrees) ----------
-const DMS_PATTERN = /(\d+(?:\.\d+)?)\s*°\s*(\d+(?:\.\d+)?)\s*['′]\s*(\d+(?:\.\d+)?)\s*(?:"|″|'')\s*([NSEWnsew])/g;
-
-function parseDMS(input) {
-    const matches = [...input.matchAll(DMS_PATTERN)];
-    if (matches.length === 0) {
-        throw new Error("No coordinate found. Use e.g. 54°7'4.26\"N or 54°7'4.26\"N 18°12'1.8\"E.");
-    }
-    if (matches.length > 2) {
-        throw new Error(`Expected one or two coordinates, found ${matches.length}.`);
-    }
-    const parsed = matches.map(m => {
-        const deg = parseFloat(m[1]);
-        const min = parseFloat(m[2]);
-        const sec = parseFloat(m[3]);
-        const hemi = m[4].toUpperCase();
-        const sign = (hemi === "S" || hemi === "W") ? -1 : 1;
-        const decimal = sign * (deg + min / 60 + sec / 3600);
-        const isLat = (hemi === "N" || hemi === "S");
-        return { decimal, isLat, hemi };
-    });
-
-    if (matches.length === 1) {
-        const p = parsed[0];
-        if (p.isLat && (p.decimal < -90 || p.decimal > 90)) {
-            throw new Error("Latitude out of range -90…90.");
-        }
-        if (!p.isLat && (p.decimal < -180 || p.decimal > 180)) {
-            throw new Error("Longitude out of range -180…180.");
-        }
-        return { single: p };
-    }
-
-    const lat = parsed.find(p => p.isLat);
-    const lon = parsed.find(p => !p.isLat);
-    if (!lat || !lon) throw new Error("Pair must have one N/S and one E/W coordinate.");
-    if (lat.decimal < -90  || lat.decimal > 90)  throw new Error("Latitude out of range -90…90.");
-    if (lon.decimal < -180 || lon.decimal > 180) throw new Error("Longitude out of range -180…180.");
-    return { lat: lat.decimal, lon: lon.decimal };
-}
-
-let lastDMS = null;
-
-function showDMSError(msg) {
-    const el = document.getElementById("dmsResult");
-    el.className = "dr-result show err";
-    el.textContent = "⚠ " + msg;
-    document.getElementById("dmsCopyBtn").disabled = true;
-    lastDMS = null;
-}
-
-document.getElementById("dmsConvertBtn").addEventListener("click", () => {
-    const raw = document.getElementById("dmsInput").value.trim();
-    if (!raw) return showDMSError("Enter a coordinate.");
-    try {
-        const result = parseDMS(raw);
-        const el = document.getElementById("dmsResult");
-        el.className = "dr-result show";
-        if (result.single) {
-            const text = `${result.single.decimal.toFixed(4)}°`;
-            el.textContent = text;
-            lastDMS = { text };
-        } else {
-            const text = `${result.lat.toFixed(4)}°, ${result.lon.toFixed(4)}°`;
-            el.textContent = text;
-            lastDMS = { text };
-        }
-        document.getElementById("dmsCopyBtn").disabled = false;
-    } catch (err) {
-        showDMSError(err.message);
-    }
-});
-
-document.getElementById("dmsCopyBtn").addEventListener("click", e => {
-    if (!lastDMS) return;
-    copyToClipboard(lastDMS.text, e.currentTarget);
 });
 
 document.getElementById("validateBtn").addEventListener("click", () => {

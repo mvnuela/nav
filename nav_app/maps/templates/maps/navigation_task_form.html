@@ -442,45 +442,23 @@
             </summary>
             <div class="body">
                 <p style="margin:0 0 10px;color:#4b5563;font-size:0.9em">
-                    Convert degrees + decimal minutes to decimal degrees. Accepts a single coordinate
-                    (<code>54°7.071'N</code> → <code>54.1179°</code>) or a pair
-                    (<code>54°7.071'N 18°12.030'E</code> → <code>54.1179°, 18.2005°</code>).
+                    Convert DMS or DMM coordinates to decimal degrees. Accepts a single coordinate
+                    or a lat/lon pair (separator can be space or comma).
                 </p>
+                <ul style="margin:0 0 12px 18px;color:#4b5563;font-size:0.88em;line-height:1.6">
+                    <li>DMS — <code>54°7'4.26"N</code> → <code>54.1179°</code></li>
+                    <li>DMM — <code>54°7.071'N</code> → <code>54.1179°</code></li>
+                </ul>
                 <div class="field">
                     <label>Input coordinate(s)</label>
-                    <input id="ccInput" placeholder="54°7.071'N    or    54°7.071'N 18°12.030'E">
-                    <span class="hint">One or two values. Accepts <code>°</code> / <code>'</code> with N/S/E/W. Separator can be space or comma.</span>
+                    <input id="ccInput" placeholder='54°7.071&apos;N 18°12.030&apos;E    or    54°7&apos;4.26"N 18°12&apos;1.8"E'>
+                    <span class="hint">One or two values. Hemisphere (N/S/E/W) recommended for pairs; otherwise order is treated as lat, lon.</span>
                 </div>
                 <div class="dr-buttons">
                     <button type="button" id="ccConvertBtn">Convert</button>
                     <button type="button" class="copy" id="ccCopyBtn" disabled>Copy result</button>
                 </div>
                 <div id="ccResult" class="dr-result"></div>
-            </div>
-        </details>
-
-        <!-- ============ DMS → DECIMAL CONVERTER (helper tool, not task data) ============ -->
-        <details class="tool-panel">
-            <summary>
-                <span>DMS → decimal degrees converter</span>
-                <span class="badge">Helper tool</span>
-            </summary>
-            <div class="body">
-                <p style="margin:0 0 10px;color:#4b5563;font-size:0.9em">
-                    Convert degrees + minutes + seconds to decimal degrees. Accepts a single coordinate
-                    (<code>54°7'4.26"N</code> → <code>54.1179°</code>) or a pair
-                    (<code>54°7'4.26"N 18°12'1.8"E</code> → <code>54.1179°, 18.2005°</code>).
-                </p>
-                <div class="field">
-                    <label>Input coordinate(s)</label>
-                    <input id="dmsInput" placeholder='54°7&apos;4.26"N    or    54°7&apos;4.26"N 18°12&apos;1.8"E'>
-                    <span class="hint">One or two values. Accepts <code>°</code> / <code>'</code> / <code>"</code> with N/S/E/W. Separator can be space or comma.</span>
-                </div>
-                <div class="dr-buttons">
-                    <button type="button" id="dmsConvertBtn">Convert</button>
-                    <button type="button" class="copy" id="dmsCopyBtn" disabled>Copy result</button>
-                </div>
-                <div id="dmsResult" class="dr-result"></div>
             </div>
         </details>
 
