@@ -5,325 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced Interactive Graticule System</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-        }
-
-        .navbar {
-            background: linear-gradient(135deg, #0078A8 0%, #005F87 100%);
-            color: white;
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .navbar h1 {
-            font-size: 1.5em;
-            font-weight: 600;
-        }
-
-        .nav-btn {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            transition: all 0.3s;
-        }
-
-        .nav-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        .container {
-            display: flex;
-            height: calc(100vh - 60px);
-            position: relative;
-        }
-
-        .sidebar {
-            width: 350px;
-            background: white;
-            padding: 20px;
-            overflow-y: auto;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
-            transition: width 0.25s ease, padding 0.25s ease;
-        }
-
-        .sidebar.collapsed {
-            width: 0;
-            padding-left: 0;
-            padding-right: 0;
-            overflow: hidden;
-        }
-
-        .sidebar-toggle {
-            position: absolute;
-            top: 12px;
-            left: 350px;
-            transform: translateX(-100%);
-            z-index: 1001;
-            background: #0078A8;
-            color: white;
-            border: none;
-            border-radius: 0 6px 6px 0;
-            width: 24px;
-            height: 48px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
-            transition: left 0.25s ease, transform 0.25s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-        }
-
-        .sidebar-toggle.collapsed {
-            left: 0;
-            transform: translateX(0);
-            border-radius: 0 6px 6px 0;
-        }
-
-        .sidebar-toggle:hover {
-            background: #005F87;
-        }
-
-        .panel {
-            background: #f9f9f9;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .panel h3 {
-            color: #0078A8;
-            margin-bottom: 12px;
-            font-size: 1.1em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .form-group {
-            margin-bottom: 12px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            font-size: 0.9em;
-            color: #555;
-        }
-
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.95em;
-            font-weight: 500;
-            transition: all 0.3s;
-            width: 100%;
-            margin-bottom: 8px;
-        }
-
-        .btn-primary {
-            background: #0078A8;
-            color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: #005F87;
-        }
-
-        .btn-secondary {
-            background: #FF5722;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #E64A19;
-        }
-
-        .btn-success {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #45a049;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .main-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #e0e0e0;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .toolbar {
-            background: white;
-            padding: 10px 20px;
-            display: flex;
-            gap: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .toolbar button {
-            padding: 8px 16px;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .toolbar button.active {
-            background: #0078A8;
-            color: white;
-            border-color: #0078A8;
-        }
-
-        .toolbar button:hover:not(.active) {
-            background: #f5f5f5;
-        }
-
-        #zoomControls button {
-            padding: 6px 12px;
-            font-size: 16px;
-            font-weight: bold;
-            min-width: 36px;
-        }
-
-        #zoomResetBtn {
-            font-size: 11px !important;
-            font-weight: normal !important;
-        }
-
-        #mapContainer {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            position: relative;
-        }
-
-        #mapCanvas {
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            background: white;
-            cursor: default;
-        }
-
-        .info-box {
-            background: #E3F2FD;
-            border-left: 4px solid #0078A8;
-            padding: 12px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-
-        .hint {
-            color: #666;
-            font-size: 0.85em;
-            margin-bottom: 10px;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-
-        .status-indicator.ready {
-            background: #4CAF50;
-        }
-
-        .status-indicator.pending {
-            background: #FFC107;
-        }
-
-        .mode-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-
-        .mode-badge.fit {
-            background: #FF5722;
-            color: white;
-        }
-
-        .mode-badge.view {
-            background: #4CAF50;
-            color: white;
-        }
-
-        #placeholder {
-            text-align: center;
-            color: #999;
-        }
-
-        #placeholder .placeholder-content {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
-        }
-
-        .instructions {
-            list-style-position: inside;
-            font-size: 0.9em;
-            line-height: 1.8;
-        }
-
-        .instructions li {
-            margin-bottom: 5px;
-        }
-
-        .export-group {
-            display: flex;
-            gap: 8px;
-        }
-
-        .export-group .btn {
-            flex: 1;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'maps/css/enhanced_graticule.css' %}">
 </head>
 <body>
     <div class="navbar">
@@ -691,89 +373,67 @@
                 </div>
             </div>
 
-            <div class="panel" id="courseCalculatorPanel" style="display:none;">
-                <h3>Course Calculator & DR</h3>
-                <p class="hint">Calculate compass course and dead reckoning position</p>
-                
-                <div style="background:#fff3cd; padding:8px; border-radius:4px; margin-bottom:10px; font-size:0.85em;">
-                    <strong>Two modes:</strong><br>
-                    <small>1️⃣ Course Only: Calculate compass course<br>
-                    2️⃣ DR Full: Course + position calculation</small>
-                </div>
-                
+            <div class="panel" id="courseCalculatorPanel">
+                <h3>⚓ Dead Reckoning Calculator</h3>
+                <p class="hint">Compute new position from course, speed, time, and current</p>
+
                 <div class="form-group">
                     <label>Start Latitude:</label>
-                    <input type="text" id="drCalcStartLat" placeholder="54.5 or 54°30.0'N">
-                    <small>Optional for course-only mode</small>
+                    <input type="text" id="drStartLat" placeholder="54.5 or 54°22.5'N">
                 </div>
-                
                 <div class="form-group">
                     <label>Start Longitude:</label>
-                    <input type="text" id="drCalcStartLon" placeholder="18.5 or 018°30.0'E">
-                    <small>Optional for course-only mode</small>
+                    <input type="text" id="drStartLon" placeholder="18.5 or 018°34.2'E">
                 </div>
-                
                 <div class="form-group">
-                    <label>Course Over Ground (COG):</label>
-                    <input type="number" id="cogInput" min="0" max="360" step="0.1" placeholder="e.g., 045.0">
-                    <small>True course made good (0-360°)</small>
+                    <label>Course type:</label>
+                    <label style="font-weight:normal; display:inline-block; margin-right:14px;">
+                        <input type="radio" name="drCourseType" value="compass" checked> Compass
+                    </label>
+                    <label style="font-weight:normal; display:inline-block;">
+                        <input type="radio" name="drCourseType" value="true"> True
+                    </label>
                 </div>
-                
                 <div class="form-group">
-                    <label>Drift / Leeway:</label>
-                    <input type="number" id="driftInput" step="0.1" placeholder="e.g., 5.0 or -3.0">
-                    <small>+ = starboard drift, - = port drift</small>
+                    <label>Course (°):</label>
+                    <input type="number" id="drCourse" min="0" max="360" step="0.1" placeholder="045">
                 </div>
-                
                 <div class="form-group">
-                    <label>Magnetic Declination (Variation):</label>
-                    <input type="number" id="declinationInput" step="0.1" placeholder="e.g., 8.5 or -12.0">
-                    <small>+ = East, - = West</small>
+                    <label>Magnetic Variation (°):</label>
+                    <input type="number" id="drVariation" step="0.1" placeholder="0.0" value="0">
+                    <small>+East / −West</small>
                 </div>
-                
                 <div class="form-group">
-                    <label>Compass Deviation:</label>
-                    <input type="number" id="deviationInput" step="0.1" placeholder="e.g., 2.0 or -1.5">
-                    <small>From deviation table for heading</small>
+                    <label>Compass Deviation (°):</label>
+                    <input type="number" id="drDeviation" step="0.1" placeholder="0.0" value="0">
+                    <small>From deviation table; +East / −West</small>
                 </div>
-                
                 <div class="form-group">
-                    <label>Speed (knots):</label>
-                    <input type="number" id="drCalcSpeed" min="0" step="0.1" placeholder="e.g., 6.0">
-                    <small>Optional for course-only mode</small>
+                    <label>Leeway (°):</label>
+                    <input type="number" id="drLeeway" step="0.1" placeholder="0.0" value="0">
+                    <small>+Starboard / −Port (wind drift)</small>
                 </div>
-                
+                <div class="form-group">
+                    <label>Boat Speed STW (knots):</label>
+                    <input type="number" id="drSpeed" min="0" step="0.1" placeholder="5.0">
+                </div>
+                <div class="form-group">
+                    <label>Current Set (° true):</label>
+                    <input type="number" id="drCurrentSet" min="0" max="360" step="0.1" value="0">
+                    <small>Direction current flows TO</small>
+                </div>
+                <div class="form-group">
+                    <label>Current Drift (knots):</label>
+                    <input type="number" id="drCurrentDrift" min="0" step="0.1" value="0">
+                </div>
                 <div class="form-group">
                     <label>Time (hours):</label>
-                    <input type="number" id="drCalcTime" min="0" step="0.5" placeholder="e.g., 2.0">
-                    <small>Optional for course-only mode</small>
+                    <input type="number" id="drTime" min="0" step="0.5" placeholder="2.0">
                 </div>
-                
-                <button id="calculateCourseBtn" class="btn btn-primary">
-                    Calculate Course & DR
-                </button>
-                
-                <button id="reverseCalculateBtn" class="btn btn-tertiary" style="display:none;">
-                    🔄 Reverse (C→COG)
-                </button>
-                
-                <div id="courseResults" style="display:none; margin-top:15px;">
-                    <div style="background:#e8f5e9; border-left:4px solid #4CAF50; padding:12px; border-radius:4px; margin-bottom:10px;">
-                        <strong>Results:</strong>
-                        <div id="courseResultsText" style="margin-top:8px; font-family:monospace; font-size:0.95em;"></div>
-                    </div>
-                    
-                    <div style="background:#fff; border:1px solid #ddd; border-radius:4px; padding:12px; margin-bottom:10px;">
-                        <strong>Calculation Steps:</strong>
-                        <div id="calculationSteps" style="margin-top:8px; font-size:0.9em;"></div>
-                    </div>
-                    
-                    <div style="background:#e3f2fd; border-left:4px solid #0078A8; padding:10px; border-radius:4px; font-size:0.85em;">
-                        <strong>Memory Aid:</strong>
-                        <div style="margin-top:5px;">"<em>True Virgins Make Dull Company</em>"</div>
-                        <div style="margin-top:3px; color:#666;">True → Variation (−) → Magnetic → Deviation (−) → Compass</div>
-                    </div>
-                </div>
+
+                <button id="drCalcBtn" class="btn btn-primary">Calculate Position</button>
+                <button id="drClearBtn" class="btn btn-secondary">Clear</button>
+                <div id="drOut" class="info-box" style="display:none;"></div>
             </div>
 
             <div class="panel" id="coursePanel" style="display:none;">
@@ -868,8 +528,6 @@
 
     <!-- Load utilities first -->
     <script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
-    <!-- Load course calculator -->
-    <script src="{% static 'maps/js/course/course_calculator.js' %}"></script>
     <!-- Load nautical divider -->
     <script src="{% static 'maps/js/nautical/nautical_divider.js' %}"></script>
     <!-- Load GPX parser -->
@@ -890,7 +548,10 @@
     <script src="{% static 'maps/js/graticule/graticule_tools.js' %}"></script>
     <!-- Load course plotting extension -->
     <script src="{% static 'maps/js/course/course_plotter_enhanced.js' %}"></script>
-    
+    <!-- Calculators -->
+    <script src="{% static 'maps/js/calculators/dr_core.js' %}"></script>
+    <script src="{% static 'maps/js/calculators/dr_enhanced.js' %}"></script>
+
     <script>
         // Make graticule system globally accessible
         window.graticuleSystem = null;
@@ -924,8 +585,6 @@
             document.getElementById('geometryRayBtn').addEventListener('click', () => setGeometryMode('ray'));
             document.getElementById('geometryDeleteBtn').addEventListener('click', () => setGeometryMode('delete'));
             document.getElementById('geometryClearAllBtn').addEventListener('click', clearAllGeometry);
-            document.getElementById('calculateCourseBtn').addEventListener('click', calculateCourse);
-            document.getElementById('reverseCalculateBtn').addEventListener('click', reverseCalculateCourse);
             document.getElementById('applyBoundsBtn').addEventListener('click', applyBounds);
             document.getElementById('completeCourseBtn').addEventListener('click', completeCourse);
             document.getElementById('cancelCourseBtn').addEventListener('click', cancelCourse);
@@ -1134,8 +793,7 @@
             document.getElementById('dividerPanel').style.display = 'none';
             document.getElementById('observedPositionPanel').style.display = 'none';
             document.getElementById('geometryPanel').style.display = 'none';
-            document.getElementById('courseCalculatorPanel').style.display = 'none';
-            
+
             if (mode === 'fit') {
                 indicator.textContent = 'FIT MODE';
                 indicator.className = 'mode-badge fit';
@@ -1158,7 +816,6 @@
                     document.getElementById('dividerPanel').style.display = 'block';
                     document.getElementById('observedPositionPanel').style.display = 'block';
                     document.getElementById('geometryPanel').style.display = 'block';
-                    // Temporarily hidden: document.getElementById('courseCalculatorPanel').style.display = 'block';
                     document.getElementById('gpxPanel').style.display = 'block';
                 }
                 if (graticuleSystem.trianglesVisible) {
@@ -1877,226 +1534,6 @@
             }
         }, 200);
 
-
-        // Course Calculator Functions
-        let courseCalculator = null;
-        let drMarkers = [];
-        
-        function calculateCourse() {
-            try {
-                if (!courseCalculator) {
-                    courseCalculator = new CourseCalculator();
-                }
-                
-                // Get course calculation inputs
-                const cog = parseFloat(document.getElementById('cogInput').value);
-                const drift = parseFloat(document.getElementById('driftInput').value);
-                const declination = parseFloat(document.getElementById('declinationInput').value);
-                const deviation = parseFloat(document.getElementById('deviationInput').value);
-                
-                // Validate course inputs
-                const validation = CourseCalculator.validateInputs(cog, drift, declination, deviation);
-                if (!validation.valid) {
-                    alert('Input validation errors:\n' + validation.errors.join('\n'));
-                    return;
-                }
-                
-                // Calculate courses
-                const results = courseCalculator.calculate(cog, drift, declination, deviation);
-                
-                // Check if DR calculation is requested (needs position, speed, time)
-                const startLatInput = document.getElementById('drCalcStartLat').value.trim();
-                const startLonInput = document.getElementById('drCalcStartLon').value.trim();
-                const speed = parseFloat(document.getElementById('drCalcSpeed').value);
-                const time = parseFloat(document.getElementById('drCalcTime').value);
-                
-                let drResults = null;
-                
-                if (startLatInput && startLonInput && !isNaN(speed) && speed > 0 && !isNaN(time) && time > 0) {
-                    // Parse start position
-                    const startLat = startLatInput.includes('°') || startLatInput.includes('\'') ?
-                        nauticalToDecimal(startLatInput) : parseFloat(startLatInput);
-                    const startLon = startLonInput.includes('°') || startLonInput.includes('\'') ?
-                        nauticalToDecimal(startLonInput) : parseFloat(startLonInput);
-                    
-                    if (!isNaN(startLat) && !isNaN(startLon)) {
-                        // Use the calculated COG (which includes drift) for DR
-                        drResults = courseCalculator.calculateDRPosition(startLat, startLon, cog, speed, time);
-                    }
-                }
-                
-                // Display results
-                displayCourseResults(results, drResults);
-                
-            } catch (error) {
-                alert('Calculation error: ' + error.message);
-            }
-        }
-        
-        function reverseCalculateCourse() {
-            alert('Reverse calculation (Compass → COG) coming soon!');
-        }
-        
-        function displayCourseResults(results, drResults) {
-            // Show results section
-            document.getElementById('courseResults').style.display = 'block';
-            
-            // Build results HTML
-            let resultsHtml = `
-                <div style="line-height:1.8;">
-                    <div><strong>Input:</strong> COG ${results.input.cog.display}</div>
-                    <div style="margin-top:8px; padding-top:8px; border-top:1px solid #ddd;">
-                        <strong>True Course:</strong> ${results.output.trueCourse.display}<br>
-                        <strong>Magnetic Course:</strong> ${results.output.magneticCourse.display}<br>
-                        <strong>Compass Course:</strong> ${results.output.compassCourse.display}
-                    </div>
-                    <div style="margin-top:8px; padding-top:8px; border-top:1px solid #ddd; background:#fffde7; padding:8px; border-radius:4px;">
-                        <strong style="color:#F57C00;">⚓ Steer: ${results.output.compassCourse.formatted}</strong>
-                    </div>
-            `;
-            
-            // Add DR results if available
-            if (drResults) {
-                const startPos = formatCoordPair(drResults.startPosition.lat, drResults.startPosition.lon);
-                const drPos = formatCoordPair(drResults.drPosition.lat, drResults.drPosition.lon);
-                
-                resultsHtml += `
-                    <div style="margin-top:12px; padding-top:12px; border-top:2px solid #ddd; background:#e8f5e9; padding:10px; border-radius:4px;">
-                        <strong style="color:#2E7D32;">📍 Dead Reckoning Position:</strong>
-                        <div style="margin-top:6px; font-size:0.9em;">
-                            <strong>Start:</strong> ${startPos}<br>
-                            <strong>DR Pos:</strong> ${drPos}<br>
-                            <strong>Distance:</strong> ${drResults.distance.toFixed(2)} NM<br>
-                            <strong>Time:</strong> ${drResults.time.toFixed(1)}h @ ${drResults.speed.toFixed(1)} kts
-                        </div>
-                    </div>
-                `;
-                
-                // Draw DR on canvas if mapper available
-                drawDROnCanvas(drResults);
-            }
-            
-            resultsHtml += '</div>';
-            document.getElementById('courseResultsText').innerHTML = resultsHtml;
-            
-            // Display calculation steps
-            let stepsHtml = '<div style="line-height:2;">';
-            results.steps.forEach((step, index) => {
-                stepsHtml += `
-                    <div style="margin-bottom:12px; padding:10px; background:#f9f9f9; border-radius:4px;">
-                        <div style="font-weight:600; color:#0078A8; margin-bottom:4px;">
-                            Step ${index + 1}: ${step.name}
-                        </div>
-                        <div style="font-family:monospace; font-size:0.9em; margin-bottom:2px;">
-                            ${step.formula}
-                        </div>
-                        <div style="font-size:0.9em; color:#666;">
-                            ${step.calculation}
-                        </div>
-                        ${step.normalized ? `<div style="font-size:0.85em; color:#F57C00; margin-top:2px;">${step.normalized}</div>` : ''}
-                        <div style="font-size:0.85em; color:#666; font-style:italic; margin-top:4px;">
-                            ${step.description}
-                        </div>
-                    </div>
-                `;
-            });
-            stepsHtml += '</div>';
-            document.getElementById('calculationSteps').innerHTML = stepsHtml;
-        }
-        
-        function formatCoordPair(lat, lon) {
-            if (typeof decimalToNautical === 'function') {
-                return decimalToNautical(lat, true) + ', ' + decimalToNautical(lon, false);
-            }
-            return `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
-        }
-        
-        function drawDROnCanvas(drResults) {
-            // Clear previous DR markers
-            clearDRMarkers();
-            
-            if (!graticuleSystem || !graticuleSystem.mapper) return;
-            
-            // Store for later clearing
-            drMarkers.push({
-                start: drResults.startPosition,
-                dr: drResults.drPosition
-            });
-            
-            // Trigger render to show updated canvas
-            graticuleSystem.render();
-            
-            // Draw start and DR positions on canvas
-            const ctx = graticuleSystem.ctx;
-            const startScreen = graticuleSystem.mapper.geographicToScreen(
-                drResults.startPosition.lat,
-                drResults.startPosition.lon
-            );
-            const drScreen = graticuleSystem.mapper.geographicToScreen(
-                drResults.drPosition.lat,
-                drResults.drPosition.lon
-            );
-            
-            ctx.save();
-            
-            // Draw track line
-            ctx.strokeStyle = 'rgba(40, 167, 69, 0.8)';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 10]);
-            ctx.beginPath();
-            ctx.moveTo(startScreen.x, startScreen.y);
-            ctx.lineTo(drScreen.x, drScreen.y);
-            ctx.stroke();
-            
-            // Draw start marker
-            ctx.fillStyle = 'rgba(23, 162, 184, 0.9)';
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-            ctx.beginPath();
-            ctx.arc(startScreen.x, startScreen.y, 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Draw DR marker
-            ctx.fillStyle = 'rgba(255, 193, 7, 0.9)';
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(drScreen.x, drScreen.y, 10, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Draw label at DR position
-            const label = `DR ${drResults.time.toFixed(1)}h`;
-            ctx.font = 'bold 12px monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            
-            const metrics = ctx.measureText(label);
-            const padding = 4;
-            const labelWidth = metrics.width + padding * 2;
-            const labelHeight = 18;
-            
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-            ctx.fillRect(drScreen.x - labelWidth/2, drScreen.y - labelHeight - 15, labelWidth, labelHeight);
-            
-            ctx.strokeStyle = 'rgba(255, 193, 7, 0.9)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(drScreen.x - labelWidth/2, drScreen.y - labelHeight - 15, labelWidth, labelHeight);
-            
-            ctx.fillStyle = '#333';
-            ctx.fillText(label, drScreen.x, drScreen.y - 18);
-            
-            ctx.restore();
-        }
-        
-        function clearDRMarkers() {
-            drMarkers = [];
-            if (graticuleSystem) {
-                graticuleSystem.render();
-            }
-        }
 
         function parseCoordinate(input) {
             input = input.trim();

@@ -44,28 +44,81 @@
 <script src="{% static 'maps/js/geometry/geometry_leaflet.js' %}"></script>
 <script src="{% static 'maps/js/nautical/nautical_latitude_scale.js' %}"></script>
 <script src="{% static 'maps/js/course/magnetic_declination.js' %}"></script>
+<script src="{% static 'maps/js/calculators/dr_core.js' %}"></script>
+<script src="{% static 'maps/js/calculators/dr_leaflet.js' %}"></script>
 <script src="{% static 'maps/js/core/main_map.js' %}"></script>
 
 {% if task %}
 <style>
     #seaMapTaskWrap {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        width: 380px;
-        max-height: calc(100vh - 32px);
         background: #fff;
-        border: 1px solid #d1d5db;
-        border-radius: 10px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-        padding: 14px;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        margin-top: 10px;
+        width: 200px;
+        max-height: calc(100vh - 32px);
         overflow-y: auto;
-        z-index: 4000;
+        box-sizing: border-box;
     }
+    #seaMapTaskWrap > summary {
+        list-style: none;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 12px;
+        color: #333;
+        padding: 8px 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        user-select: none;
+    }
+    #seaMapTaskWrap > summary::-webkit-details-marker { display: none; }
+    #seaMapTaskWrap > summary::before {
+        content: '\25B6';
+        font-size: 0.7em;
+        transition: transform 0.15s ease;
+    }
+    #seaMapTaskWrap[open] > summary::before { transform: rotate(90deg); }
+    #seaMapTaskWrap > .panel-body { padding: 0 10px 10px; }
+    #seaMapTaskWrap .task-panel-content { font-size: 0.78em; }
+    #seaMapTaskWrap .task-panel-content h3.task-title { font-size: 1em; }
+    #seaMapTaskWrap .task-panel-content .task-content pre,
+    #seaMapTaskWrap .task-panel-content .task-content table,
+    #seaMapTaskWrap .task-panel-content details table,
+    #seaMapTaskWrap .task-panel-content .solution-section table { font-size: 0.78em; }
+    #seaMapTaskWrap .task-panel-content .solution-section .trk-wrap { overflow-x: auto; }
 </style>
-<div id="seaMapTaskWrap">
-    {% include 'maps/_task_panel.html' %}
-</div>
+<details id="seaMapTaskWrap" class="leaflet-control" open>
+    <summary>📋 Task</summary>
+    <div class="panel-body">
+        {% include 'maps/_task_panel.html' %}
+    </div>
+</details>
+<script>
+(function () {
+    function dock() {
+        const wrap = document.getElementById('seaMapTaskWrap');
+        const corner = document.querySelector('.leaflet-top.leaflet-right');
+        if (!wrap) return;
+        if (!corner) { return setTimeout(dock, 50); }
+        const legend = corner.querySelector('.leaflet-control-legend');
+        if (!legend) { return setTimeout(dock, 50); }
+        // Swap Nautical Symbols and Task: task takes legend's slot,
+        // legend moves to the bottom of the topright stack.
+        corner.insertBefore(wrap, legend);
+        corner.appendChild(legend);
+        if (window.L && L.DomEvent) {
+            L.DomEvent.disableClickPropagation(wrap);
+            L.DomEvent.disableScrollPropagation(wrap);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', dock);
+    } else {
+        dock();
+    }
+})();
+</script>
 {% endif %}
 
 </body>

@@ -63,6 +63,9 @@
         if (typeof initMagneticDeclination === 'function') {
             initMagneticDeclination(map);
         }
+        if (typeof initDeadReckoning === 'function') {
+            initDeadReckoning(map);
+        }
 
         console.log('✓ Nautical map initialized successfully');
     }

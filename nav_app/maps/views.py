@@ -39,12 +39,6 @@ def sea_map(request):
 
 
 @login_required
-def custom_map(request):
-    """Custom map with graticule overlay"""
-    return render(request, "maps/custom_map.html")
-
-
-@login_required
 def enhanced_graticule(request):
     """Enhanced interactive graticule with region fitting"""
     return render(request, "maps/enhanced_graticule.html")
