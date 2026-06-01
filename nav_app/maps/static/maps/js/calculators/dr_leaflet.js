@@ -180,44 +180,7 @@
             return;
         }
 
-        if (drLayer) drLayer.clearLayers();
-
-        const startPos = { lat: input.startLat, lng: input.startLon };
-        const drPos = { lat: result.newLat, lng: result.newLon };
-
-        L.circleMarker(startPos, {
-            radius: 8, fillColor: '#17a2b8', color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.9
-        }).addTo(drLayer).bindPopup(
-            `<b>Start</b><br>${formatCoordinatePair(input.startLat, input.startLon)}`
-        );
-
-        if (input.currentDrift !== 0) {
-            const waterEnd = { lat: result.waterEndLat, lng: result.waterEndLon };
-            L.polyline([startPos, waterEnd], {
-                color: '#1976d2', weight: 2, opacity: 0.7, dashArray: '4, 6'
-            }).addTo(drLayer).bindPopup(
-                `<b>Water Track</b><br>CTW: ${result.ctw.toFixed(1)}°<br>STW: ${input.speed} kts<br>Dist: ${result.waterDist.toFixed(2)} NM`
-            );
-            L.polyline([waterEnd, drPos], {
-                color: '#9c27b0', weight: 2, opacity: 0.7, dashArray: '2, 4'
-            }).addTo(drLayer).bindPopup(
-                `<b>Current Set</b><br>${input.currentSet.toFixed(1)}° @ ${input.currentDrift.toFixed(1)} kts<br>Dist: ${result.currentDist.toFixed(2)} NM`
-            );
-        }
-
-        L.polyline([startPos, drPos], {
-            color: '#28a745', weight: 3, opacity: 0.8, dashArray: '10, 10'
-        }).addTo(drLayer).bindPopup(
-            `<b>DR Ground Track</b><br>${result.steps.join('<br>')}<br>COG: ${result.cog.toFixed(1)}°<br>SOG: ${result.sog.toFixed(2)} kts<br>Time: ${input.time.toFixed(1)}h<br>Distance: ${result.distance.toFixed(2)} NM`
-        );
-
         const newPos = formatCoordinatePair(result.newLat, result.newLon);
-        L.circleMarker(drPos, {
-            radius: 10, fillColor: '#ffc107', color: '#000', weight: 2, opacity: 1, fillOpacity: 0.9
-        }).addTo(drLayer).bindPopup(
-            `<b>DR Position</b><br>${newPos}<br><small>${input.time.toFixed(1)}h, COG ${result.cog.toFixed(1)}° @ SOG ${result.sog.toFixed(2)} kts</small>`
-        );
-
         out.innerHTML = `
             <div style="color:#155724;"><b>DR Position:</b></div>
             <div><b>New Pos:</b> ${newPos}</div>
@@ -228,8 +191,6 @@
                 <b>Time:</b> ${input.time.toFixed(1)}h
             </div>
         `;
-
-        map.fitBounds(L.latLngBounds([startPos, drPos]), { padding: [50, 50] });
     }
 
     function clearDR() {
