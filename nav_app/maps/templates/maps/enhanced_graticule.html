@@ -436,6 +436,50 @@
                 <div id="drOut" class="info-box" style="display:none;"></div>
             </div>
 
+            <div class="panel" id="fixCalculatorPanel">
+                <h3>📍 Two-Bearing Fix</h3>
+                <p class="hint">Observed position from two simultaneous bearings on two charted objects</p>
+
+                <div class="form-group">
+                    <label>Object A Latitude:</label>
+                    <input type="text" id="fixObjALat" placeholder="54.5 or 54°22.5'N">
+                </div>
+                <div class="form-group">
+                    <label>Object A Longitude:</label>
+                    <input type="text" id="fixObjALon" placeholder="18.5 or 018°34.2'E">
+                </div>
+                <div class="form-group">
+                    <label>Object B Latitude:</label>
+                    <input type="text" id="fixObjBLat" placeholder="54.6 or 54°36.0'N">
+                </div>
+                <div class="form-group">
+                    <label>Object B Longitude:</label>
+                    <input type="text" id="fixObjBLon" placeholder="18.8 or 018°48.0'E">
+                </div>
+                <div class="form-group">
+                    <label>Compass Bearing to A (°):</label>
+                    <input type="number" id="fixBearingA" min="0" max="360" step="0.1" placeholder="045">
+                </div>
+                <div class="form-group">
+                    <label>Compass Bearing to B (°):</label>
+                    <input type="number" id="fixBearingB" min="0" max="360" step="0.1" placeholder="110">
+                </div>
+                <div class="form-group">
+                    <label>Compass Deviation (°):</label>
+                    <input type="number" id="fixDeviation" step="0.1" placeholder="0.0" value="0">
+                    <small>+East / −West</small>
+                </div>
+                <div class="form-group">
+                    <label>Magnetic Variation (°):</label>
+                    <input type="number" id="fixVariation" step="0.1" placeholder="0.0" value="0">
+                    <small>+East / −West</small>
+                </div>
+
+                <button id="fixCalcBtn" class="btn btn-primary">Calculate Fix</button>
+                <button id="fixClearBtn" class="btn btn-secondary">Clear</button>
+                <div id="fixOut" class="info-box" style="display:none;"></div>
+            </div>
+
             <div class="panel" id="coursePanel" style="display:none;">
                 <h3>🧭 Course Plotting</h3>
                 <p class="hint">Click on map to add waypoints</p>
@@ -551,6 +595,8 @@
     <!-- Calculators -->
     <script src="{% static 'maps/js/calculators/dr_core.js' %}"></script>
     <script src="{% static 'maps/js/calculators/dr_enhanced.js' %}"></script>
+    <script src="{% static 'maps/js/calculators/fix_core.js' %}"></script>
+    <script src="{% static 'maps/js/calculators/fix_enhanced.js' %}"></script>
 
     <script>
         // Make graticule system globally accessible

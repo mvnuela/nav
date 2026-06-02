@@ -66,6 +66,9 @@
         if (typeof initDeadReckoning === 'function') {
             initDeadReckoning(map);
         }
+        if (typeof initFix === 'function') {
+            initFix(map);
+        }
 
         console.log('✓ Nautical map initialized successfully');
     }
