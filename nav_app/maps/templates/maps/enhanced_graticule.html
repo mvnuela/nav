@@ -480,6 +480,86 @@
                 <div id="fixOut" class="info-box" style="display:none;"></div>
             </div>
 
+            <div class="panel" id="runfixCalculatorPanel">
+                <h3>🧭 Running Fix</h3>
+                <p class="hint">Observed position from two bearings on the same object, with the vessel running between them</p>
+
+                <div class="form-group">
+                    <label>Object Latitude:</label>
+                    <input type="text" id="runfixObjLat" placeholder="54.5 or 54°22.5'N">
+                </div>
+                <div class="form-group">
+                    <label>Object Longitude:</label>
+                    <input type="text" id="runfixObjLon" placeholder="18.5 or 018°34.2'E">
+                </div>
+                <div class="form-group">
+                    <label>Bearings are:</label>
+                    <label style="font-weight:normal; display:inline-block; margin-right:14px;">
+                        <input type="radio" name="runfixBearingType" value="compass" checked> Compass
+                    </label>
+                    <label style="font-weight:normal; display:inline-block;">
+                        <input type="radio" name="runfixBearingType" value="true"> True
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>First bearing to object (°):</label>
+                    <input type="number" id="runfixBearing1" min="0" max="360" step="0.1" placeholder="045">
+                </div>
+                <div class="form-group">
+                    <label>Second bearing to object (°):</label>
+                    <input type="number" id="runfixBearing2" min="0" max="360" step="0.1" placeholder="095">
+                </div>
+                <div class="form-group">
+                    <label>Course type:</label>
+                    <label style="font-weight:normal; display:inline-block; margin-right:14px;">
+                        <input type="radio" name="runfixCourseType" value="compass" checked> Compass
+                    </label>
+                    <label style="font-weight:normal; display:inline-block;">
+                        <input type="radio" name="runfixCourseType" value="true"> True
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Course / heading (°):</label>
+                    <input type="number" id="runfixCourse" min="0" max="360" step="0.1" placeholder="050">
+                </div>
+                <div class="form-group">
+                    <label>Magnetic Variation (°):</label>
+                    <input type="number" id="runfixVariation" step="0.1" placeholder="0.0" value="0">
+                    <small>+East / −West</small>
+                </div>
+                <div class="form-group">
+                    <label>Compass Deviation (°):</label>
+                    <input type="number" id="runfixDeviation" step="0.1" placeholder="0.0" value="0">
+                    <small>From deviation table; +East / −West</small>
+                </div>
+                <div class="form-group">
+                    <label>Leeway (°):</label>
+                    <input type="number" id="runfixLeeway" step="0.1" placeholder="0.0" value="0">
+                    <small>+Starboard / −Port (wind drift)</small>
+                </div>
+                <div class="form-group">
+                    <label>Boat Speed STW (knots):</label>
+                    <input type="number" id="runfixSpeed" min="0" step="0.1" placeholder="6.0">
+                </div>
+                <div class="form-group">
+                    <label>Current Set (° true):</label>
+                    <input type="number" id="runfixCurrentSet" min="0" max="360" step="0.1" value="0">
+                    <small>Direction current flows TO</small>
+                </div>
+                <div class="form-group">
+                    <label>Current Drift (knots):</label>
+                    <input type="number" id="runfixCurrentDrift" min="0" step="0.1" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Run time T₂−T₁ (hours):</label>
+                    <input type="number" id="runfixRunTime" min="0" step="0.5" placeholder="2.0">
+                </div>
+
+                <button id="runfixCalcBtn" class="btn btn-primary">Calculate Fix</button>
+                <button id="runfixClearBtn" class="btn btn-secondary">Clear</button>
+                <div id="runfixOut" class="info-box" style="display:none;"></div>
+            </div>
+
             <div class="panel" id="coursePanel" style="display:none;">
                 <h3>🧭 Course Plotting</h3>
                 <p class="hint">Click on map to add waypoints</p>
@@ -597,6 +677,8 @@
     <script src="{% static 'maps/js/calculators/dr_enhanced.js' %}"></script>
     <script src="{% static 'maps/js/calculators/fix_core.js' %}"></script>
     <script src="{% static 'maps/js/calculators/fix_enhanced.js' %}"></script>
+    <script src="{% static 'maps/js/calculators/runfix_core.js' %}"></script>
+    <script src="{% static 'maps/js/calculators/runfix_enhanced.js' %}"></script>
 
     <script>
         // Make graticule system globally accessible
