@@ -1,9 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseForbidden, FileResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from pathlib import Path
 import io
 import json
 import os
@@ -13,6 +14,15 @@ import fitz  # PyMuPDF
 from jsonschema import Draft202012Validator
 
 from .models import Task
+
+
+# Source directory for the navigation-calculator JavaScript. These scripts live
+# OUTSIDE the static tree (private_js/, not static/) so collectstatic / WhiteNoise
+# never expose them publicly. They are served only through the teacher-only view
+# `calculator_js`, so students cannot fetch them even by guessing the URL.
+CALCULATORS_DIR = (
+    Path(__file__).resolve().parent / "private_js" / "calculators"
+).resolve()
 
 
 def _load_task_schema():
@@ -133,6 +143,30 @@ def task_download(request, pk):
     response = JsonResponse(task.payload, json_dumps_params={"indent": 2})
     response["Content-Disposition"] = f'attachment; filename="task-{task.pk}.json"'
     return response
+
+
+@login_required
+def calculator_js(request, path):
+    """Serve a navigation-calculator JS file to teachers only.
+
+    The calculator scripts are deliberately NOT served by the public static
+    handler. Routing them through this view enforces the teacher-only boundary
+    server-side, so a student cannot bypass the template gating by requesting
+    the file directly.
+    """
+    if not request.user.is_teacher:
+        return HttpResponseForbidden("Navigation calculators are available to teachers only.")
+
+    target = (CALCULATORS_DIR / path).resolve()
+    # Reject path traversal, non-JS files, and anything missing.
+    try:
+        target.relative_to(CALCULATORS_DIR)
+    except ValueError:
+        raise Http404("Calculator script not found.")
+    if target.suffix != ".js" or not target.is_file():
+        raise Http404("Calculator script not found.")
+
+    return FileResponse(target.open("rb"), content_type="text/javascript")
 
 
 @csrf_exempt

@@ -373,6 +373,8 @@
                 </div>
             </div>
 
+            {% if user.is_teacher %}
+            {# Navigation calculators are teacher-only #}
             <div class="panel" id="courseCalculatorPanel">
                 <h3>⚓ Dead Reckoning Calculator</h3>
                 <p class="hint">Compute new position from course, speed, time, and current</p>
@@ -559,6 +561,7 @@
                 <button id="runfixClearBtn" class="btn btn-secondary">Clear</button>
                 <div id="runfixOut" class="info-box" style="display:none;"></div>
             </div>
+            {% endif %}
 
             <div class="panel" id="coursePanel" style="display:none;">
                 <h3>🧭 Course Plotting</h3>
@@ -672,13 +675,15 @@
     <script src="{% static 'maps/js/graticule/graticule_tools.js' %}"></script>
     <!-- Load course plotting extension -->
     <script src="{% static 'maps/js/course/course_plotter_enhanced.js' %}"></script>
-    <!-- Calculators -->
-    <script src="{% static 'maps/js/calculators/dr_core.js' %}"></script>
-    <script src="{% static 'maps/js/calculators/dr_enhanced.js' %}"></script>
-    <script src="{% static 'maps/js/calculators/fix_core.js' %}"></script>
-    <script src="{% static 'maps/js/calculators/fix_enhanced.js' %}"></script>
-    <script src="{% static 'maps/js/calculators/runfix_core.js' %}"></script>
-    <script src="{% static 'maps/js/calculators/runfix_enhanced.js' %}"></script>
+    {% if user.is_teacher %}
+    <!-- Calculators (teacher-only) — served via the calculator_js view, not the static handler -->
+    <script src="{% url 'maps:calculator_js' 'dr/dr_core.js' %}"></script>
+    <script src="{% url 'maps:calculator_js' 'dr/dr_enhanced.js' %}"></script>
+    <script src="{% url 'maps:calculator_js' 'fix/fix_core.js' %}"></script>
+    <script src="{% url 'maps:calculator_js' 'fix/fix_enhanced.js' %}"></script>
+    <script src="{% url 'maps:calculator_js' 'runfix/runfix_core.js' %}"></script>
+    <script src="{% url 'maps:calculator_js' 'runfix/runfix_enhanced.js' %}"></script>
+    {% endif %}
 
     <script>
         // Make graticule system globally accessible

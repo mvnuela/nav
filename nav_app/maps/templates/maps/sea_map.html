@@ -44,12 +44,15 @@
 <script src="{% static 'maps/js/geometry/geometry_leaflet.js' %}"></script>
 <script src="{% static 'maps/js/nautical/nautical_latitude_scale.js' %}"></script>
 <script src="{% static 'maps/js/course/magnetic_declination.js' %}"></script>
-<script src="{% static 'maps/js/calculators/dr_core.js' %}"></script>
-<script src="{% static 'maps/js/calculators/dr_leaflet.js' %}"></script>
-<script src="{% static 'maps/js/calculators/fix_core.js' %}"></script>
-<script src="{% static 'maps/js/calculators/fix_leaflet.js' %}"></script>
-<script src="{% static 'maps/js/calculators/runfix_core.js' %}"></script>
-<script src="{% static 'maps/js/calculators/runfix_leaflet.js' %}"></script>
+{% if user.is_teacher %}
+{# Navigation calculators are teacher-only — served via the calculator_js view, not the static handler #}
+<script src="{% url 'maps:calculator_js' 'dr/dr_core.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'dr/dr_leaflet.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'fix/fix_core.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'fix/fix_leaflet.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'runfix/runfix_core.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'runfix/runfix_leaflet.js' %}"></script>
+{% endif %}
 <script src="{% static 'maps/js/core/main_map.js' %}"></script>
 
 {% if task %}
