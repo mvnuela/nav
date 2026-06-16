@@ -72,6 +72,9 @@
         if (typeof initRunFix === 'function') {
             initRunFix(map);
         }
+        if (typeof initTravPOI === 'function') {
+            initTravPOI(map);
+        }
 
         console.log('✓ Nautical map initialized successfully');
     }

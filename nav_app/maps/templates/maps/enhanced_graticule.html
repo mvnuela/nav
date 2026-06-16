@@ -561,6 +561,41 @@
                 <button id="runfixClearBtn" class="btn btn-secondary">Clear</button>
                 <div id="runfixOut" class="info-box" style="display:none;"></div>
             </div>
+
+            <div class="panel" id="travpoiCalculatorPanel">
+                <h3>🎯 Travers POI</h3>
+                <p class="hint">Point on the current course where a POI (lighthouse, buoy, waypoint, island…) comes exactly abeam — 90° to the ship's axis</p>
+
+                <div class="form-group">
+                    <label>Vessel Latitude:</label>
+                    <input type="text" id="travpoiShipLat" placeholder="54.5 or 54°22.5'N">
+                </div>
+                <div class="form-group">
+                    <label>Vessel Longitude:</label>
+                    <input type="text" id="travpoiShipLon" placeholder="18.5 or 018°34.2'E">
+                </div>
+                <div class="form-group">
+                    <label>POI Latitude:</label>
+                    <input type="text" id="travpoiPoiLat" placeholder="54.7 or 54°42.0'N">
+                </div>
+                <div class="form-group">
+                    <label>POI Longitude:</label>
+                    <input type="text" id="travpoiPoiLon" placeholder="18.9 or 018°54.0'E">
+                </div>
+                <div class="form-group">
+                    <label>True course Kdd (0-359°):</label>
+                    <input type="number" id="travpoiCourse" min="0" max="359" step="0.1" placeholder="050">
+                </div>
+                <div class="form-group">
+                    <label>Speed (knots):</label>
+                    <input type="number" id="travpoiSpeed" min="0" step="0.1" placeholder="6.0">
+                    <small>Optional — enables time-to-traverse</small>
+                </div>
+
+                <button id="travpoiCalcBtn" class="btn btn-primary">Calculate Traverse</button>
+                <button id="travpoiClearBtn" class="btn btn-secondary">Clear</button>
+                <div id="travpoiOut" class="info-box" style="display:none;"></div>
+            </div>
             {% endif %}
 
             <div class="panel" id="coursePanel" style="display:none;">
@@ -683,6 +718,8 @@
     <script src="{% url 'maps:calculator_js' 'fix/fix_enhanced.js' %}"></script>
     <script src="{% url 'maps:calculator_js' 'runfix/runfix_core.js' %}"></script>
     <script src="{% url 'maps:calculator_js' 'runfix/runfix_enhanced.js' %}"></script>
+    <script src="{% url 'maps:calculator_js' 'travpoi/travpoi_core.js' %}"></script>
+    <script src="{% url 'maps:calculator_js' 'travpoi/travpoi_enhanced.js' %}"></script>
     {% endif %}
 
     <script>
