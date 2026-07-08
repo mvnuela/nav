@@ -111,11 +111,15 @@
         if (!wrap) return;
         if (!corner) { return setTimeout(dock, 50); }
         const legend = corner.querySelector('.leaflet-control-legend');
-        if (!legend) { return setTimeout(dock, 50); }
-        // Swap Nautical Symbols and Task: task takes legend's slot,
-        // legend moves to the bottom of the topright stack.
-        corner.insertBefore(wrap, legend);
-        corner.appendChild(legend);
+        if (legend) {
+            // Swap Nautical Symbols and Task: task takes legend's slot,
+            // legend moves to the bottom of the topright stack.
+            corner.insertBefore(wrap, legend);
+            corner.appendChild(legend);
+        } else {
+            // Legend hidden: task panel takes the top slot of the stack.
+            corner.insertBefore(wrap, corner.firstChild);
+        }
         if (window.L && L.DomEvent) {
             L.DomEvent.disableClickPropagation(wrap);
             L.DomEvent.disableScrollPropagation(wrap);

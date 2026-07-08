@@ -39,9 +39,10 @@
         initializeCoordinateInput(map);
         
         // Initialize additional tools (from separate modules)
-        if (typeof initCoursePlotter === 'function') {
-            initCoursePlotter(map);
-        }
+        // HIDDEN: Course Plotter panel temporarily disabled.
+        // if (typeof initCoursePlotter === 'function') {
+        //     initCoursePlotter(map);
+        // }
         if (typeof initNauticalTriangles === 'function') {
             initNauticalTriangles(map);
         }
@@ -185,7 +186,8 @@
         L.control.nauticalScale().addTo(map);
 
         // Add legend
-        L.control.legend().addTo(map);
+        // HIDDEN: Nautical Symbols legend temporarily disabled.
+        // L.control.legend().addTo(map);
 
         // Add map lock button (disable/enable all panning and zooming)
         addMapLockControl(map);

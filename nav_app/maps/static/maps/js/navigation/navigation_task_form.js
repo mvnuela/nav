@@ -381,7 +381,7 @@ function normalizeDeg(a) {
     return a < 0 ? a + 360 : a;
 }
 
-document.getElementById("drCalcBtn").addEventListener("click", () => {
+document.getElementById("drCalcBtn")?.addEventListener("click", () => {
     const lat        = readNum("drStartLat");
     const lon        = readNum("drStartLon");
     const compassDeg = readNum("drCourse");
@@ -443,12 +443,12 @@ async function copyToClipboard(text, btn) {
     setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1500);
 }
 
-document.getElementById("drCopyBtn").addEventListener("click", e => {
+document.getElementById("drCopyBtn")?.addEventListener("click", e => {
     if (!lastDR) return;
     copyToClipboard(document.getElementById("drResult").textContent, e.currentTarget);
 });
 
-document.getElementById("drCopyLatLonBtn").addEventListener("click", e => {
+document.getElementById("drCopyLatLonBtn")?.addEventListener("click", e => {
     if (!lastDR) return;
     const txt = `${lastDR.newLat.toFixed(4)}, ${lastDR.newLon.toFixed(4)}`;
     copyToClipboard(txt, e.currentTarget);
