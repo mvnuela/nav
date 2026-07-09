@@ -66,7 +66,10 @@
                 dividerCanvas.style.pointerEvents = 'auto';
                 
                 map.getPane('dividerPane').appendChild(dividerCanvas);
-                
+                // Pin to the viewport in case the map was already panned before
+                // the divider was first shown.
+                positionDividerCanvas();
+
                 // Initialize divider manager
                 const mapper = new LeafletCoordinateMapper(map);
                 const projection = new LeafletProjection();
@@ -95,6 +98,7 @@
                     const size = map.getSize();
                     dividerCanvas.width = size.x;
                     dividerCanvas.height = size.y;
+                    positionDividerCanvas();
                     renderDividers();
                 }
             }
@@ -217,9 +221,20 @@
             
             const handled = dividerManager.handleMouseDown(x, y);
             if (handled) {
-                disableMapInteractions();
+                // Only lock map pan/zoom while actually dragging a divider.
+                // A placement click isn't a drag; locking on it left the map
+                // stuck until the pointer happened to leave the canvas.
+                if (dividerManager.isDragging) {
+                    disableMapInteractions();
+                }
                 renderDividers();
                 updateDividerInfo();
+                // Refresh the button state so that when the second placement
+                // click finishes a divider (placementMode -> false) the button
+                // returns to "Add New Divider". Without this it stayed on
+                // "Cancel Placement", so the next click cancelled instead of
+                // starting a new divider.
+                updateControlButtons();
                 e.preventDefault();
                 e.stopPropagation();
             }
@@ -312,7 +327,22 @@
         if (mapInteractionsState.boxZoom) map.boxZoom.enable();
         if (mapInteractionsState.keyboard) map.keyboard.enable();
     }
-    
+
+    /**
+     * Keep the full-screen canvas pinned to the map viewport. The canvas lives
+     * in a Leaflet pane that is translated as the map pans, so without this it
+     * drifts off-screen after a large pan/zoom — clicks then miss it entirely
+     * and the divider tool appears dead, and drawn dividers land offset from
+     * where you click. Positioning the canvas at the current top-left layer
+     * point cancels the pane translation, so canvas pixel (0,0) always sits at
+     * viewport (0,0) — matching the container-point coordinates that
+     * renderDividers and the mouse hit-tests use.
+     */
+    function positionDividerCanvas() {
+        if (!dividerCanvas || !map) return;
+        L.DomUtil.setPosition(dividerCanvas, map.containerPointToLayerPoint([0, 0]));
+    }
+
     /**
      * Render dividers on canvas
      */

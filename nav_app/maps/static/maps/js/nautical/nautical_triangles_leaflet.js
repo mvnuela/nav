@@ -475,9 +475,15 @@
         const scaleControl = document.getElementById('triangleScaleControl');
 
         if (trianglesVisible) {
-            // Create triangles if they don't exist
+            // Create triangles if they don't exist, otherwise re-center them.
+            // Triangles are pinned to screen space, so after working in a new
+            // map region they can be left anywhere; snapping them back to the
+            // middle of the current view on every Show means the user never has
+            // to hunt for them. Rotation and scale are preserved.
             if (triangleManager.triangles.size === 0) {
                 createTriangles();
+            } else {
+                recenterTriangles();
             }
 
             // Show triangles
@@ -520,33 +526,48 @@
 
 
     /**
+     * Compute the default stacked positions (O reference points) for the two
+     * triangles: centered horizontally and stacked one below the other in the
+     * middle of the current viewport, overlapping by ~50% of a triangle height.
+     * The triangle body extends upward from its O point by hypotenuseLength / 2
+     * (= 170 base units) × scale, so offsetting the O-points by half that height
+     * gives the 50% overlap.
+     */
+    function getStackedPositions(scale) {
+        const size = map.getSize();
+        // this.x/this.y are stored in the triangle container's coordinate space.
+        // That container lives inside a Leaflet map pane which Leaflet translates
+        // as the user pans, so the container origin drifts away from the screen
+        // origin. Convert the viewport-centre *screen* point into that
+        // container-local (layer-point) space so the triangles land at the true
+        // centre of the current view no matter how far the map has been panned.
+        const c = map.containerPointToLayerPoint([size.x * 0.5, size.y * 0.5]);
+        const triangleHeight = 170 * scale;
+        const overlapOffset = triangleHeight * 0.5;
+        return {
+            triangleA: { x: c.x, y: c.y - overlapOffset / 2 },
+            triangleB: { x: c.x, y: c.y + overlapOffset / 2 }
+        };
+    }
+
+    /**
      * Create the two plotting triangles
      */
     function createTriangles() {
         if (!map || !triangleManager) return;
 
-        const size = map.getSize();
-
         // Get scale from slider if it exists, otherwise use default
         const scaleSlider = document.getElementById('triangleScaleSlider');
         const scale = scaleSlider ? parseFloat(scaleSlider.value) : 1.0;
 
-        // Stack both triangles in the central area, one below the other, so the
-        // user finds them together and then drags them apart. The triangle body
-        // extends upward from its O reference point (bottom vertex) by
-        // hypotenuseLength / 2 (= 170 base units) × scale. Offsetting the two
-        // O-points by half that height leaves them overlapping by ~50%.
-        const triangleHeight = 170 * scale;
-        const overlapOffset = triangleHeight * 0.5;
-        const centerX = size.x * 0.5;
-        const centerY = size.y * 0.5;
+        const pos = getStackedPositions(scale);
 
         // Triangle A (upper)
         triangleManager.createTriangle(
             'triangleA',
             'Triangle A',
-            centerX,
-            centerY - overlapOffset / 2,
+            pos.triangleA.x,
+            pos.triangleA.y,
             scale
         );
 
@@ -554,10 +575,27 @@
         triangleManager.createTriangle(
             'triangleB',
             'Triangle B',
-            centerX,
-            centerY + overlapOffset / 2,
+            pos.triangleB.x,
+            pos.triangleB.y,
             scale
         );
+    }
+
+    /**
+     * Move the existing triangles back to the default stacked position in the
+     * middle of the current view, preserving each triangle's rotation and scale.
+     * Called on every Show so the user never has to hunt for triangles left
+     * off in a previously-viewed map region.
+     */
+    function recenterTriangles() {
+        if (!triangleManager) return;
+
+        for (const [id, triangle] of triangleManager.triangles) {
+            const pos = getStackedPositions(triangle.scale)[id];
+            if (pos) {
+                triangle.setPosition(pos.x, pos.y);
+            }
+        }
     }
 
     /**
