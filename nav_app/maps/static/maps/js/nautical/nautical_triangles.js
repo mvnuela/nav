@@ -1248,22 +1248,43 @@ class PlottingTriangleManager {
     handleMouseMove = (e) => {
         if (!this.activeTriangle) return;
 
-        const clientX = e.clientX;
-        const clientY = e.clientY;
+        // Coalesce rapid mousemove events into a single update per animation
+        // frame. Each rotation/drag update re-applies a transform to a ~400-node
+        // SVG group (protractor ticks/labels/ruler), which the browser repaints
+        // on the CPU — far too heavy to run on every raw mousemove, since mice
+        // fire well above the display refresh rate. requestAnimationFrame caps
+        // the work to one repaint per frame and clears the event backlog that
+        // caused the lag.
+        this._pendingPointer = { x: e.clientX, y: e.clientY };
 
-        if (this.activeTriangle.isRotating) {
-            this.activeTriangle.updateRotationByMouse(clientX, clientY);
-        } else if (this.activeTriangle.isDragging) {
-            this.activeTriangle.updateDrag(clientX, clientY);
-        }
+        if (this._moveFrame) return;
+        this._moveFrame = requestAnimationFrame(() => {
+            this._moveFrame = null;
+            const p = this._pendingPointer;
+            const t = this.activeTriangle;
+            if (!p || !t) return;
 
-        this.notifyChange();
+            if (t.isRotating) {
+                t.updateRotationByMouse(p.x, p.y);
+            } else if (t.isDragging) {
+                t.updateDrag(p.x, p.y);
+            }
+
+            this.notifyChange();
+        });
     };
 
     /**
      * Handle mouse up
      */
     handleMouseUp = () => {
+        // Drop any frame that was scheduled but not yet painted so it can't
+        // fire after the interaction ends.
+        if (this._moveFrame) {
+            cancelAnimationFrame(this._moveFrame);
+            this._moveFrame = null;
+        }
+
         if (this.activeTriangle) {
             this.activeTriangle.stopDrag();
             this.activeTriangle.stopRotation();

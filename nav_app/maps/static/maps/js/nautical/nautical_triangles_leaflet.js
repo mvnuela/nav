@@ -23,9 +23,9 @@
     let mapInteractionState = null;
 
     // Align-to-point mode state
-    // 'idle'          — tool off, normal drag/rotate behavior
-    // 'pick-triangle' — waiting for user to click a triangle
-    // 'pick-point'    — waiting for user to click the target point
+    // 'idle'       — tool off, normal drag/rotate behavior
+    // 'pick-point' — waiting for user to click the target point; the triangle
+    //                to align is chosen beforehand from the toolbar dropdown
     let alignMode = 'idle';
     let alignTriangle = null;
 
@@ -44,14 +44,14 @@
             alignTriangle = null;
             document.body.style.cursor = '';
             if (btn) {
-                btn.textContent = '📍 Align to Point';
+                btn.textContent = 'Align to Point';
                 btn.style.background = '#00838F';
             }
             if (status) status.style.display = 'none';
             return;
         }
 
-        // Entering/continuing an align step
+        // Entering the pick-point step
         document.body.style.cursor = 'crosshair';
         if (btn) {
             btn.textContent = 'Cancel Align';
@@ -59,9 +59,8 @@
         }
         if (status) {
             status.style.display = 'block';
-            status.textContent = newMode === 'pick-triangle'
-                ? 'Align: click a triangle… (Esc to cancel)'
-                : 'Align: click the target point on the map… (Esc to cancel)';
+            const name = alignTriangle ? alignTriangle.name : 'triangle';
+            status.textContent = `Align ${name}: click the target point on the map… (Esc to cancel)`;
         }
     }
 
@@ -99,25 +98,6 @@
         // unmolested so Cancel/close still work.
         if (e.target.closest && e.target.closest('.leaflet-control')) return;
         if (!triangleManager) return;
-
-        if (alignMode === 'pick-triangle') {
-            for (const tri of triangleManager.triangles.values()) {
-                if (tri.containsPoint(e.clientX, e.clientY)) {
-                    alignTriangle = tri;
-                    tri.setHighlight(true);
-                    setAlignMode('pick-point');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    return;
-                }
-            }
-            // Clicked empty space — stay armed, swallow event
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            return;
-        }
 
         if (alignMode === 'pick-point') {
             if (alignTriangle) {
@@ -240,14 +220,21 @@
                                 <li><strong>Z + drag</strong> to rotate</li>
                                 <li>Touch: 2 fingers to rotate</li>
                                 <li>Scales: 0°-180° (outer), 180°-360° (inner)</li>
-                                <li><strong>Align:</strong> dedicated tool below —<br>click a triangle, then a target point.<br>The hypotenuse midpoint snaps to that point without changing rotation.</li>
+                                <li><strong>Align:</strong> dedicated tool below —<br>pick a triangle by name, click Align, then a target point.<br>The hypotenuse midpoint snaps to that point without changing rotation.</li>
                             </ul>
                         </div>
 
-                        <button id="alignToPointBtn" style="display: none; width: 100%; padding: 8px 12px; margin-top: 10px; cursor: pointer; background: #00838F; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px;">
-                            📍 Align to Point
-                        </button>
-                        <div id="alignStatus" style="display: none; margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; font-size: 11px; color: #856404; text-align: center;"></div>
+                        <div id="alignControl" style="display: none; margin-top: 10px;">
+                            <label for="alignTriangleSelect" style="font-size: 11px; font-weight: bold; display: block; margin-bottom: 4px;">Align triangle:</label>
+                            <select id="alignTriangleSelect" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; margin-bottom: 6px;">
+                                <option value="triangleA">Triangle A</option>
+                                <option value="triangleB">Triangle B</option>
+                            </select>
+                            <button id="alignToPointBtn" style="width: 100%; padding: 8px 12px; cursor: pointer; background: #00838F; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px;">
+                                Align to Point
+                            </button>
+                            <div id="alignStatus" style="display: none; margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; font-size: 11px; color: #856404; text-align: center;"></div>
+                        </div>
 
                         <div id="triangleAnglesPanel" style="display: none; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 10px;">
                             <strong style="font-size: 11px; color: #666;">Current Rotations:</strong>
@@ -350,7 +337,15 @@
                 e.stopPropagation();
                 if (!trianglesVisible) return;
                 if (alignMode === 'idle') {
-                    setAlignMode('pick-triangle');
+                    // Triangle to align is chosen from the toolbar dropdown,
+                    // not by clicking it on the map.
+                    const select = document.getElementById('alignTriangleSelect');
+                    const id = select ? select.value : 'triangleA';
+                    const tri = triangleManager ? triangleManager.getTriangle(id) : null;
+                    if (!tri) return;
+                    alignTriangle = tri;
+                    tri.setHighlight(true);
+                    setAlignMode('pick-point');
                 } else {
                     setAlignMode('idle');
                 }
@@ -497,8 +492,8 @@
             if (instructions) instructions.style.display = 'block';
             if (anglesPanel) anglesPanel.style.display = 'block';
             if (scaleControl) scaleControl.style.display = 'block';
-            const alignBtn = document.getElementById('alignToPointBtn');
-            if (alignBtn) alignBtn.style.display = 'block';
+            const alignControl = document.getElementById('alignControl');
+            if (alignControl) alignControl.style.display = 'block';
 
             updateAngleDisplay(triangleManager.getRotationAngles());
 
@@ -507,8 +502,8 @@
             triangleManager.hideAll();
             triangleContainer.style.pointerEvents = 'none';
             setAlignMode('idle');
-            const alignBtn = document.getElementById('alignToPointBtn');
-            if (alignBtn) alignBtn.style.display = 'none';
+            const alignControl = document.getElementById('alignControl');
+            if (alignControl) alignControl.style.display = 'none';
             const alignStatus = document.getElementById('alignStatus');
             if (alignStatus) alignStatus.style.display = 'none';
 
