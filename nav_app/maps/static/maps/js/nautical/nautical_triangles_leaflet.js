@@ -536,21 +536,31 @@
         const scaleSlider = document.getElementById('triangleScaleSlider');
         const scale = scaleSlider ? parseFloat(scaleSlider.value) : 1.0;
 
-        // Create Triangle A (left side)
+        // Stack both triangles in the central area, one below the other, so the
+        // user finds them together and then drags them apart. The triangle body
+        // extends upward from its O reference point (bottom vertex) by
+        // hypotenuseLength / 2 (= 170 base units) × scale. Offsetting the two
+        // O-points by half that height leaves them overlapping by ~50%.
+        const triangleHeight = 170 * scale;
+        const overlapOffset = triangleHeight * 0.5;
+        const centerX = size.x * 0.5;
+        const centerY = size.y * 0.5;
+
+        // Triangle A (upper)
         triangleManager.createTriangle(
             'triangleA',
             'Triangle A',
-            size.x * 0.35,
-            size.y * 0.55,
+            centerX,
+            centerY - overlapOffset / 2,
             scale
         );
 
-        // Create Triangle B (right side)
+        // Triangle B (lower, overlapping A by ~50% of its height)
         triangleManager.createTriangle(
             'triangleB',
             'Triangle B',
-            size.x * 0.65,
-            size.y * 0.55,
+            centerX,
+            centerY + overlapOffset / 2,
             scale
         );
     }

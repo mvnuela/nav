@@ -832,18 +832,6 @@ class PlottingTriangle {
         nameLabel.textContent = this.name;
         mainGroup.appendChild(nameLabel);
 
-        // Rotation angle display
-        const angleDisplay = document.createElementNS(ns, 'text');
-        angleDisplay.setAttribute('x', 0);
-        angleDisplay.setAttribute('y', this.s(38));
-        angleDisplay.setAttribute('text-anchor', 'middle');
-        angleDisplay.setAttribute('font-family', 'monospace');
-        angleDisplay.setAttribute('font-size', this.s(9));
-        angleDisplay.setAttribute('fill', this.colors.innerScale);
-        angleDisplay.setAttribute('class', 'angle-display');
-        angleDisplay.textContent = '0°';
-        mainGroup.appendChild(angleDisplay);
-
         svg.appendChild(mainGroup);
 
         this.svgElement = svg;
@@ -1097,6 +1085,13 @@ class PlottingTriangleManager {
             this.container.appendChild(svg);
         }
 
+        // setPosition() ran before createSVG() existed, so updatePosition()
+        // bailed out early and never wrote left/top. Apply it now that the SVG
+        // element is present, otherwise the triangle sits at the container
+        // origin (both triangles stacked on top of each other) until the next
+        // drag/resize event happens to call updatePosition().
+        triangle.updatePosition();
+
         this.triangles.set(id, triangle);
         this.setupTriangleEventListeners(triangle);
 
@@ -1107,19 +1102,29 @@ class PlottingTriangleManager {
      * Create a standard pair of triangles
      */
     createStandardPair(width, height, scale = 1.0) {
+        // Stack both triangles in the central area, one below the other, so the
+        // user finds them together and then drags them apart. The triangle body
+        // extends upward from its O reference point (bottom vertex) by
+        // hypotenuseLength / 2 (= 170 base units) × scale. Offsetting the two
+        // O-points by half that height leaves them overlapping by ~50%.
+        const triangleHeight = 170 * scale;
+        const overlapOffset = triangleHeight * 0.5;
+        const centerX = width * 0.5;
+        const centerY = height * 0.5;
+
         const triangleA = this.createTriangle(
             'triangleA',
             'Triangle A',
-            width * 0.35,
-            height * 0.55,
+            centerX,
+            centerY - overlapOffset / 2,
             scale
         );
 
         const triangleB = this.createTriangle(
             'triangleB',
             'Triangle B',
-            width * 0.65,
-            height * 0.55,
+            centerX,
+            centerY + overlapOffset / 2,
             scale
         );
 
