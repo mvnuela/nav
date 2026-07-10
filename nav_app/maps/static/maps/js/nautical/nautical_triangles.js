@@ -904,24 +904,26 @@ class PlottingTriangle {
     }
 
     /**
-     * Start dragging
+     * Start dragging.
+     * Pointer coords must be in the container's local space (see
+     * PlottingTriangleManager.toLocalPoint), the same space as this.x / this.y.
      */
-    startDrag(clientX, clientY) {
+    startDrag(localX, localY) {
         this.isDragging = true;
         this.dragOffset = {
-            x: clientX - this.x,
-            y: clientY - this.y
+            x: localX - this.x,
+            y: localY - this.y
         };
     }
 
     /**
      * Update drag position
      */
-    updateDrag(clientX, clientY) {
+    updateDrag(localX, localY) {
         if (!this.isDragging) return false;
 
-        this.x = clientX - this.dragOffset.x;
-        this.y = clientY - this.dragOffset.y;
+        this.x = localX - this.dragOffset.x;
+        this.y = localY - this.dragOffset.y;
         this.updatePosition();
         return true;
     }
@@ -934,24 +936,27 @@ class PlottingTriangle {
     }
 
     /**
-     * Start rotation
+     * Start rotation.
+     * Pointer coords must be in the container's local space (see
+     * PlottingTriangleManager.toLocalPoint): unlike drag, the pivot is an
+     * absolute anchor, so a mismatched space does not cancel out.
      */
-    startRotation(clientX, clientY) {
+    startRotation(localX, localY) {
         this.isRotating = true;
         const halfHyp = this.s(this.config.hypotenuseLength) / 2;
         const pivotY = this.y - halfHyp;
-        this.rotationStartAngle = Math.atan2(clientY - pivotY, clientX - this.x) * 180 / Math.PI;
+        this.rotationStartAngle = Math.atan2(localY - pivotY, localX - this.x) * 180 / Math.PI;
     }
 
     /**
-     * Update rotation by mouse position (incremental to avoid atan2 wrap-around jumps)
+     * Update rotation by pointer position (incremental to avoid atan2 wrap-around jumps)
      */
-    updateRotationByMouse(clientX, clientY) {
+    updateRotationByMouse(localX, localY) {
         if (!this.isRotating) return false;
 
         const halfHyp = this.s(this.config.hypotenuseLength) / 2;
         const pivotY = this.y - halfHyp;
-        const currentAngle = Math.atan2(clientY - pivotY, clientX - this.x) * 180 / Math.PI;
+        const currentAngle = Math.atan2(localY - pivotY, localX - this.x) * 180 / Math.PI;
         let delta = currentAngle - this.rotationStartAngle;
         // Normalize to [-180, 180] so crossing the ±180° boundary never causes a jump
         delta = ((delta + 180) % 360 + 360) % 360 - 180;
@@ -1066,6 +1071,23 @@ class PlottingTriangleManager {
     }
 
     /**
+     * Convert a viewport (client) point into the container's local coordinate
+     * space — the space triangle.x / triangle.y and style.left / style.top live in.
+     *
+     * The container sits inside a Leaflet map pane, which Leaflet translates as
+     * the user pans. After panning across map regions that translate grows to
+     * thousands of pixels, so a client point and a local point are nowhere near
+     * each other. Rotation measures the pointer against a fixed pivot derived
+     * from triangle.y, so feeding it client coords put the pivot far off-screen
+     * and made a full mouse sweep turn the triangle by a fraction of a degree.
+     */
+    toLocalPoint(clientX, clientY) {
+        if (!this.container) return { x: clientX, y: clientY };
+        const rect = this.container.getBoundingClientRect();
+        return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    /**
      * Set callback for angle changes
      */
     onChange(callback) {
@@ -1167,18 +1189,17 @@ class PlottingTriangleManager {
         triangle.isDragging = false;
         triangle.isRotating = false;
 
-        const clientX = e.clientX;
-        const clientY = e.clientY;
+        const p = this.toLocalPoint(e.clientX, e.clientY);
 
         // Bring triangle to front
         this.bringToFront(triangle);
 
         // Z key held = rotation mode, otherwise drag mode
         if (this.zKeyPressed) {
-            triangle.startRotation(clientX, clientY);
+            triangle.startRotation(p.x, p.y);
             triangle.setHighlight(true);
         } else {
-            triangle.startDrag(clientX, clientY);
+            triangle.startDrag(p.x, p.y);
             triangle.setHighlight(true);
         }
 
@@ -1222,15 +1243,16 @@ class PlottingTriangleManager {
             // Use midpoint of two touches for rotation
             const touch1 = e.touches[0];
             const touch2 = e.touches[1];
-            const clientX = (touch1.clientX + touch2.clientX) / 2;
-            const clientY = (touch1.clientY + touch2.clientY) / 2;
-            triangle.startRotation(clientX, clientY);
+            const p = this.toLocalPoint(
+                (touch1.clientX + touch2.clientX) / 2,
+                (touch1.clientY + touch2.clientY) / 2
+            );
+            triangle.startRotation(p.x, p.y);
             triangle.setHighlight(true);
         } else if (e.touches.length === 1) {
             const touch = e.touches[0];
-            const clientX = touch.clientX;
-            const clientY = touch.clientY;
-            triangle.startDrag(clientX, clientY);
+            const p = this.toLocalPoint(touch.clientX, touch.clientY);
+            triangle.startDrag(p.x, p.y);
             triangle.setHighlight(true);
         } else {
             return;
@@ -1260,9 +1282,13 @@ class PlottingTriangleManager {
         if (this._moveFrame) return;
         this._moveFrame = requestAnimationFrame(() => {
             this._moveFrame = null;
-            const p = this._pendingPointer;
+            const pointer = this._pendingPointer;
             const t = this.activeTriangle;
-            if (!p || !t) return;
+            if (!pointer || !t) return;
+
+            // Converted here rather than on every mousemove: getBoundingClientRect
+            // forces layout, so it runs once per painted frame.
+            const p = this.toLocalPoint(pointer.x, pointer.y);
 
             if (t.isRotating) {
                 t.updateRotationByMouse(p.x, p.y);
@@ -1310,14 +1336,15 @@ class PlottingTriangleManager {
             // Two-finger rotation - use midpoint
             const touch1 = e.touches[0];
             const touch2 = e.touches[1];
-            const clientX = (touch1.clientX + touch2.clientX) / 2;
-            const clientY = (touch1.clientY + touch2.clientY) / 2;
-            this.activeTriangle.updateRotationByMouse(clientX, clientY);
+            const p = this.toLocalPoint(
+                (touch1.clientX + touch2.clientX) / 2,
+                (touch1.clientY + touch2.clientY) / 2
+            );
+            this.activeTriangle.updateRotationByMouse(p.x, p.y);
         } else if (this.activeTriangle.isDragging && e.touches.length === 1) {
             const touch = e.touches[0];
-            const clientX = touch.clientX;
-            const clientY = touch.clientY;
-            this.activeTriangle.updateDrag(clientX, clientY);
+            const p = this.toLocalPoint(touch.clientX, touch.clientY);
+            this.activeTriangle.updateDrag(p.x, p.y);
         }
 
         this.notifyChange();

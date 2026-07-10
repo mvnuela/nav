@@ -629,15 +629,30 @@
     function handleMapResize() {
         if (!triangleManager || !trianglesVisible) return;
 
-        // Keep triangles within bounds after resize
+        // Keep triangles within bounds after resize.
+        //
+        // triangle.x / triangle.y are layer points — the coordinate space of the
+        // map pane, whose origin Leaflet shifts as the user pans. The viewport
+        // bounds we clamp against are container points, measured from the corner
+        // of the map element. The two only coincide on an unpanned map, so the
+        // point has to be converted into container space before it is compared
+        // with the viewport, and converted back afterwards. Clamping the raw
+        // layer point would drag triangles off toward the pane origin the moment
+        // the window is resized in a panned-away map region.
         const size = map.getSize();
+        const margin = 100;
 
         for (const [id, triangle] of triangleManager.triangles) {
-            // Clamp position to stay within map bounds
-            const margin = 100;
-            triangle.x = Math.max(margin, Math.min(size.x - margin, triangle.x));
-            triangle.y = Math.max(margin, Math.min(size.y - margin, triangle.y));
-            triangle.updatePosition();
+            const p = map.layerPointToContainerPoint([triangle.x, triangle.y]);
+
+            const clamped = L.point(
+                Math.max(margin, Math.min(size.x - margin, p.x)),
+                Math.max(margin, Math.min(size.y - margin, p.y))
+            );
+            if (clamped.equals(p)) continue;
+
+            const layerPoint = map.containerPointToLayerPoint(clamped);
+            triangle.setPosition(layerPoint.x, layerPoint.y);
         }
     }
 
