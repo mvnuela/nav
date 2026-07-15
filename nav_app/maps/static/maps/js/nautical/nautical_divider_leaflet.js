@@ -62,7 +62,10 @@
                 dividerCanvas.style.position = 'absolute';
                 dividerCanvas.style.left = '0px';
                 dividerCanvas.style.top = '0px';
-                dividerCanvas.style.pointerEvents = 'auto';
+                // Default to letting clicks pass through to the markers/map
+                // underneath (geometry points, etc.). updateCanvasPassthrough()
+                // flips this to 'auto' only while the pointer is over a divider.
+                dividerCanvas.style.pointerEvents = 'none';
                 
                 map.getPane('dividerPane').appendChild(dividerCanvas);
                 // Pin to the viewport in case the map was already panned before
@@ -105,12 +108,40 @@
         
         // Store canvas layer reference
         window.dividerCanvasLayer = new CanvasLayer();
-        
+
         // Create custom control
         createDividerControl(map);
-        
+
+        // The divider canvas covers the whole viewport, so while shown it would
+        // otherwise swallow every click and block other tools (e.g. clicking a
+        // geometry point to delete it). Listen on the map container — which
+        // always receives events even when the canvas is pass-through — and let
+        // the canvas capture events only while the pointer is over a divider.
+        map.getContainer().addEventListener('mousemove', function(e) {
+            updateCanvasPassthrough(e.clientX, e.clientY);
+        });
+
         console.log('✓ Nautical divider initialized');
     };
+
+    /**
+     * Toggle whether the divider canvas captures pointer events. It captures
+     * only when the divider is visible and the pointer is over an interactive
+     * part of a divider; otherwise clicks fall through to the map and any
+     * markers beneath (geometry points, observed positions, etc.).
+     */
+    function updateCanvasPassthrough(clientX, clientY) {
+        if (!dividerCanvas) return;
+        if (!dividersVisible || !dividerManager) {
+            dividerCanvas.style.pointerEvents = 'none';
+            return;
+        }
+        const rect = dividerCanvas.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        dividerCanvas.style.pointerEvents =
+            dividerManager.isOverInteractive(x, y) ? 'auto' : 'none';
+    }
     
     /**
      * Create control panel for divider
@@ -405,6 +436,9 @@
     function startPlacement() {
         if (dividerManager) {
             dividerManager.startPlacement();
+            // Placement needs the canvas to capture clicks right away, before
+            // any mousemove has had a chance to flip it on.
+            if (dividerCanvas) dividerCanvas.style.pointerEvents = 'auto';
             updateControlButtons();
             renderDividers();
         }

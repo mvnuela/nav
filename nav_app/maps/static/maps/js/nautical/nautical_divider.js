@@ -619,6 +619,21 @@ class NauticalDividerManager {
     }
 
     /**
+     * True when the pointer is over an interactive part of the divider tool
+     * (placing a new divider, dragging one, or hovering a divider handle/line).
+     * The Leaflet layer uses this to decide whether the full-screen overlay
+     * canvas should capture the pointer event or let it fall through to the
+     * markers underneath (e.g. geometry points you want to delete/connect).
+     */
+    isOverInteractive(screenX, screenY) {
+        if (this.placementMode || this.isDragging) return true;
+        for (const divider of this.dividers) {
+            if (divider.hitTest(screenX, screenY) !== null) return true;
+        }
+        return false;
+    }
+
+    /**
      * Returns true when hover state changed since last check
      */
     hoverStateChanged() {
