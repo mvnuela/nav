@@ -22,7 +22,7 @@
                 {% include 'maps/_task_panel.html' %}
             </div>
             {% endif %}
-            <div class="panel">
+            <div class="panel" id="uploadPanel">
                 <h3>📁 1. Upload Map Image</h3>
                 <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg,application/pdf,.pdf">
                 <small style="display:block; margin-top:4px; color:#666;">Supports: PNG, JPG, PDF</small>
@@ -52,7 +52,7 @@
                 </div>
             </div>
 
-            <div class="panel">
+            <div class="panel" id="regionPanel">
                 <h3>2. Define Map Region</h3>
                 <p class="hint">Select the area containing actual map (excluding margins/legends)</p>
                 <button id="fitModeBtn" class="btn btn-secondary" disabled>
@@ -64,7 +64,7 @@
                 </div>
             </div>
 
-            <div class="panel">
+            <div class="panel" id="boundsPanel">
                 <h3>3. Geographic Bounds & Grid</h3>
                 <p class="hint">Set coordinates and grid spacing for the selected map region as decimal(applied together)</p>
                 <div class="form-group">
@@ -1105,6 +1105,14 @@
             document.getElementById('viewModeBtn').disabled = false;
             document.getElementById('courseModeBtn').disabled = false;
             document.getElementById('exportPanel').style.display = 'block';
+
+            // Setup is complete once bounds are applied — hide the setup steps
+            // (1. Upload, 2. Define Map Region, 3. Geographic Bounds & Grid) to
+            // declutter the panel.
+            ['uploadPanel', 'regionPanel', 'boundsPanel'].forEach(function(id) {
+                const panel = document.getElementById(id);
+                if (panel) panel.style.display = 'none';
+            });
 
             updateGridPreview();
         }
