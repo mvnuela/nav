@@ -15,7 +15,7 @@
     </div>
 
     <div class="container">
-        <button id="sidebarToggle" class="sidebar-toggle" title="Hide / show side panel" aria-label="Toggle side panel">◀</button>
+        <button id="sidebarToggle" class="sidebar-toggle" title="Hide / show side panel" aria-label="Toggle side panel">▶</button>
         <div class="sidebar" id="sidebar">
             {% if task %}
             <div class="panel" id="taskInfoPanel">
@@ -1908,16 +1908,16 @@
 
             function syncToggleOffset() {
                 if (sidebar.classList.contains('collapsed')) {
-                    toggle.style.left = '0px';
+                    toggle.style.right = '0px';
                 } else {
-                    toggle.style.left = sidebar.offsetWidth + 'px';
+                    toggle.style.right = sidebar.offsetWidth + 'px';
                 }
             }
 
             toggle.addEventListener('click', function() {
                 const collapsed = sidebar.classList.toggle('collapsed');
                 toggle.classList.toggle('collapsed', collapsed);
-                toggle.textContent = collapsed ? '▶' : '◀';
+                toggle.textContent = collapsed ? '◀' : '▶';
                 toggle.title = collapsed ? 'Show side panel' : 'Hide side panel';
                 // Let the sidebar finish its width transition before repositioning
                 setTimeout(syncToggleOffset, 260);
