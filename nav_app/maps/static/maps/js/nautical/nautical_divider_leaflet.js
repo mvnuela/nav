@@ -10,8 +10,7 @@
     let dividerCanvas = null;
     let dividerManager = null;
     let dividersVisible = false;
-    let mapInteractionsState = null;
-    
+
     // Create a simple mapper for Leaflet
     class LeafletCoordinateMapper {
         constructor(leafletMap) {
@@ -290,22 +289,13 @@
     }
     
     /**
-     * Disable Leaflet map interactions
+     * Suppress Leaflet map pan/zoom while a divider is being dragged, so the
+     * chart holds still under the cursor. The divider itself is driven by the
+     * canvas mouse handlers, not by map.dragging, so it keeps working here.
      */
     function disableMapInteractions() {
         if (!map) return;
-        
-        if (!mapInteractionsState) {
-            mapInteractionsState = {
-                dragging: map.dragging.enabled(),
-                touchZoom: map.touchZoom.enabled(),
-                doubleClickZoom: map.doubleClickZoom.enabled(),
-                scrollWheelZoom: map.scrollWheelZoom.enabled(),
-                boxZoom: map.boxZoom.enabled(),
-                keyboard: map.keyboard.enabled()
-            };
-        }
-        
+
         map.dragging.disable();
         map.touchZoom.disable();
         map.doubleClickZoom.disable();
@@ -313,19 +303,22 @@
         map.boxZoom.disable();
         map.keyboard.disable();
     }
-    
+
     /**
-     * Restore Leaflet map interactions
+     * Restore Leaflet map interactions after a divider drag. The global map
+     * lock (window.mapInteractionLocked) is the single source of truth: if the
+     * user locked the map, leave it locked; otherwise re-enable pan/zoom.
      */
     function enableMapInteractions() {
-        if (!map || !mapInteractionsState) return;
-        
-        if (mapInteractionsState.dragging) map.dragging.enable();
-        if (mapInteractionsState.touchZoom) map.touchZoom.enable();
-        if (mapInteractionsState.doubleClickZoom) map.doubleClickZoom.enable();
-        if (mapInteractionsState.scrollWheelZoom) map.scrollWheelZoom.enable();
-        if (mapInteractionsState.boxZoom) map.boxZoom.enable();
-        if (mapInteractionsState.keyboard) map.keyboard.enable();
+        if (!map) return;
+        if (window.mapInteractionLocked) return;
+
+        map.dragging.enable();
+        map.touchZoom.enable();
+        map.doubleClickZoom.enable();
+        map.scrollWheelZoom.enable();
+        map.boxZoom.enable();
+        map.keyboard.enable();
     }
 
     /**
@@ -390,10 +383,9 @@
                 dividerManager.cancelPlacement();
             }
             
-            // Ensure map interactions are enabled
+            // Restore map interactions (unless the user has locked the map)
             enableMapInteractions();
-            mapInteractionsState = null;
-            
+
             btn.textContent = 'Show Divider';
             btn.style.background = '#FF8800';
             controls.style.display = 'none';

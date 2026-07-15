@@ -15,9 +15,11 @@
      * Initialize the complete nautical map with all features
      */
     function initializeNauticalMap() {
-        // Create map with initial position from Django template
-        const map = L.map('map').setView(
-            [window.initialLat, window.initialLon], 
+        // Create map with initial position from Django template.
+        // Cap zoom-in at level 10 (applies to +/- buttons, scroll and
+        // double-click alike, since maxZoom is enforced by the map itself).
+        const map = L.map('map', { maxZoom: 10 }).setView(
+            [window.initialLat, window.initialLon],
             7
         );
 
@@ -199,6 +201,32 @@
     function addMapLockControl(map) {
         window.mapInteractionLocked = false;
 
+        // The built-in +/- zoom buttons call map.zoomIn()/zoomOut() directly,
+        // bypassing every interaction handler (dragging, scrollWheelZoom, ...).
+        // Guard those methods at the source so a locked map cannot zoom, no
+        // matter how the zoom was triggered (button, API, keyboard shortcut).
+        if (!map._lockZoomGuardInstalled) {
+            map._lockZoomGuardInstalled = true;
+            const origZoomIn = map.zoomIn.bind(map);
+            const origZoomOut = map.zoomOut.bind(map);
+            map.zoomIn = function() {
+                return window.mapInteractionLocked ? map : origZoomIn.apply(null, arguments);
+            };
+            map.zoomOut = function() {
+                return window.mapInteractionLocked ? map : origZoomOut.apply(null, arguments);
+            };
+        }
+
+        // Also visually grey-out and click-block the +/- buttons while locked.
+        if (!document.getElementById('map-lock-style')) {
+            const style = document.createElement('style');
+            style.id = 'map-lock-style';
+            style.textContent =
+                '.map-interaction-locked .leaflet-control-zoom a {' +
+                ' pointer-events: none; opacity: 0.5; cursor: default; }';
+            document.head.appendChild(style);
+        }
+
         const MapLockControl = L.Control.extend({
             options: { position: 'topleft' },
             onAdd: function() {
@@ -223,6 +251,7 @@
                         map.keyboard.disable();
                         map.touchZoom.disable();
                         map.boxZoom.disable();
+                        map.getContainer().classList.add('map-interaction-locked');
                         btn.innerHTML = '&#x1F512;'; // 🔒
                         btn.style.background = '#e67e22';
                         btn.style.color = 'white';
@@ -234,6 +263,7 @@
                         map.keyboard.enable();
                         map.touchZoom.enable();
                         map.boxZoom.enable();
+                        map.getContainer().classList.remove('map-interaction-locked');
                         btn.innerHTML = '&#x1F513;'; // 🔓
                         btn.style.background = 'white';
                         btn.style.color = 'black';
