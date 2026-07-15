@@ -16,9 +16,9 @@
      */
     function initializeNauticalMap() {
         // Create map with initial position from Django template.
-        // Cap zoom-in at level 10 (applies to +/- buttons, scroll and
-        // double-click alike, since maxZoom is enforced by the map itself).
-        const map = L.map('map', { maxZoom: 10 }).setView(
+        // Clamp zoom to 3–10 (applies to +/- buttons, scroll and double-click
+        // alike, since min/maxZoom are enforced by the map itself).
+        const map = L.map('map', { minZoom: 3, maxZoom: 10 }).setView(
             [window.initialLat, window.initialLon],
             7
         );
