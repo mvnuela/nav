@@ -342,9 +342,9 @@
         const map = leafletMap;
         let grid = [];  // cached cells: { latMin, latMax, lonMin, lonMax, decl }
 
-        // ─── Small info box (bottom-right, away from latitude scale) ───
+        // ─── Small info box (top-right, docked under the Go to Position box) ───
         L.Control.MagVar = L.Control.extend({
-            options: { position: 'bottomright' },
+            options: { position: 'topright' },
             onAdd: function() {
                 const box = L.DomUtil.create('div', 'mag-var-box');
                 box.style.cssText = 'background:rgba(255,255,255,0.92);padding:4px 8px;border:1px solid rgba(0,0,0,0.25);border-radius:3px;font-size:12px;font-family:monospace;pointer-events:none;white-space:nowrap;';

@@ -79,7 +79,28 @@
             initTravPOI(map);
         }
 
+        dockInfoBoxesUnderCoordinateInput();
+
         console.log('✓ Nautical map initialized successfully');
+    }
+
+    /**
+     * Place the variation box and the cursor coordinate readout immediately
+     * below the "Go to Position" box. Both are topright controls, but the
+     * corner stacks them in add order, so re-order the DOM once every control
+     * exists.
+     */
+    function dockInfoBoxesUnderCoordinateInput() {
+        const corner = document.querySelector('.leaflet-top.leaflet-right');
+        const coordInput = document.querySelector('.leaflet-control-coordinate-input');
+        if (!corner || !coordInput) return;
+
+        // Insert in reverse order so the final stack reads: Go to Position,
+        // variation, coordinates.
+        ['.leaflet-control-coordinate', '#magVarBox'].forEach(selector => {
+            const box = corner.querySelector(selector);
+            if (box) corner.insertBefore(box, coordInput.nextSibling);
+        });
     }
 
     /**

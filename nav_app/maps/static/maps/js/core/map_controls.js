@@ -9,7 +9,7 @@
  */
 L.Control.CoordinateDisplay = L.Control.extend({
     options: {
-        position: 'bottomright',
+        position: 'topright',
         emptyString: 'Move cursor over map',
         separator: ' | ',
         prefix: '',
