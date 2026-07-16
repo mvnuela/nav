@@ -1464,7 +1464,11 @@
             }
         }
 
-        function saveObservedPositionDescription(id) {
+        // Write the fields straight into the model. Called on every keystroke so
+        // the model — not the DOM — is the source of truth: the 200ms refresh
+        // rebuilds these inputs from scratch, so anything living only in the DOM
+        // is lost the moment the field loses focus.
+        function commitObservedPositionDescription(id) {
             const numEl = document.getElementById('obsPosNum-' + id);
             const denEl = document.getElementById('obsPosDen-' + id);
             if (!numEl || !denEl) return;
@@ -1472,6 +1476,10 @@
             const den = (denEl.value || '').trim();
             const fraction = (num || den) ? `${num}/${den}` : '';
             graticuleSystem.setObservedPositionDescription(id, fraction);
+        }
+
+        function saveObservedPositionDescription(id) {
+            commitObservedPositionDescription(id);
             updateObservedPositionUI();
         }
 
@@ -1570,10 +1578,12 @@
                                 <span style="color:#555; font-size:0.85em;">Description:</span>
                                 <div style="display:inline-flex; flex-direction:column; align-items:center; font-family:monospace;">
                                     <input type="text" id="obsPosNum-${pos.id}" value="${numEsc}"
+                                        oninput="commitObservedPositionDescription(${pos.id})"
                                         style="width:48px; text-align:center; padding:1px 2px; font-size:11px;
                                         border:1px solid #ccc; border-radius:3px;">
                                     <div style="width:48px; border-top:1px solid #333; margin:1px 0;"></div>
                                     <input type="text" id="obsPosDen-${pos.id}" value="${denEsc}"
+                                        oninput="commitObservedPositionDescription(${pos.id})"
                                         style="width:48px; text-align:center; padding:1px 2px; font-size:11px;
                                         border:1px solid #ccc; border-radius:3px;">
                                 </div>
