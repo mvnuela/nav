@@ -202,72 +202,74 @@
                 container.style.marginTop = '10px';
 
                 container.innerHTML = `
-                    <div id="trianglesPanelToggle" style="padding: 8px 12px; background: white; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                        <span style="font-size: 14px;">&#x25B3;</span>
+                    <div id="trianglesPanelToggle" style="padding: 6px 8px; background: white; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                        <span style="font-size: 13px;">&#x25B3;</span>
                         <span>Plotting Triangles</span>
                     </div>
-                    <div id="trianglesPanelContent" style="display: none; padding: 12px; min-width: 220px; border-top: 1px solid #ddd;">
+                    <!-- Explicit width, not min-width: a Leaflet control shrink-to-fits,
+                         so without an upper bound the panel stretches to its longest
+                         unwrapped line (the Align instructions) instead of wrapping. -->
+                    <div id="trianglesPanelContent" style="display: none; box-sizing: border-box; width: 150px; padding: 8px; border-top: 1px solid #ddd;">
                         <button id="toggleTrianglesBtn"
-                            style="width: 100%; padding: 8px 12px; cursor: pointer; background: #0078A8; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; transition: background 0.2s;">
+                            style="width: 100%; padding: 6px 8px; cursor: pointer; background: #0078A8; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; transition: background 0.2s;">
                             Show Triangles
                         </button>
 
 
-                        <div id="triangleInstructions" style="display: none; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; padding: 10px; margin-top: 10px; font-size: 11px;">
+                        <div id="triangleInstructions" style="display: none; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; padding: 6px; margin-top: 6px; font-size: 11px;">
                             <strong style="color: #1565c0;">Instructions:</strong>
-                            <ul style="margin: 6px 0 0 16px; padding: 0; color: #424242;">
-                                <li>Drag to move triangle</li>
+                            <ul style="margin: 4px 0 0 14px; padding: 0; color: #424242;">
+                                <li>Drag to move or use arrow keys</li>
                                 <li><strong>Z + drag</strong> to rotate</li>
-                                <li>Touch: 2 fingers to rotate</li>
-                                <li>Scales: 0°-180° (outer), 180°-360° (inner)</li>
-                                <li><strong>Align:</strong> dedicated tool below —<br>pick a triangle by name, click Align, then a target point.<br>The hypotenuse midpoint snaps to that point without changing rotation.</li>
+                                <li><strong>Align:</strong> pick a triangle below, click Align, then a target point.</li>
                             </ul>
                         </div>
 
-                        <div id="alignControl" style="display: none; margin-top: 10px;">
-                            <label for="alignTriangleSelect" style="font-size: 11px; font-weight: bold; display: block; margin-bottom: 4px;">Align triangle:</label>
-                            <select id="alignTriangleSelect" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; margin-bottom: 6px;">
+                        <div id="alignControl" style="display: none; margin-top: 6px;">
+                            <label for="alignTriangleSelect" style="font-size: 11px; font-weight: bold; display: block; margin-bottom: 3px;">Align triangle:</label>
+                            <select id="alignTriangleSelect" style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; margin-bottom: 5px;">
                                 <option value="triangleA">Triangle A</option>
                                 <option value="triangleB">Triangle B</option>
                             </select>
-                            <button id="alignToPointBtn" style="width: 100%; padding: 8px 12px; cursor: pointer; background: #00838F; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px;">
+                            <button id="alignToPointBtn" style="width: 100%; padding: 6px 8px; cursor: pointer; background: #00838F; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px;">
                                 Align to Point
                             </button>
-                            <div id="alignStatus" style="display: none; margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; font-size: 11px; color: #856404; text-align: center;"></div>
+                            <div id="alignStatus" style="display: none; margin-top: 5px; padding: 5px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; font-size: 11px; color: #856404; text-align: center;"></div>
                         </div>
 
-                        <div id="triangleAnglesPanel" style="display: none; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 10px;">
+                        <div id="triangleAnglesPanel" style="display: none; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 6px; margin-top: 6px;">
                             <strong style="font-size: 11px; color: #666;">Current Rotations:</strong>
-                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <label style="font-size: 11px; font-weight: bold; min-width: 70px;">Triangle A:</label>
+                            <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <label style="font-size: 11px; font-weight: bold; min-width: 52px;">Tri. A:</label>
                                     <input type="number" id="triangleAAngle" min="0" max="360" step="0.5" value="0"
-                                        style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px;">
+                                        style="width: 100%; min-width: 0; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px;">
                                     <span style="font-size: 11px;">°</span>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <label style="font-size: 11px; font-weight: bold; min-width: 70px;">Triangle B:</label>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <label style="font-size: 11px; font-weight: bold; min-width: 52px;">Tri. B:</label>
                                     <input type="number" id="triangleBAngle" min="0" max="360" step="0.5" value="0"
-                                        style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px;">
+                                        style="width: 100%; min-width: 0; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px;">
                                     <span style="font-size: 11px;">°</span>
                                 </div>
                             </div>
 
-                            <div style="display: flex; gap: 6px; margin-top: 10px;">
-                                <button id="resetTriangleA" style="flex: 1; padding: 6px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
-                                    Reset A
+                            <span style="display: block; font-size: 10px; color: #666; margin-top: 6px; margin-bottom: 4px;">Reset:</span>
+                            <div style="display: flex; gap: 4px;">
+                                <button id="resetTriangleA" style="flex: 1; min-width: 0; padding: 4px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
+                                    A
                                 </button>
-                                <button id="resetTriangleB" style="flex: 1; padding: 6px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
-                                    Reset B
+                                <button id="resetTriangleB" style="flex: 1; min-width: 0; padding: 4px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
+                                    B
                                 </button>
-                                <button id="resetBothTriangles" style="flex: 1; padding: 6px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
-                                    Reset Both
+                                <button id="resetBothTriangles" style="flex: 1; min-width: 0; padding: 4px; font-size: 10px; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;">
+                                    Both
                                 </button>
                             </div>
                         </div>
 
-                        <div id="triangleScaleControl" style="display: none; margin-top: 10px; padding: 10px; background: #fafafa; border: 1px solid #ddd; border-radius: 4px;">
-                            <label style="font-size: 11px; font-weight: bold; display: block; margin-bottom: 6px;">
+                        <div id="triangleScaleControl" style="display: none; margin-top: 6px; padding: 6px; background: #fafafa; border: 1px solid #ddd; border-radius: 4px;">
+                            <label style="font-size: 11px; font-weight: bold; display: block; margin-bottom: 4px;">
                                 Triangle Size:
                             </label>
                             <input type="range" id="triangleScaleSlider" min="0.5" max="1.5" step="0.1" value="1.0"

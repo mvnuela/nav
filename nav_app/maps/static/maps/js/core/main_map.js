@@ -188,6 +188,9 @@
      * Initialize custom map controls
      */
     function initializeControls(map) {
+        // Added first so it sits at the top of the topright stack
+        addHomeButton(map);
+
         // Add coordinate display control (shows position under cursor)
         L.control.coordinateDisplay().addTo(map);
 
@@ -195,14 +198,52 @@
         L.control.zoomDisplay().addTo(map);
 
         // Add nautical scale
-        L.control.nauticalScale().addTo(map);
+        // HIDDEN: bottom-left nautical mile scale bar temporarily disabled.
+        // L.control.nauticalScale().addTo(map);
 
         // Add legend
         // HIDDEN: Nautical Symbols legend temporarily disabled.
         // L.control.legend().addTo(map);
 
+        // Move the built-in +/- zoom buttons down to the bottom-left, clear of
+        // the latitude scale that runs down the left edge.
+        if (map.zoomControl) {
+            map.zoomControl.setPosition('bottomleft');
+        }
+
         // Add map lock button (disable/enable all panning and zooming)
         addMapLockControl(map);
+    }
+
+    /**
+     * Link back to the home page. The map fills the viewport, so there is no
+     * page chrome to hang a nav link on — it has to be a map control.
+     */
+    function addHomeButton(map) {
+        const HomeControl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function() {
+                const link = L.DomUtil.create('a', 'leaflet-control home-btn');
+                // homeUrl is set by the template; '/' is the index route anyway.
+                link.href = window.homeUrl || '/';
+                link.textContent = '← Home';
+                link.title = 'Return to the home page';
+                link.style.cssText = [
+                    'display:block', 'padding:6px 8px', 'background:white',
+                    'border:2px solid rgba(0,0,0,0.2)', 'border-radius:4px',
+                    'box-shadow:0 1px 5px rgba(0,0,0,0.4)', 'color:#0078A8',
+                    'font-size:12px', 'font-weight:bold', 'text-decoration:none',
+                    'text-align:center', 'white-space:nowrap'
+                ].join(';');
+
+                // Stops the click reaching the map; the link still navigates.
+                L.DomEvent.disableClickPropagation(link);
+
+                return link;
+            }
+        });
+
+        new HomeControl().addTo(map);
     }
 
     /**
@@ -238,7 +279,7 @@
         }
 
         const MapLockControl = L.Control.extend({
-            options: { position: 'topleft' },
+            options: { position: 'bottomleft' },
             onAdd: function() {
                 const btn = L.DomUtil.create('button', 'leaflet-control map-lock-btn');
                 btn.title = 'Lock / unlock map movement';
