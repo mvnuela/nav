@@ -380,6 +380,9 @@
     function onMapClick(e) {
         if (!isPlacingMode) return;
         addObservedPosition(e.latlng.lat, e.latlng.lng);
+        // One position per "Start Marking": leave placing mode after the first
+        // click so a stray click on the map cannot drop a second marker.
+        togglePlacingMode(false);
     }
 
     /**
@@ -396,7 +399,7 @@
         }
 
         if (statusText) {
-            statusText.textContent = enabled ? 'Click on map to mark position' : 'Click button to start';
+            statusText.textContent = enabled ? 'Click the map to mark one position' : 'Click button to start';
             statusText.style.color = enabled ? '#D32F2F' : '#666';
         }
 
