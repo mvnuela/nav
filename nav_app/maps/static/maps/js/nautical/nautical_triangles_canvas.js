@@ -541,6 +541,18 @@ class NauticalTriangleManager {
         }
     }
 
+    /**
+     * Drop the keyboard selection. selectedTriangle deliberately outlives the
+     * drag so arrow keys keep moving the last triangle touched, which means
+     * something has to clear it when the user clicks away — otherwise it stays
+     * set for the life of the page and silently blocks wheel zoom.
+     */
+    deselect() {
+        if (!this.selectedTriangle) return false;
+        this.selectedTriangle = null;
+        return true;
+    }
+
     handleMouseUp() {
         if (this.activeTriangle) {
             this.activeTriangle.stopDrag();

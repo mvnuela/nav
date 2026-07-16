@@ -85,8 +85,10 @@ class EnhancedGraticuleSystem {
     handleWheel(e) {
         e.preventDefault();
 
-        // Don't zoom when a triangle is selected (arrow keys control it instead)
-        if (this.triangleManager?.selectedTriangle) return;
+        // Don't zoom when a triangle is selected (arrow keys control it instead).
+        // Only applies while the triangles are actually on screen — a selection
+        // left behind by a hidden triangle must not block zoom.
+        if (this.trianglesVisible && this.triangleManager?.selectedTriangle) return;
 
         if (!this.uploadedImage) return;
 
@@ -541,6 +543,11 @@ class EnhancedGraticuleSystem {
             if (handled) {
                 this.render();
                 return;
+            }
+            // Clicked away from every triangle — drop the selection, matching
+            // the Leaflet map's behavior.
+            if (this.triangleManager.deselect()) {
+                this.render();
             }
         }
 
