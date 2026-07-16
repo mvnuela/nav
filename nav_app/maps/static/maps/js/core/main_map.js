@@ -122,20 +122,8 @@
                 });
                 line.addTo(graticuleLayer);
 
-                // Add label on the left edge
-                const labelLat = lat;
-                const labelLng = bounds.getWest() + (bounds.getEast() - bounds.getWest()) * 0.02;
-
-                const label = L.marker([labelLat, labelLng], {
-                    icon: L.divIcon({
-                        className: 'graticule-label',
-                        html: '<div style="background: rgba(255,255,255,0.8); padding: 2px 5px; border-radius: 3px; font-size: 11px; font-weight: bold; white-space: nowrap;">' +
-                              decimalToNautical(lat, true) + '</div>',
-                        iconSize: [120, 20],
-                        iconAnchor: [0, 10]
-                    })
-                });
-                label.addTo(graticuleLayer);
+                // No latitude label here: the nautical latitude scale on the left
+                // edge already reads out latitude, and these labels sat on top of it.
             }
 
             // Draw longitude lines
@@ -158,9 +146,10 @@
 
                 const label = L.marker([labelLat, labelLng], {
                     icon: L.divIcon({
+                        // Styled by .graticule-label in sea_map.css (white halo,
+                        // no backing box).
                         className: 'graticule-label',
-                        html: '<div style="background: rgba(255,255,255,0.8); padding: 2px 5px; border-radius: 3px; font-size: 11px; font-weight: bold; white-space: nowrap;">' +
-                              decimalToNautical(lng, false) + '</div>',
+                        html: '<div>' + decimalToNautical(lng, false) + '</div>',
                         iconSize: [120, 20],
                         iconAnchor: [60, 20]
                     })

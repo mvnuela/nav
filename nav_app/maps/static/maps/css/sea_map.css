@@ -15,13 +15,19 @@ body {
 }
 
 /* Custom Graticule Styles */
-.leaflet-graticule-label {
-    font-weight: bold;
-    color: #333;
-    text-shadow: 1px 1px 1px white, -1px -1px 1px white, 
-                 1px -1px 1px white, -1px 1px 1px white;
+/* Matches the class set by the divIcon in main_map.js. These labels are HTML,
+   not SVG, so the halo is a text-shadow ring rather than the paint-order stroke
+   used by the latitude scale — the intended effect is the same. */
+.graticule-label {
+    font-family: Arial, sans-serif;
     font-size: 11px;
+    font-weight: bold;
+    color: #222;
+    white-space: nowrap;
     pointer-events: none;
+    text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff,
+                 -1px 1px 0 #fff, 1px 1px 0 #fff,
+                 0 0 3px #fff, 0 0 3px #fff;
 }
 
 /* Coordinate Display Control */
