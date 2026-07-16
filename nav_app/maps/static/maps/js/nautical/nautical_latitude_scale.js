@@ -16,15 +16,33 @@
     var svgNS = 'http://www.w3.org/2000/svg';
 
     // Layout constants
-    var SCALE_WIDTH = 60;
-    var LEFT_OFFSET = 14;
-    var MAJOR_TICK_LEN = 30;
-    var MEDIUM_TICK_LEN = 20;
-    var MINOR_TICK_LEN = 10;
-    var SUB_MINOR_TICK_LEN = 5;
+    var SCALE_WIDTH = 52;
+    var LEFT_OFFSET = 4;
+    // Ticks are anchored to the left border and grow rightward; labels sit to
+    // their right, flush against the right edge of the strip.
+    var TICK_BASE_X = 1;
+    var MAJOR_TICK_LEN = 13;
+    var MEDIUM_TICK_LEN = 9;
+    var MINOR_TICK_LEN = 6;
+    var SUB_MINOR_TICK_LEN = 3;
 
     // Alternating band width (for the classic black/white minute blocks)
-    var BAND_WIDTH = 8;
+    var BAND_WIDTH = 6;
+
+    // Labels sit just clear of the longest tick, left-aligned so they read as a
+    // single column tight against the bands.
+    var LABEL_X = TICK_BASE_X + MAJOR_TICK_LEN + 3;
+
+    /**
+     * Give text a white outline so it stays readable over open water now that
+     * there's no opaque strip behind the scale.
+     */
+    function addHalo(textEl) {
+        textEl.setAttribute('stroke', '#fff');
+        textEl.setAttribute('stroke-width', '2.5');
+        textEl.setAttribute('stroke-linejoin', 'round');
+        textEl.setAttribute('paint-order', 'stroke');
+    }
 
     /**
      * Determine which tick levels to show based on zoom.
@@ -125,19 +143,13 @@
             endMin = Math.ceil(northMin / config.minor) * config.minor;
         }
 
-        // The x position of the right border (ticks grow leftward from here)
-        var scaleX = SCALE_WIDTH;
+        // The x position of the left border (ticks grow rightward from here)
+        var scaleX = TICK_BASE_X;
 
-        // Draw background strip
-        var bg = document.createElementNS(svgNS, 'rect');
-        bg.setAttribute('x', 0);
-        bg.setAttribute('y', 0);
-        bg.setAttribute('width', SCALE_WIDTH);
-        bg.setAttribute('height', mapH);
-        bg.setAttribute('fill', 'rgba(255,255,255,0.85)');
-        svgContainer.appendChild(bg);
+        // No background strip: the scale floats directly over the chart. Text
+        // gets a white halo (see addHalo) so it stays legible over dark water.
 
-        // Draw border line on right side of scale
+        // Draw border line on left side of scale (ticks hang off it)
         var borderLine = document.createElementNS(svgNS, 'line');
         borderLine.setAttribute('x1', scaleX);
         borderLine.setAttribute('y1', 0);
@@ -193,7 +205,7 @@
                 var subTick = document.createElementNS(svgNS, 'line');
                 subTick.setAttribute('x1', scaleX);
                 subTick.setAttribute('y1', sY);
-                subTick.setAttribute('x2', scaleX - SUB_MINOR_TICK_LEN);
+                subTick.setAttribute('x2', scaleX + SUB_MINOR_TICK_LEN);
                 subTick.setAttribute('y2', sY);
                 subTick.setAttribute('stroke', onDarkBand ? '#e53935' : '#555');
                 subTick.setAttribute('stroke-width', onDarkBand ? '1' : '0.5');
@@ -231,11 +243,11 @@
                 strokeWidth = 0.8;
             }
 
-            // Draw tick mark (from right border leftward)
+            // Draw tick mark (from left border rightward)
             var tick = document.createElementNS(svgNS, 'line');
             tick.setAttribute('x1', scaleX);
             tick.setAttribute('y1', y);
-            tick.setAttribute('x2', scaleX - tickLen);
+            tick.setAttribute('x2', scaleX + tickLen);
             tick.setAttribute('y2', y);
             tick.setAttribute('stroke', '#333');
             tick.setAttribute('stroke-width', strokeWidth);
@@ -244,29 +256,19 @@
             // Draw label
             if (showLabel) {
                 var label = document.createElementNS(svgNS, 'text');
-                label.setAttribute('x', scaleX - tickLen - 3);
-                label.setAttribute('y', y + 4);
-                label.setAttribute('text-anchor', 'end');
-                label.setAttribute('font-size', m % config.major === 0 ? '11' : '9');
+                label.setAttribute('x', LABEL_X);
+                label.setAttribute('y', y + 3);
+                label.setAttribute('text-anchor', 'start');
+                label.setAttribute('font-size', m % config.major === 0 ? '10' : '8.5');
                 label.setAttribute('font-family', 'Arial, sans-serif');
                 label.setAttribute('font-weight', m % config.major === 0 ? 'bold' : 'normal');
                 label.setAttribute('fill', '#222');
                 label.textContent = formatLatLabel(m);
+                addHalo(label);
                 svgContainer.appendChild(label);
             }
         }
 
-        // Draw "NM" title at top
-        var title = document.createElementNS(svgNS, 'text');
-        title.setAttribute('x', SCALE_WIDTH / 2);
-        title.setAttribute('y', 14);
-        title.setAttribute('text-anchor', 'middle');
-        title.setAttribute('font-size', '10');
-        title.setAttribute('font-family', 'Arial, sans-serif');
-        title.setAttribute('font-weight', 'bold');
-        title.setAttribute('fill', '#0078A8');
-        title.textContent = 'LAT / NM';
-        svgContainer.appendChild(title);
     }
 
     /**
@@ -300,7 +302,7 @@
 
             if (clippedH > 0) {
                 var band = document.createElementNS(svgNS, 'rect');
-                band.setAttribute('x', scaleX - BAND_WIDTH - 1);
+                band.setAttribute('x', scaleX + 1);
                 band.setAttribute('y', clippedY);
                 band.setAttribute('width', BAND_WIDTH);
                 band.setAttribute('height', clippedH);
