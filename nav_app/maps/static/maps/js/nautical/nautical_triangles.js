@@ -1161,10 +1161,23 @@ class PlottingTriangleManager {
         if (!svg) return;
 
         // Mouse events
-        svg.addEventListener('mousedown', (e) => this.handleMouseDown(e, triangle));
+        // Align-to-point (nautical_triangles_leaflet.js) used to be kept
+        // exclusive of drag by a capture-phase document listener that
+        // swallowed mousedown before it reached here; that hijack is gone
+        // now that the interaction machine owns exclusivity, so this guard
+        // preserves the one thing it also did: don't start a drag while
+        // align is armed. Checked defensively in case that module hasn't
+        // loaded.
+        svg.addEventListener('mousedown', (e) => {
+            if (window.NauticalTrianglesLeaflet && window.NauticalTrianglesLeaflet.isAlignArmed()) return;
+            this.handleMouseDown(e, triangle);
+        });
 
         // Touch events
-        svg.addEventListener('touchstart', (e) => this.handleTouchStart(e, triangle), { passive: false });
+        svg.addEventListener('touchstart', (e) => {
+            if (window.NauticalTrianglesLeaflet && window.NauticalTrianglesLeaflet.isAlignArmed()) return;
+            this.handleTouchStart(e, triangle);
+        }, { passive: false });
     }
 
     /**

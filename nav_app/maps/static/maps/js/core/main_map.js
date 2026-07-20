@@ -35,16 +35,27 @@
             attribution: 'Map data: © <a href="http://www.openseamap.org">OpenSeaMap</a> contributors'
         }).addTo(map);
 
+        // Interaction machine must exist before any tool initializes, so tools
+        // can register their states during init. It is started after them.
+        //
+        // Guarded so that a failure here cannot abort the whole map bootstrap.
+        // This runs first, so an uncaught throw would take the graticule, the
+        // controls and every tool down with it. Degrading to "no machine" leaves
+        // the map fully usable, since each tool still owns its own listeners.
+        if (typeof initInteractionManager === 'function') {
+            try {
+                initInteractionManager(map);
+            } catch (err) {
+                console.error('Interaction machine failed to initialize:', err);
+            }
+        }
+
         // Initialize all map features
         initializeGraticule(map);
         initializeControls(map);
         initializeCoordinateInput(map);
-        
+
         // Initialize additional tools (from separate modules)
-        // HIDDEN: Course Plotter panel temporarily disabled.
-        // if (typeof initCoursePlotter === 'function') {
-        //     initCoursePlotter(map);
-        // }
         if (typeof initNauticalTriangles === 'function') {
             initNauticalTriangles(map);
         }
@@ -77,6 +88,18 @@
         }
         if (typeof initTravPOI === 'function') {
             initTravPOI(map);
+        }
+
+        // Started last so every tool has registered its states and target
+        // validation sees the complete graph. Guarded for the same reason as
+        // the setup call above, and because the machine may be absent if that
+        // call failed.
+        if (window.mapInteraction) {
+            try {
+                window.mapInteraction.start(window.InteractionStates.IDLE);
+            } catch (err) {
+                console.error('Interaction machine failed to start:', err);
+            }
         }
 
         dockInfoBoxesUnderCoordinateInput();

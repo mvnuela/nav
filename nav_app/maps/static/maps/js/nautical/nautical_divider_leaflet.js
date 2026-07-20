@@ -112,6 +112,11 @@
         // Create custom control
         createDividerControl(map);
 
+        // Register this tool's placement state with the interaction machine,
+        // so arming divider placement is mutually exclusive with every other
+        // placement tool (in particular geometry's "Place Point").
+        registerInteractionState();
+
         // The divider canvas covers the whole viewport, so while shown it would
         // otherwise swallow every click and block other tools (e.g. clicking a
         // geometry point to delete it). Listen on the map container — which
@@ -123,6 +128,136 @@
 
         console.log('✓ Nautical divider initialized');
     };
+
+    /**
+     * Register the divider's placement state with the interaction machine,
+     * before the machine is started (see main_map.js), so registration order
+     * is safe. NauticalDividerManager needs NO changes — it already tracks
+     * its own two-step placement internally via placementPointA — this only
+     * changes how placement is armed (via the machine instead of a direct
+     * startPlacement() call) and where the placement click comes from (the
+     * machine's TAP instead of the canvas's own mousedown).
+     */
+    function registerInteractionState() {
+        if (!window.mapInteraction) return;
+
+        window.mapInteraction.register(window.defineState({
+            id: window.DividerStates.PLACING,
+            tool: 'divider',
+            cursor: 'crosshair',
+            targets: [window.InteractionStates.IDLE],
+            on: {
+                TAP: function(event) {
+                    if (!dividerManager || !dividerCanvas) return;
+
+                    // The manager works in canvas-relative pixels; the TAP
+                    // event's x/y are map-container-relative. Derive canvas
+                    // coordinates from the underlying DOM event exactly as
+                    // the canvas's own mouse handlers do below — do not
+                    // assume the two coordinate spaces are the same.
+                    const rect = dividerCanvas.getBoundingClientRect();
+                    const x = event.originalEvent.clientX - rect.left;
+                    const y = event.originalEvent.clientY - rect.top;
+
+                    dividerManager.handleMouseDown(x, y);
+                    renderDividers();
+                    updateDividerInfo();
+                    updateControlButtons();
+
+                    // The second click completes the divider — the manager
+                    // flips placementMode back to false itself. Stay armed
+                    // otherwise, for the second end.
+                    if (!dividerManager.placementMode) {
+                        return window.InteractionStates.IDLE;
+                    }
+                },
+                ESCAPE: function() {
+                    return window.InteractionStates.IDLE;
+                }
+            },
+            onEnter: function() {
+                // Placement needs the canvas & manager to exist. If the
+                // panel is collapsed, show it first — mirrors clicking
+                // "Show Divider" (toggleDivider() flips dividersVisible from
+                // false to true and does the show side-effects).
+                if (!dividersVisible) {
+                    toggleDivider();
+                }
+                if (dividerManager) {
+                    dividerManager.startPlacement();
+                    // Placement needs the canvas to capture clicks right
+                    // away, before any mousemove has had a chance to flip
+                    // pointerEvents on via updateCanvasPassthrough().
+                    if (dividerCanvas) {
+                        dividerCanvas.style.pointerEvents = 'auto';
+                        // Let the crosshair cursor the machine applied to
+                        // the map container show through (cursor inherits);
+                        // the mousemove handler below stops overriding it
+                        // with the manager's own cursor while armed.
+                        dividerCanvas.style.cursor = '';
+                    }
+                }
+                updateControlButtons();
+                renderDividers();
+            },
+            onExit: function() {
+                // Cancel-partial-work rule: discard a half-placed divider (a
+                // lone placementPointA) when the user hits Escape or arms a
+                // different tool mid-placement. A no-op when placement
+                // already completed on its own (handleMouseDown already
+                // cleared placementMode/placementPointA in that case).
+                if (dividerManager) dividerManager.cancelPlacement();
+                renderDividers();
+                updateControlButtons();
+            }
+        }));
+
+        // placementMode stays owned by the manager: onEnter/onExit above
+        // already call startPlacement()/cancelPlacement(), which set that
+        // flag themselves. This subscriber's job is only to keep the panel
+        // and canvas in sync with machine-driven changes (e.g. the user
+        // arming a different tool while a divider button is showing stale
+        // text) — never to fight the manager over the flag.
+        window.mapInteraction.subscribe(function() {
+            updateControlButtons();
+            renderDividers();
+        });
+
+        // Let the router know a divider is under the pointer, so it can
+        // suppress a spurious TAP when a gesture starts on an existing
+        // divider (e.g. clicking a handle while geometry "Place Point" is
+        // armed must not also place a geometry point). dragState: null is
+        // deliberate — dragging stays on the canvas's own mouse handlers
+        // below, so idle's FEATURE_DOWN handler must not route anywhere for
+        // this feature descriptor; the hit tester exists purely so the
+        // router can suppress the TAP.
+        if (window.mapInteractionRouter) {
+            window.mapInteractionRouter.registerHitTester(function(x, y) {
+                if (!dividersVisible || !dividerManager || !dividerCanvas) return null;
+                // x/y are container-relative. Reconstruct the equivalent
+                // canvas-relative point from the two elements' own
+                // bounding rects rather than assuming the coordinate
+                // spaces coincide, same rule as the TAP handler above.
+                const containerRect = map.getContainer().getBoundingClientRect();
+                const canvasRect = dividerCanvas.getBoundingClientRect();
+                const cx = x + containerRect.left - canvasRect.left;
+                const cy = y + containerRect.top - canvasRect.top;
+
+                // Deliberately NOT isOverInteractive(): that returns true while
+                // placementMode is set, which would classify a placement click
+                // as "started on an existing feature" and suppress the very TAP
+                // that placement depends on. Only an actual divider under the
+                // pointer counts as a feature here.
+                if (dividerManager.placementMode) return null;
+                for (const divider of dividerManager.dividers) {
+                    if (divider.hitTest(cx, cy) !== null) {
+                        return { tool: 'divider', dragState: null };
+                    }
+                }
+                return null;
+            });
+        }
+    }
 
     /**
      * Toggle whether the divider canvas captures pointer events. It captures
@@ -223,7 +358,13 @@
                     }
                     
                     if (toggleBtn) toggleBtn.onclick = toggleDivider;
-                    if (addBtn) addBtn.onclick = startPlacement;
+                    // Routed through the machine so arming placement is
+                    // mutually exclusive with every other placement tool.
+                    // updateControlButtons() re-wires this same handler once
+                    // dividerManager exists (see below); this initial wiring
+                    // covers the window before that, e.g. a click that shows
+                    // the divider and starts placement in the same session.
+                    if (addBtn) addBtn.onclick = toggleDividerPlacement;
                     if (deleteBtn) deleteBtn.onclick = deleteSelected;
                     if (clearBtn) clearBtn.onclick = clearAll;
                 }, 100);
@@ -244,7 +385,15 @@
         
         dividerCanvas.addEventListener('mousedown', function(e) {
             if (!dividersVisible || !dividerManager) return;
-            
+
+            // Placement now arrives via the interaction machine's TAP (see
+            // registerInteractionState()), not this handler. Without this
+            // guard, a single placement click would be handled twice — once
+            // here, once via TAP — placing two divider points per click.
+            // Dragging an existing divider is unaffected: it only ever runs
+            // with no tool armed, i.e. placementMode is always false then.
+            if (dividerManager.placementMode) return;
+
             const rect = dividerCanvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
@@ -282,7 +431,13 @@
             
             const handled = dividerManager.handleMouseMove(x, y);
             const cursor = dividerManager.updateCursor(x, y);
-            dividerCanvas.style.cursor = cursor;
+            // While placement is armed, the machine's state cursor
+            // ('crosshair', applied to the map container) already covers it
+            // — registerInteractionState()'s onEnter clears this element's
+            // own cursor so it inherits that instead of fighting it here.
+            if (!dividerManager.placementMode) {
+                dividerCanvas.style.cursor = cursor;
+            }
 
             if (handled) {
                 renderDividers();
@@ -409,11 +564,16 @@
                 map.removeLayer(window.dividerCanvasLayer);
             }
             
-            // Cancel placement if active
-            if (dividerManager) {
+            // Cancel placement if active. Route through the machine when it
+            // owns the current state, so the two never desync — its onExit
+            // already calls dividerManager.cancelPlacement() for us. Fall
+            // back to the direct call only when the machine is absent.
+            if (window.mapInteraction && window.mapInteraction.isActive(window.DividerStates.PLACING)) {
+                window.mapInteraction.transitionTo(window.InteractionStates.IDLE);
+            } else if (dividerManager) {
                 dividerManager.cancelPlacement();
             }
-            
+
             // Restore map interactions (unless the user has locked the map)
             enableMapInteractions();
 
@@ -431,17 +591,17 @@
     }
     
     /**
-     * Start placement mode
+     * "Add New Divider" / "Cancel Placement" button handler. Thin delegate:
+     * arms or disarms the PLACING state via the machine's toggle (arms if
+     * idle, disarms back to idle if placement is already active — including
+     * mid-flow, cancelling a half-placed divider via the state's onExit).
+     * Actually starting/cancelling placement on the manager, refreshing the
+     * button and re-rendering all happen in registerInteractionState()'s
+     * onEnter/onExit, not here.
      */
-    function startPlacement() {
-        if (dividerManager) {
-            dividerManager.startPlacement();
-            // Placement needs the canvas to capture clicks right away, before
-            // any mousemove has had a chance to flip it on.
-            if (dividerCanvas) dividerCanvas.style.pointerEvents = 'auto';
-            updateControlButtons();
-            renderDividers();
-        }
+    function toggleDividerPlacement() {
+        if (!window.mapInteraction) return;
+        window.mapInteraction.toggle(window.DividerStates.PLACING);
     }
     
     /**
@@ -481,16 +641,14 @@
             if (dividerManager.placementMode) {
                 addBtn.textContent = 'Cancel Placement';
                 addBtn.style.background = '#dc3545';
-                addBtn.onclick = function() {
-                    dividerManager.cancelPlacement();
-                    updateControlButtons();
-                    renderDividers();
-                };
             } else {
                 addBtn.textContent = 'Add New Divider';
                 addBtn.style.background = '#4CAF50';
-                addBtn.onclick = startPlacement;
             }
+            // Always routed through the machine's toggle (see
+            // toggleDividerPlacement) so a cancel click disarms the machine
+            // too, rather than only the manager's own flag.
+            addBtn.onclick = toggleDividerPlacement;
         }
         
         if (deleteBtn) {

@@ -26,41 +26,36 @@
     // 'idle'       — tool off, normal drag/rotate behavior
     // 'pick-point' — waiting for user to click the target point; the triangle
     //                to align is chosen beforehand from the toolbar dropdown
+    //
+    // Derived from the interaction machine (see registerAlignState() below)
+    // via a subscribe callback rather than owned here directly, so every
+    // existing reader of alignMode below keeps working unchanged.
     let alignMode = 'idle';
     let alignTriangle = null;
 
+    // Small predicate exposed for nautical_triangles.js's drag handlers (see
+    // Part C in the migration brief) — consulted instead of reaching into
+    // this module's closure, since align-armed must still block a triangle
+    // DRAG from starting now that the capture-phase hijack that used to do
+    // that job is gone.
+    window.NauticalTrianglesLeaflet = {
+        isAlignArmed: () => alignMode !== 'idle'
+    };
+
+    /**
+     * Arm/disarm the align-to-point mode. Thin delegate onto the interaction
+     * machine: the actual UI work (cursor, button text, status line, triangle
+     * highlight) lives in the ALIGN_PICK_POINT state's onEnter/onExit (see
+     * registerAlignState()), tied to the state's lifecycle rather than set ad
+     * hoc from here. A no-op if the machine never loaded — the tool simply
+     * cannot arm, same as every other migrated tool's arming entry point.
+     */
     function setAlignMode(newMode) {
-        const previous = alignMode;
-        alignMode = newMode;
-
-        const btn = document.getElementById('alignToPointBtn');
-        const status = document.getElementById('alignStatus');
-
-        // Leaving the mode — clear highlight and cursor
+        if (!window.mapInteraction) return;
         if (newMode === 'idle') {
-            if (alignTriangle && previous !== 'idle') {
-                alignTriangle.setHighlight(false);
-            }
-            alignTriangle = null;
-            document.body.style.cursor = '';
-            if (btn) {
-                btn.textContent = 'Align to Point';
-                btn.style.background = '#00838F';
-            }
-            if (status) status.style.display = 'none';
-            return;
-        }
-
-        // Entering the pick-point step
-        document.body.style.cursor = 'crosshair';
-        if (btn) {
-            btn.textContent = 'Cancel Align';
-            btn.style.background = '#dc3545';
-        }
-        if (status) {
-            status.style.display = 'block';
-            const name = alignTriangle ? alignTriangle.name : 'triangle';
-            status.textContent = `Align ${name}: click the target point on the map… (Esc to cancel)`;
+            window.mapInteraction.transitionTo(window.InteractionStates.IDLE);
+        } else {
+            window.mapInteraction.transitionTo(window.TriangleStates.ALIGN_PICK_POINT);
         }
     }
 
@@ -90,31 +85,84 @@
         tri.setPosition(tri.x + (targetX - mx), tri.y + (targetY - my));
     }
 
-    // Capture-phase click listener so normal drag/rotate never starts while
-    // the align tool is armed. Also blocks the map from reacting to the click.
-    document.addEventListener('mousedown', function(e) {
-        if (alignMode === 'idle') return;
-        // Let clicks on any Leaflet control (including our panel) pass through
-        // unmolested so Cancel/close still work.
-        if (e.target.closest && e.target.closest('.leaflet-control')) return;
-        if (!triangleManager) return;
+    /**
+     * Register the align-to-point state with the interaction machine, so
+     * arming it is mutually exclusive with every other placement tool
+     * (geometry "Place Point", the divider, observed position). This
+     * replaces the old capture-phase document mousedown/keydown listeners,
+     * whose whole purpose was faking that same exclusivity — alignment now
+     * comes from the machine's TAP, and Escape from the router's ESCAPE.
+     */
+    function registerAlignState() {
+        if (!window.mapInteraction) return;
 
-        if (alignMode === 'pick-point') {
-            if (alignTriangle) {
-                alignTriangleToPoint(alignTriangle, e.clientX, e.clientY);
+        window.mapInteraction.register(window.defineState({
+            id: window.TriangleStates.ALIGN_PICK_POINT,
+            tool: 'triangleAlign',
+            targets: [window.InteractionStates.IDLE],
+            // No `cursor` here deliberately: the triangle SVGs live outside
+            // the map container, so this tool manages
+            // document.body.style.cursor itself (onEnter/onExit below)
+            // instead of the map container cursor the machine's presentation
+            // adapter would otherwise write.
+            on: {
+                TAP: function(event) {
+                    if (alignTriangle) {
+                        // alignTriangleToPoint expects CLIENT coordinates.
+                        // The TAP event's x/y are map-container-relative —
+                        // NOT the same thing — so use the underlying DOM
+                        // event's clientX/clientY instead.
+                        alignTriangleToPoint(
+                            alignTriangle,
+                            event.originalEvent.clientX,
+                            event.originalEvent.clientY
+                        );
+                    }
+                    return window.InteractionStates.IDLE;
+                },
+                ESCAPE: function() {
+                    return window.InteractionStates.IDLE;
+                }
+            },
+            onEnter: function() {
+                document.body.style.cursor = 'crosshair';
+                const btn = document.getElementById('alignToPointBtn');
+                if (btn) {
+                    btn.textContent = 'Cancel Align';
+                    btn.style.background = '#dc3545';
+                }
+                const status = document.getElementById('alignStatus');
+                if (status) {
+                    status.style.display = 'block';
+                    const name = alignTriangle ? alignTriangle.name : 'triangle';
+                    status.textContent = `Align ${name}: click the target point on the map… (Esc to cancel)`;
+                }
+            },
+            onExit: function() {
+                if (alignTriangle) {
+                    alignTriangle.setHighlight(false);
+                }
+                alignTriangle = null;
+                document.body.style.cursor = '';
+                const btn = document.getElementById('alignToPointBtn');
+                if (btn) {
+                    btn.textContent = 'Align to Point';
+                    btn.style.background = '#00838F';
+                }
+                const status = document.getElementById('alignStatus');
+                if (status) status.style.display = 'none';
             }
-            setAlignMode('idle');
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-        }
-    }, true);
+        }));
 
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && alignMode !== 'idle') {
-            setAlignMode('idle');
-        }
-    });
+        // Keep alignMode in sync with the machine so every existing reader
+        // (isAlignArmed() above, the panel button handler below, etc.) keeps
+        // working unchanged.
+        window.mapInteraction.subscribe(function() {
+            alignMode = window.mapInteraction.isActive(window.TriangleStates.ALIGN_PICK_POINT)
+                ? 'pick-point'
+                : 'idle';
+        });
+    }
 
     /**
      * Initialize nautical triangles on the Leaflet map
@@ -174,6 +222,11 @@
 
         // Create the control panel
         createTriangleControl(map);
+
+        // Register this tool's align-to-point state with the interaction
+        // machine, so arming it is mutually exclusive with every other
+        // placement tool.
+        registerAlignState();
 
         // Handle map resize
         map.on('resize', handleMapResize);
@@ -332,25 +385,33 @@
             });
         }
 
-        // Align-to-point tool
+        // Align-to-point tool. Routed through the machine's toggle() so
+        // pressing the button while armed cancels — arms ALIGN_PICK_POINT
+        // from idle, or disarms back to idle if it's already the active
+        // flow, matching the old "Align to Point" / "Cancel Align" pairing.
+        // This is the only place alignToPointBtn's handler is assigned (no
+        // panel-refresh function reassigns it elsewhere), so there is no
+        // second wiring site to keep in sync.
         const alignBtn = document.getElementById('alignToPointBtn');
         if (alignBtn) {
             alignBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 if (!trianglesVisible) return;
+                if (!window.mapInteraction) return;
+
                 if (alignMode === 'idle') {
                     // Triangle to align is chosen from the toolbar dropdown,
-                    // not by clicking it on the map.
+                    // not by clicking it on the map. Must be picked BEFORE
+                    // arming: the state's onEnter reads alignTriangle
+                    // immediately to build the status line text.
                     const select = document.getElementById('alignTriangleSelect');
                     const id = select ? select.value : 'triangleA';
                     const tri = triangleManager ? triangleManager.getTriangle(id) : null;
                     if (!tri) return;
                     alignTriangle = tri;
                     tri.setHighlight(true);
-                    setAlignMode('pick-point');
-                } else {
-                    setAlignMode('idle');
                 }
+                window.mapInteraction.toggle(window.TriangleStates.ALIGN_PICK_POINT);
             });
         }
 
