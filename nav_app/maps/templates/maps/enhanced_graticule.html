@@ -24,8 +24,18 @@
             {% endif %}
             <div class="panel" id="uploadPanel">
                 <h3>📁 1. Upload Map Image</h3>
-                <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg,application/pdf,.pdf">
+                <input type="file" id="mapUpload" accept="image/png,image/jpeg,image/jpg,application/pdf,.pdf" style="display:none;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <label for="mapUpload" class="btn btn-primary" style="width:auto; padding:6px 12px; margin:0; cursor:pointer;">Select file</label>
+                    <span id="mapUploadFileName" style="font-size:0.9em; color:#666;">No file selected</span>
+                </div>
                 <small style="display:block; margin-top:4px; color:#666;">Supports: PNG, JPG, PDF</small>
+                <script>
+                    document.getElementById('mapUpload').addEventListener('change', function () {
+                        document.getElementById('mapUploadFileName').textContent =
+                            this.files && this.files.length ? this.files[0].name : 'No file selected';
+                    });
+                </script>
                 <div id="pdfPageSelector" style="display:none; margin-top:10px;">
                     <label style="font-weight:500; font-size:0.9em;">PDF Page:</label>
                     <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
@@ -965,6 +975,15 @@
             document.getElementById('observedPositionPanel').style.display = 'none';
             document.getElementById('geometryPanel').style.display = 'none';
 
+            // The setup steps (1. Upload, 2. Define Map Region, 3. Geographic Bounds
+            // & Grid) stay visible until bounds are applied, and afterwards come back
+            // only in fit mode, so the region and bounds can still be adjusted.
+            const setupVisible = !graticuleSystem.mapper || mode === 'fit';
+            ['uploadPanel', 'regionPanel', 'boundsPanel'].forEach(function(id) {
+                const panel = document.getElementById(id);
+                if (panel) panel.style.display = setupVisible ? 'block' : 'none';
+            });
+
             if (mode === 'fit') {
                 indicator.textContent = 'FIT MODE';
                 indicator.className = 'mode-badge fit';
@@ -1106,14 +1125,6 @@
             document.getElementById('viewModeBtn').disabled = false;
             document.getElementById('courseModeBtn').disabled = false;
             document.getElementById('exportPanel').style.display = 'block';
-
-            // Setup is complete once bounds are applied — hide the setup steps
-            // (1. Upload, 2. Define Map Region, 3. Geographic Bounds & Grid) to
-            // declutter the panel.
-            ['uploadPanel', 'regionPanel', 'boundsPanel'].forEach(function(id) {
-                const panel = document.getElementById(id);
-                if (panel) panel.style.display = 'none';
-            });
 
             updateGridPreview();
         }
