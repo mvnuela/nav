@@ -11,7 +11,11 @@
     let store = null;
     let geometryLayer = null;
 
-    // Interaction mode: 'none', 'place_point', 'connect', 'ray', 'delete'
+    // Interaction mode: 'none', 'place_point', 'connect', 'ray', 'delete'.
+    // Derived from the interaction machine via a subscribe callback in
+    // registerInteractionStates() below — no longer owned by this tool.
+    // Kept as a plain variable so every existing reader keeps working
+    // untouched.
     let mode = 'none';
     let pendingFirstPointId = null;
 
@@ -36,16 +40,120 @@
         store = new GeometryStore();
         geometryLayer = L.layerGroup().addTo(map);
         createControlPanel();
-        map.on('click', onMapClick);
+        registerInteractionStates();
         map.on('moveend', updateAllRays);
         map.on('zoomend', updateAllRays);
         console.log('Geometry tools initialized');
     };
 
-    function onMapClick(e) {
-        if (mode === 'place_point') {
-            addPoint(e.latlng.lat, e.latlng.lng);
+    /**
+     * Map an interaction state id back to the legacy mode string that every
+     * existing reader of `mode` already understands.
+     */
+    function modeStringForState(stateId) {
+        switch (stateId) {
+            case window.GeometryStates.PLACE_POINT: return 'place_point';
+            case window.GeometryStates.CONNECT:      return 'connect';
+            case window.GeometryStates.RAY:          return 'ray';
+            case window.GeometryStates.DELETE:        return 'delete';
+            default:                                  return 'none';
         }
+    }
+
+    /**
+     * Un-highlight and drop the pending first point of a Connect/Ray flow,
+     * if any. Shared by the CONNECT/RAY states' onExit and the geometry
+     * tool's onDeactivate.
+     */
+    function clearPendingPoint() {
+        if (pendingFirstPointId !== null) {
+            highlightPoint(pendingFirstPointId, false);
+            pendingFirstPointId = null;
+        }
+    }
+
+    /**
+     * Register this tool's four placement states with the interaction
+     * machine, before the machine is started (see main_map.js). Only
+     * PLACE_POINT reacts to TAP — Connect / Ray / Delete act on clicks on
+     * existing points/lines via their own Leaflet feature handlers (which
+     * already stopPropagation), so they need no TAP handler of their own.
+     * They still need machine states so arming them is mutually exclusive
+     * with every other placement tool, in particular observed position.
+     */
+    function registerInteractionStates() {
+        if (!window.mapInteraction) return;
+
+        const IDLE = window.InteractionStates.IDLE;
+
+        window.mapInteraction.register(window.defineState({
+            id: window.GeometryStates.PLACE_POINT,
+            tool: 'geometry',
+            cursor: 'crosshair',
+            targets: [IDLE],
+            on: {
+                TAP: function(event) {
+                    addPoint(event.lat, event.lng);
+                    // Stay armed: today's behaviour allows placing several
+                    // points in a row without re-arming.
+                },
+                ESCAPE: function() { return IDLE; }
+            }
+        }));
+
+        window.mapInteraction.register(window.defineState({
+            id: window.GeometryStates.CONNECT,
+            tool: 'geometry',
+            targets: [IDLE],
+            on: {
+                ESCAPE: function() { return IDLE; }
+            },
+            // Also covers switching straight to another geometry mode (e.g.
+            // Connect -> Ray) without leaving the tool: registerTool's
+            // onDeactivate only fires on a *tool* change, so a same-tool
+            // mode switch needs its own cleanup here to match today's
+            // setActiveMode behaviour (pending point always cleared).
+            onExit: clearPendingPoint
+        }));
+
+        window.mapInteraction.register(window.defineState({
+            id: window.GeometryStates.RAY,
+            tool: 'geometry',
+            targets: [IDLE],
+            on: {
+                ESCAPE: function() { return IDLE; }
+            },
+            onExit: clearPendingPoint
+        }));
+
+        window.mapInteraction.register(window.defineState({
+            id: window.GeometryStates.DELETE,
+            tool: 'geometry',
+            targets: [IDLE],
+            on: {
+                ESCAPE: function() { return IDLE; }
+            }
+        }));
+
+        // Cancel partial work (a pending first point of a Connect/Ray flow)
+        // whenever the machine leaves geometry for a different tool.
+        window.mapInteraction.registerTool('geometry', {
+            onDeactivate: clearPendingPoint
+        });
+
+        // mode is derived, not owned: every existing reader keeps working
+        // without further changes. Also drives the cursor preview ring,
+        // which today only appears while PLACE_POINT is active.
+        window.mapInteraction.subscribe(function(state) {
+            mode = modeStringForState(state.id);
+            updateModeButtons();
+            updateStatus();
+            if (mode === 'place_point') {
+                enableCursorPreview();
+            } else {
+                disableCursorPreview();
+            }
+        });
     }
 
     // ——— Points ———
@@ -250,32 +358,40 @@
 
     // ——— Mode Switching ———
 
+    /**
+     * Thin delegate: arms/disarms the corresponding machine state.
+     * `machine.toggle` already provides "click the active button to turn it
+     * off" — the hand-rolled version of that lived here before. Button
+     * updates, status text, pending-point clearing, cursor and preview ring
+     * all now happen in the `registerInteractionStates()` subscriber /
+     * state hooks, driven by the resulting transition rather than by this
+     * function directly.
+     */
     function setActiveMode(newMode) {
-        // Toggle off if same mode
-        if (mode === newMode) {
-            mode = 'none';
-        } else {
-            mode = newMode;
-        }
-        // Clear pending state
-        if (pendingFirstPointId !== null) {
-            highlightPoint(pendingFirstPointId, false);
-            pendingFirstPointId = null;
-        }
-        updateModeButtons();
-        updateStatus();
+        if (!window.mapInteraction) return;
+        const stateId = stateIdForModeString(newMode);
+        if (!stateId) return;
+        window.mapInteraction.toggle(stateId);
+    }
 
-        // Change cursor
-        const mapContainer = document.getElementById('map');
-        if (mapContainer) {
-            mapContainer.style.cursor = mode === 'place_point' ? 'crosshair' : '';
+    function stateIdForModeString(modeString) {
+        switch (modeString) {
+            case 'place_point': return window.GeometryStates.PLACE_POINT;
+            case 'connect':     return window.GeometryStates.CONNECT;
+            case 'ray':         return window.GeometryStates.RAY;
+            case 'delete':      return window.GeometryStates.DELETE;
+            default:            return null;
         }
+    }
 
-        if (mode === 'place_point') {
-            enableCursorPreview();
-        } else {
-            disableCursorPreview();
-        }
+    /**
+     * Unconditionally disarm geometry back to idle (panel close / control
+     * removal). Unlike setActiveMode, this is not a toggle — it always
+     * lands on idle regardless of which geometry mode, if any, was active.
+     */
+    function disarmGeometry() {
+        if (!window.mapInteraction) return;
+        window.mapInteraction.transitionTo(window.InteractionStates.IDLE);
     }
 
     /**
@@ -428,8 +544,7 @@
             },
 
             onRemove: function() {
-                mode = 'none';
-                pendingFirstPointId = null;
+                disarmGeometry();
             }
         });
 
@@ -446,7 +561,7 @@
                     panel.style.display = isVisible ? 'none' : 'block';
                     header.style.background = isVisible ? 'white' : '#fce4ec';
                     if (isVisible) {
-                        setActiveMode('none');
+                        disarmGeometry();
                     }
                 };
             }

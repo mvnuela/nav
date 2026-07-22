@@ -9,6 +9,9 @@
 
     let map = null;
     let observedPositionLayer = null;
+    // Derived from the interaction machine via a subscribe callback below —
+    // no longer owned by this tool. Kept as a plain variable so every
+    // existing reader (marker click routing, etc.) keeps working untouched.
     let isPlacingMode = false;
     let positionCounter = 0;
     let previewCircle = null;
@@ -375,45 +378,18 @@
     };
 
     /**
-     * Handle map click when in placing mode
-     */
-    function onMapClick(e) {
-        if (!isPlacingMode) return;
-        addObservedPosition(e.latlng.lat, e.latlng.lng);
-        // One position per "Start Marking": leave placing mode after the first
-        // click so a stray click on the map cannot drop a second marker.
-        togglePlacingMode(false);
-    }
-
-    /**
-     * Toggle placing mode
+     * Toggle placing mode.
+     *
+     * Delegates to the interaction machine, which owns the flag, the cursor
+     * and (via the state's onEnter/onExit) the visual side-effects. Kept as
+     * a function because other code paths (control onRemove, header close)
+     * still call it with an explicit boolean.
      */
     function togglePlacingMode(enabled) {
-        isPlacingMode = enabled;
-        const btn = document.getElementById('observedPositionToggle');
-        const statusText = document.getElementById('observedPositionStatus');
-
-        if (btn) {
-            btn.style.background = enabled ? '#D32F2F' : '#4CAF50';
-            btn.textContent = enabled ? 'Stop Marking' : 'Start Marking';
-        }
-
-        if (statusText) {
-            statusText.textContent = enabled ? 'Click the map to mark one position' : 'Click button to start';
-            statusText.style.color = enabled ? '#D32F2F' : '#666';
-        }
-
-        // Change cursor
-        const mapContainer = document.getElementById('map');
-        if (mapContainer) {
-            mapContainer.style.cursor = enabled ? 'crosshair' : '';
-        }
-
-        if (enabled) {
-            enableCursorPreview();
-        } else {
-            disableCursorPreview();
-        }
+        if (!window.mapInteraction) return;
+        window.mapInteraction.transitionTo(
+            enabled ? window.ObservedPositionStates.PLACING : window.InteractionStates.IDLE
+        );
     }
 
     /**
@@ -559,11 +535,14 @@
                 };
             }
 
-            // Toggle placing mode
+            // Toggle placing mode — routed through the machine so it is
+            // mutually exclusive with every other placement tool.
             if (toggleBtn) {
                 toggleBtn.onclick = function(e) {
                     e.stopPropagation();
-                    togglePlacingMode(!isPlacingMode);
+                    if (window.mapInteraction) {
+                        window.mapInteraction.toggle(window.ObservedPositionStates.PLACING);
+                    }
                 };
             }
 
@@ -580,6 +559,69 @@
     }
 
     /**
+     * Register this tool's placement state with the interaction machine.
+     * Called from init, before the machine is started (see interaction_setup.js
+     * / main_map.js), so registration order is safe. Placement now comes from
+     * the machine's TAP event rather than this tool's own additive Leaflet
+     * click listener — that additive listener was the root cause of two
+     * tools' click handlers both firing on a single click.
+     */
+    function registerInteractionState() {
+        if (!window.mapInteraction) return;
+
+        window.mapInteraction.register(window.defineState({
+            id: window.ObservedPositionStates.PLACING,
+            tool: 'observedPosition',
+            cursor: 'crosshair',
+            targets: [window.InteractionStates.IDLE],
+            on: {
+                TAP: function(event) {
+                    addObservedPosition(event.lat, event.lng);
+                    // One position per "Start Marking": leave placing mode
+                    // after the first tap so a stray click can't drop a
+                    // second marker.
+                    return window.InteractionStates.IDLE;
+                },
+                ESCAPE: function() {
+                    return window.InteractionStates.IDLE;
+                }
+            },
+            onEnter: function() {
+                const btn = document.getElementById('observedPositionToggle');
+                const statusText = document.getElementById('observedPositionStatus');
+                if (btn) {
+                    btn.style.background = '#D32F2F';
+                    btn.textContent = 'Stop Marking';
+                }
+                if (statusText) {
+                    statusText.textContent = 'Click the map to mark one position';
+                    statusText.style.color = '#D32F2F';
+                }
+                enableCursorPreview();
+            },
+            onExit: function() {
+                const btn = document.getElementById('observedPositionToggle');
+                const statusText = document.getElementById('observedPositionStatus');
+                if (btn) {
+                    btn.style.background = '#4CAF50';
+                    btn.textContent = 'Start Marking';
+                }
+                if (statusText) {
+                    statusText.textContent = 'Click button to start';
+                    statusText.style.color = '#666';
+                }
+                disableCursorPreview();
+            }
+        }));
+
+        // isPlacingMode is derived, not owned: every existing reader keeps
+        // working without further changes.
+        window.mapInteraction.subscribe(function() {
+            isPlacingMode = window.mapInteraction.isActive(window.ObservedPositionStates.PLACING);
+        });
+    }
+
+    /**
      * Initialize the Observed Position tool
      */
     window.initObservedPosition = function(leafletMap) {
@@ -587,9 +629,7 @@
         observedPositionLayer = L.layerGroup().addTo(map);
 
         createControlPanel();
-
-        // Add map click listener
-        map.on('click', onMapClick);
+        registerInteractionState();
 
         console.log('✓ Observed Position tool initialized');
     };
