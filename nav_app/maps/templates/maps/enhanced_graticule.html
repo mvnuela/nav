@@ -76,22 +76,21 @@
 
             <div class="panel" id="boundsPanel">
                 <h3>3. Geographic Bounds & Grid</h3>
-                <p class="hint">Set coordinates and grid spacing for the selected map region as decimal(applied together)</p>
                 <div class="form-group">
                     <label>Min Latitude (South):</label>
-                    <input type="text" id="minLat" placeholder="54.0">
-                </div>
-                <div class="form-group">
-                    <label>Max Latitude (North):</label>
-                    <input type="text" id="maxLat" placeholder="55.0">
+                    <input type="text" id="minLat" placeholder="54.0 or 54°22.1'N">
                 </div>
                 <div class="form-group">
                     <label>Min Longitude (West):</label>
-                    <input type="text" id="minLon" placeholder="18.0">
+                    <input type="text" id="minLon" placeholder="18.0 or 018°30.0'E">
+                </div>
+                <div class="form-group">
+                    <label>Max Latitude (North):</label>
+                    <input type="text" id="maxLat" placeholder="55.0 or 55°00.0'N">
                 </div>
                 <div class="form-group">
                     <label>Max Longitude (East):</label>
-                    <input type="text" id="maxLon" placeholder="19.0">
+                    <input type="text" id="maxLon" placeholder="19.0 or 019°00.0'E">
                 </div>
 
                 <!-- Grid spacing (defined at the geographic bounds step) -->
@@ -816,7 +815,7 @@
             updateGridPreview();
 
             // Enter key on inputs
-            ['minLat', 'maxLat', 'minLon', 'maxLon'].forEach(id => {
+            ['minLat', 'minLon', 'maxLat', 'maxLon'].forEach(id => {
                 document.getElementById(id).addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') applyBounds();
                 });
@@ -1735,13 +1734,9 @@
         }, 200);
 
 
-        function parseCoordinate(input) {
-            input = input.trim();
-            if (input.includes('°') || input.includes('\'')) {
-                return nauticalToDecimal(input);
-            }
-            return parseFloat(input);
-        }
+        // parseCoordinate() comes from graticule_formatter.js. The local copy
+        // branched on whether the string contained a ° or a ', which sent
+        // "54 22.1 N" to parseFloat and silently dropped the minutes.
 
         /**
          * Validate grid input fields in real-time

@@ -3,6 +3,14 @@
  * Extends EnhancedGraticuleSystem prototype with drawing, labeling, and export functionality
  */
 
+/**
+ * Colour of the graticule lines, shared by the canvas renderer and the SVG
+ * export so an exported chart matches what was on screen. The canvas and the
+ * export previously hardcoded different colours and had drifted apart.
+ * The coordinate labels are styled separately and are deliberately not this.
+ */
+const GRATICULE_LINE_COLOR = '#808000';
+
 EnhancedGraticuleSystem.prototype.drawGraticule = function() {
     if (!this.mapper || !this.geoBounds) return;
 
@@ -17,14 +25,10 @@ EnhancedGraticuleSystem.prototype.drawGraticule = function() {
     }
 
     this.ctx.save();
-    this.ctx.strokeStyle = '#ff0000';
+    this.ctx.strokeStyle = GRATICULE_LINE_COLOR;
     this.ctx.lineWidth = 1.5;
     this.ctx.setLineDash([5, 5]);
     this.ctx.globalAlpha = 0.7;
-
-    // Determine label display mode based on interval size
-    const latLabelMode = this.getLabelMode(this.latInterval);
-    const lonLabelMode = this.getLabelMode(this.lonInterval);
 
     // Draw latitude lines (parallels) - horizontal lines
     const startLat = Math.floor(this.geoBounds.minLat / this.latInterval) * this.latInterval;
@@ -68,9 +72,6 @@ EnhancedGraticuleSystem.prototype.drawGraticule = function() {
         if (isWholeDegree || isMajor) {
             this.ctx.restore();
         }
-
-        // Draw label with appropriate format
-        this.drawLatitudeLabel(lat, start.x + 10, start.y, isWholeDegree, latLabelMode);
     }
 
     // Draw longitude lines (meridians) - vertical lines
@@ -115,119 +116,8 @@ EnhancedGraticuleSystem.prototype.drawGraticule = function() {
         if (isWholeDegree || isMajor) {
             this.ctx.restore();
         }
-
-        // Draw label with appropriate format
-        this.drawLongitudeLabel(lon, start.x, start.y + 20, isWholeDegree, lonLabelMode);
     }
 
-    this.ctx.restore();
-};
-
-/**
- * Determine label display mode based on interval size
- */
-EnhancedGraticuleSystem.prototype.getLabelMode = function(interval) {
-    if (interval >= 1) {
-        return 'degrees';
-    } else if (interval >= 1/60) { // >= 1 minute
-        return 'minutes';
-    } else {
-        return 'seconds';
-    }
-};
-
-EnhancedGraticuleSystem.prototype.drawLatitudeLabel = function(lat, x, y, isWholeDegree, labelMode = 'minutes') {
-    let label;
-    const abs = Math.abs(lat);
-    const direction = lat >= 0 ? 'N' : 'S';
-    const degrees = Math.floor(abs);
-    const minutesDecimal = (abs - degrees) * 60;
-    const minutes = Math.floor(minutesDecimal);
-    const seconds = (minutesDecimal - minutes) * 60;
-
-    if (isWholeDegree) {
-        label = `${degrees}°${direction}`;
-    } else if (labelMode === 'seconds') {
-        if (degrees > 0) {
-            label = `${degrees}°${minutes}'${seconds.toFixed(0)}"`;
-        } else {
-            label = `${minutes}'${seconds.toFixed(0)}"`;
-        }
-    } else if (labelMode === 'minutes') {
-        const isWholeMinute = Math.abs(minutesDecimal - Math.round(minutesDecimal)) < 0.01;
-        if (degrees > 0 && isWholeMinute) {
-            label = `${degrees}°${Math.round(minutesDecimal)}'${direction}`;
-        } else if (isWholeMinute) {
-            label = `${Math.round(minutesDecimal)}'`;
-        } else {
-            label = `${minutesDecimal.toFixed(1)}'`;
-        }
-    } else {
-        label = `${abs.toFixed(1)}°${direction}`;
-    }
-
-    this.ctx.save();
-    this.ctx.font = isWholeDegree ? 'bold 13px monospace' : 'normal 11px monospace';
-    const labelWidth = this.ctx.measureText(label).width + 8;
-
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    this.ctx.fillRect(x - 2, y - 12, labelWidth, 24);
-
-    this.ctx.strokeStyle = '#0078A8';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(x - 2, y - 12, labelWidth, 24);
-
-    this.ctx.fillStyle = '#0078A8';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(label, x + 2, y);
-    this.ctx.restore();
-};
-
-EnhancedGraticuleSystem.prototype.drawLongitudeLabel = function(lon, x, y, isWholeDegree, labelMode = 'minutes') {
-    let label;
-    const abs = Math.abs(lon);
-    const direction = lon >= 0 ? 'E' : 'W';
-    const degrees = Math.floor(abs);
-    const minutesDecimal = (abs - degrees) * 60;
-    const minutes = Math.floor(minutesDecimal);
-    const seconds = (minutesDecimal - minutes) * 60;
-
-    if (isWholeDegree) {
-        label = `${degrees.toString().padStart(3, '0')}°${direction}`;
-    } else if (labelMode === 'seconds') {
-        if (degrees > 0) {
-            label = `${degrees}°${minutes}'${seconds.toFixed(0)}"`;
-        } else {
-            label = `${minutes}'${seconds.toFixed(0)}"`;
-        }
-    } else if (labelMode === 'minutes') {
-        const isWholeMinute = Math.abs(minutesDecimal - Math.round(minutesDecimal)) < 0.01;
-        if (degrees > 0 && isWholeMinute) {
-            label = `${degrees.toString().padStart(3, '0')}°${Math.round(minutesDecimal)}'${direction}`;
-        } else if (isWholeMinute) {
-            label = `${Math.round(minutesDecimal)}'`;
-        } else {
-            label = `${minutesDecimal.toFixed(1)}'`;
-        }
-    } else {
-        label = `${abs.toFixed(1)}°${direction}`;
-    }
-
-    this.ctx.save();
-    this.ctx.font = isWholeDegree ? 'bold 13px monospace' : 'normal 11px monospace';
-    const width = this.ctx.measureText(label).width + 10;
-
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    this.ctx.fillRect(x - width/2, y - 2, width, 24);
-
-    this.ctx.strokeStyle = '#0078A8';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(x - width/2, y - 2, width, 24);
-
-    this.ctx.fillStyle = '#0078A8';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'top';
-    this.ctx.fillText(label, x, y + 2);
     this.ctx.restore();
 };
 
@@ -297,9 +187,9 @@ EnhancedGraticuleSystem.prototype.exportGraticuleSVG = function() {
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
 <defs>
     <style>
-        .graticule-major { stroke: #0078A8; stroke-width: 2.5; opacity: 0.9; }
-        .graticule-minor { stroke: #0078A8; stroke-width: 1.5; stroke-dasharray: 5,5; opacity: 0.7; }
-        .graticule-medium { stroke: #0078A8; stroke-width: 2; opacity: 0.8; }
+        .graticule-major { stroke: ${GRATICULE_LINE_COLOR}; stroke-width: 2.5; opacity: 0.9; }
+        .graticule-minor { stroke: ${GRATICULE_LINE_COLOR}; stroke-width: 1.5; stroke-dasharray: 5,5; opacity: 0.7; }
+        .graticule-medium { stroke: ${GRATICULE_LINE_COLOR}; stroke-width: 2; opacity: 0.8; }
     </style>
 </defs>
 <g id="graticule">

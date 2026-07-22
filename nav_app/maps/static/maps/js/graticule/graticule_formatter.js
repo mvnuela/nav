@@ -32,72 +32,89 @@ function decimalToNautical(decimal, isLatitude) {
 }
 
 /**
- * Convert nautical format to decimal degrees
- * @param {string} nautical - Nautical format string (e.g., "54°30.25'N" or "54°30'N")
- * @returns {number} Decimal degrees
+ * Convert a typed coordinate to decimal degrees.
+ *
+ * Accepts decimal ("54.5"), nautical ("54°22.1'N", "54°22'30\"N"), a leading or
+ * trailing hemisphere, a leading sign, and whitespace in place of the symbols
+ * ("54 22.1 N"). The degree and minute marks may be any of the look-alike
+ * characters keyboards produce (º ˚ ° / ′ ’ ' / ″ ” ").
+ *
+ * Returns NaN rather than throwing: every caller guards with isNaN, and a throw
+ * escaped those guards and silently killed the surrounding click handler.
+ *
+ * @param {string|number} nautical
+ * @returns {number} Decimal degrees, or NaN if the input is not a coordinate.
  */
 function nauticalToDecimal(nautical) {
-    // Trim whitespace
-    nautical = nautical.trim();
-    
-    // Try multiple regex patterns
-    // Pattern 1: DD°MM.mm'H (with decimal minutes)
-    let regex = /(\d+)°(\d+\.?\d*)'?([NSEW])/i;
-    let match = nautical.match(regex);
-    
-    // Pattern 2: DD°MM'MM"H (degrees, minutes, seconds)
-    if (!match) {
-        regex = /(\d+)°(\d+)'(\d+)"?([NSEW])/i;
-        match = nautical.match(regex);
-        if (match) {
-            const degrees = parseInt(match[1]);
-            const minutes = parseInt(match[2]);
-            const seconds = parseInt(match[3]);
-            const direction = match[4].toUpperCase();
-            
-            let decimal = degrees + minutes / 60 + seconds / 3600;
-            
-            if (direction === 'S' || direction === 'W') {
-                decimal = -decimal;
-            }
-            
-            return decimal;
-        }
+    if (typeof nautical === 'number') {
+        return Number.isFinite(nautical) ? nautical : NaN;
     }
-    
-    // Pattern 3: Just degrees with direction
-    if (!match) {
-        regex = /(\d+\.?\d*)°?([NSEW])/i;
-        match = nautical.match(regex);
-        if (match) {
-            let decimal = parseFloat(match[1]);
-            const direction = match[2].toUpperCase();
-            
-            if (direction === 'S' || direction === 'W') {
-                decimal = -decimal;
-            }
-            
-            return decimal;
-        }
+    if (typeof nautical !== 'string') return NaN;
+
+    let s = nautical
+        .replace(/[º˚]/g, '°')          // masculine ordinal, ring above
+        .replace(/[′’]/g, "'")          // prime, curly apostrophe
+        .replace(/[″”]/g, '"')          // double prime, curly quote
+        .trim()
+        .toUpperCase();
+    if (s === '') return NaN;
+
+    // The hemisphere may lead or trail; take it from either end, but not both.
+    let hemisphere = '';
+    const leading = s.match(/^([NSEW])\s*/);
+    if (leading) {
+        hemisphere = leading[1];
+        s = s.slice(leading[0].length);
     }
-    
-    if (!match) {
-        throw new Error('Invalid nautical format: ' + nautical);
+    const trailing = s.match(/\s*([NSEW])$/);
+    if (trailing) {
+        if (hemisphere) return NaN;               // e.g. "N54°22.1'S"
+        hemisphere = trailing[1];
+        s = s.slice(0, s.length - trailing[0].length);
     }
-    
-    const degrees = parseInt(match[1]);
-    const minutes = parseFloat(match[2]) || 0;
-    const direction = match[3].toUpperCase();
-    
-    // Convert to decimal
-    let decimal = degrees + (minutes / 60);
-    
-    // Apply sign based on direction
-    if (direction === 'S' || direction === 'W') {
-        decimal = -decimal;
+
+    let sign = 1;
+    const signed = s.match(/^([+-])\s*/);
+    if (signed) {
+        if (hemisphere) return NaN;               // don't combine "-" with "S"
+        sign = signed[1] === '-' ? -1 : 1;
+        s = s.slice(signed[0].length);
     }
-    
-    return decimal;
+    if (hemisphere === 'S' || hemisphere === 'W') sign = -1;
+
+    s = s.trim();
+    if (s === '') return NaN;
+
+    // degrees[°] [minutes['] [seconds["]] — symbol- or whitespace-separated.
+    const parts = s.match(
+        /^(\d+(?:\.\d+)?)\s*°?\s*(?:(\d+(?:\.\d+)?)\s*'?\s*(?:(\d+(?:\.\d+)?)\s*"?\s*)?)?$/
+    );
+    if (!parts) return NaN;
+
+    const degrees = parseFloat(parts[1]);
+    const minutes = parts[2] === undefined ? 0 : parseFloat(parts[2]);
+    const seconds = parts[3] === undefined ? 0 : parseFloat(parts[3]);
+
+    // "54°75.0'" is a typo, not 55.25°. Guessing would misplace the position.
+    if (minutes >= 60 || seconds >= 60) return NaN;
+    // Only the least significant field may carry a fraction.
+    if (parts[2] !== undefined && !Number.isInteger(degrees)) return NaN;
+    if (parts[3] !== undefined && !Number.isInteger(minutes)) return NaN;
+
+    return sign * (degrees + minutes / 60 + seconds / 3600);
+}
+
+/**
+ * Parse a coordinate typed into a form field, in either decimal or nautical
+ * notation. Use this at input boundaries instead of branching on whether the
+ * string happens to contain a ° or a ' — that test routed "54 22.1 N" to
+ * parseFloat, which silently returned 54 and dropped the minutes.
+ *
+ * @param {string|number} input
+ * @returns {number} Decimal degrees, or NaN if the input is not a coordinate.
+ */
+function parseCoordinate(input) {
+    return nauticalToDecimal(input);
 }
 
 /**
@@ -222,6 +239,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         decimalToNautical,
         nauticalToDecimal,
+        parseCoordinate,
         formatCoordinatePair,
         graticuleFormatter,
         createNauticalGraticule,
