@@ -152,6 +152,7 @@
                         Move mouse over map...
                     </div>
                 </div>
+                <p class="hint">Press <kbd>C</kbd> over the map to copy this position.</p>
             </div>
 
             <div class="panel" id="trianglesPanel" style="display:none;">
@@ -699,6 +700,7 @@
     </script>
 
     <!-- Load utilities first -->
+    <script src="{% static 'maps/js/core/clipboard.js' %}"></script>
     <script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
     <!-- Load nautical divider -->
     <script src="{% static 'maps/js/nautical/nautical_divider.js' %}"></script>

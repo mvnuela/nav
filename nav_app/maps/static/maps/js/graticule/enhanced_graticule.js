@@ -74,6 +74,14 @@ class EnhancedGraticuleSystem {
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
         this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
 
+        // Copy the cursor position with "C" while the pointer is over the map.
+        // The listener sits on the document because the canvas is not
+        // focusable, so it would never receive key events itself.
+        this.pointerOverCanvas = false;
+        this.canvas.addEventListener('mouseenter', () => { this.pointerOverCanvas = true; });
+        this.canvas.addEventListener('mouseleave', () => { this.pointerOverCanvas = false; });
+        document.addEventListener('keydown', (e) => this.handleCopyShortcut(e));
+
         // Track touch state for pinch zoom
         this.touches = [];
         this.initialPinchDistance = 0;
@@ -775,13 +783,83 @@ class EnhancedGraticuleSystem {
 
         const geo = this.mapper.screenToGeographic(x, y);
 
+        // Remembered so the copy shortcut has a position to work from. The
+        // readout keeps showing this once the pointer leaves the canvas, so
+        // what gets copied is always what is on screen.
+        this.lastCursorGeo = geo;
+
+        this.renderCursorCoords();
+    }
+
+    /**
+     * Paint the readout from the remembered position. Kept separate from
+     * showCoordinates() so the copy confirmation can hand the panel back
+     * without capturing — and later restoring — a stale snapshot of it.
+     */
+    renderCursorCoords() {
         const display = document.getElementById('cursorCoords');
-        if (display) {
-            display.innerHTML = `
-                <strong>Lat:</strong> ${decimalToNautical(geo.lat, true)}<br>
-                <strong>Lon:</strong> ${decimalToNautical(geo.lon, false)}
+        if (!display || !this.lastCursorGeo) return;
+        display.innerHTML = `
+                <strong>Lat:</strong> ${decimalToNautical(this.lastCursorGeo.lat, true)}<br>
+                <strong>Lon:</strong> ${decimalToNautical(this.lastCursorGeo.lon, false)}
             `;
+    }
+
+    /**
+     * The cursor position as a single line, in the same nautical notation the
+     * panel displays. Round-trips through parseCoordinate(), so it can be
+     * pasted back into the bounds fields or a calculator.
+     *
+     * @returns {string|null} e.g. "54°22.10'N 018°30.00'E", or null if the
+     *          pointer has not been over the map yet.
+     */
+    formatCursorCoords() {
+        if (!this.lastCursorGeo) return null;
+        const lat = decimalToNautical(this.lastCursorGeo.lat, true);
+        const lon = decimalToNautical(this.lastCursorGeo.lon, false);
+        return `${lat} ${lon}`;
+    }
+
+    /**
+     * "C" copies the cursor position to the clipboard.
+     *
+     * Every modifier combination is ignored, so Ctrl+C / Cmd+C keep their
+     * normal meaning and never reach this handler. Key presses aimed at a
+     * form field are ignored too, so typing "c" into the bounds inputs or a
+     * calculator does not copy.
+     */
+    handleCopyShortcut(e) {
+        if (e.key !== 'c' && e.key !== 'C') return;
+        if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+        if (!this.pointerOverCanvas) return;
+
+        const el = e.target;
+        if (el && (el.isContentEditable ||
+                   /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || ''))) {
+            return;
         }
+
+        const text = this.formatCursorCoords();
+        if (!text) return;
+
+        e.preventDefault();
+        copyTextToClipboard(text).then((ok) => {
+            this.flashCursorCoords(ok
+                ? `<strong>✓ Copied</strong><br>${text}`
+                : '<strong>Copy failed</strong>');
+        });
+    }
+
+    /**
+     * Show a transient message in the readout, then hand the panel back to
+     * the live coordinates.
+     */
+    flashCursorCoords(message) {
+        const display = document.getElementById('cursorCoords');
+        if (!display) return;
+        clearTimeout(this._copyFlashTimer);
+        display.innerHTML = message;
+        this._copyFlashTimer = setTimeout(() => this.renderCursorCoords(), 1500);
     }
 
     // ——— Render ———
