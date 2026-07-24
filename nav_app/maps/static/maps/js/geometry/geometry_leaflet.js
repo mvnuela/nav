@@ -94,8 +94,9 @@
             on: {
                 TAP: function(event) {
                     addPoint(event.lat, event.lng);
-                    // Stay armed: today's behaviour allows placing several
-                    // points in a row without re-arming.
+                    // One-shot: disarm after a single placement so the next
+                    // map interaction can't accidentally place more points.
+                    return IDLE;
                 },
                 ESCAPE: function() { return IDLE; }
             }
@@ -201,9 +202,15 @@
                 highlightPoint(pendingFirstPointId, false);
                 pendingFirstPointId = null;
                 updateStatus();
+                // One-shot: the shape is complete, disarm back to idle.
+                disarmGeometry();
             }
         } else if (mode === 'delete') {
             deletePointWithCascade(pointId);
+            // One-shot: disarm after a single deletion. Kept here rather than
+            // inside deletePointWithCascade, which the external point API also
+            // calls programmatically and must not disarm.
+            disarmGeometry();
         }
     }
 
@@ -247,6 +254,9 @@
             delete connectionLines[connId];
         }
         updateElementList();
+        // One-shot: only ever reached from a delete-mode line click, so a
+        // single deletion disarms the tool back to idle.
+        disarmGeometry();
     }
 
     // ——— Rays ———
@@ -318,6 +328,9 @@
             delete rayLines[rayId];
         }
         updateElementList();
+        // One-shot: only ever reached from a delete-mode line click, so a
+        // single deletion disarms the tool back to idle.
+        disarmGeometry();
     }
 
     // ——— Deletion ———
