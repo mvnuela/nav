@@ -11,6 +11,72 @@ const POINTS_OF_SAIL = [
     { key: "running",      label: "Running" },
 ];
 
+// Hardcoded timezone list feeding the #tzSelect dropdown. Selecting an entry
+// auto-fills the #tzOffset field with `offset`. Zones that observe DST appear
+// twice (winter/summer) so the teacher can pick the offset matching the task
+// dates; the offset field stays editable for any manual correction.
+const TIMEZONES = [
+    { group: "Universal",      name: "UTC",                 offset: "+00:00", label: "UTC (UTC+00:00)" },
+
+    { group: "Western Europe", name: "Europe/London",       offset: "+00:00", label: "Europe/London — GMT (winter, UTC+00:00)" },
+    { group: "Western Europe", name: "Europe/London",       offset: "+01:00", label: "Europe/London — BST (summer, UTC+01:00)" },
+    { group: "Western Europe", name: "Europe/Lisbon",       offset: "+00:00", label: "Europe/Lisbon — WET (winter, UTC+00:00)" },
+    { group: "Western Europe", name: "Europe/Lisbon",       offset: "+01:00", label: "Europe/Lisbon — WEST (summer, UTC+01:00)" },
+
+    { group: "Central Europe", name: "Europe/Warsaw",       offset: "+01:00", label: "Europe/Warsaw — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Warsaw",       offset: "+02:00", label: "Europe/Warsaw — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Berlin",       offset: "+01:00", label: "Europe/Berlin — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Berlin",       offset: "+02:00", label: "Europe/Berlin — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Amsterdam",    offset: "+01:00", label: "Europe/Amsterdam — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Amsterdam",    offset: "+02:00", label: "Europe/Amsterdam — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Paris",        offset: "+01:00", label: "Europe/Paris — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Paris",        offset: "+02:00", label: "Europe/Paris — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Copenhagen",   offset: "+01:00", label: "Europe/Copenhagen — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Copenhagen",   offset: "+02:00", label: "Europe/Copenhagen — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Oslo",         offset: "+01:00", label: "Europe/Oslo — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Oslo",         offset: "+02:00", label: "Europe/Oslo — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Stockholm",    offset: "+01:00", label: "Europe/Stockholm — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Stockholm",    offset: "+02:00", label: "Europe/Stockholm — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Madrid",       offset: "+01:00", label: "Europe/Madrid — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Madrid",       offset: "+02:00", label: "Europe/Madrid — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Rome",         offset: "+01:00", label: "Europe/Rome — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Rome",         offset: "+02:00", label: "Europe/Rome — CEST (summer, UTC+02:00)" },
+
+    { group: "Eastern Europe", name: "Europe/Helsinki",     offset: "+02:00", label: "Europe/Helsinki — EET (winter, UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Helsinki",     offset: "+03:00", label: "Europe/Helsinki — EEST (summer, UTC+03:00)" },
+    { group: "Eastern Europe", name: "Europe/Riga",         offset: "+02:00", label: "Europe/Riga — EET (winter, UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Riga",         offset: "+03:00", label: "Europe/Riga — EEST (summer, UTC+03:00)" },
+    { group: "Eastern Europe", name: "Europe/Tallinn",      offset: "+02:00", label: "Europe/Tallinn — EET (winter, UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Tallinn",      offset: "+03:00", label: "Europe/Tallinn — EEST (summer, UTC+03:00)" },
+    { group: "Eastern Europe", name: "Europe/Athens",       offset: "+02:00", label: "Europe/Athens — EET (winter, UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Athens",       offset: "+03:00", label: "Europe/Athens — EEST (summer, UTC+03:00)" },
+    { group: "Eastern Europe", name: "Europe/Kaliningrad",  offset: "+02:00", label: "Europe/Kaliningrad — EET (UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Moscow",       offset: "+03:00", label: "Europe/Moscow — MSK (UTC+03:00)" },
+
+    { group: "Americas",       name: "America/New_York",    offset: "-05:00", label: "America/New_York — EST (winter, UTC−05:00)" },
+    { group: "Americas",       name: "America/New_York",    offset: "-04:00", label: "America/New_York — EDT (summer, UTC−04:00)" },
+    { group: "Americas",       name: "America/Chicago",     offset: "-06:00", label: "America/Chicago — CST (winter, UTC−06:00)" },
+    { group: "Americas",       name: "America/Chicago",     offset: "-05:00", label: "America/Chicago — CDT (summer, UTC−05:00)" },
+    { group: "Americas",       name: "America/Denver",      offset: "-07:00", label: "America/Denver — MST (winter, UTC−07:00)" },
+    { group: "Americas",       name: "America/Denver",      offset: "-06:00", label: "America/Denver — MDT (summer, UTC−06:00)" },
+    { group: "Americas",       name: "America/Los_Angeles", offset: "-08:00", label: "America/Los_Angeles — PST (winter, UTC−08:00)" },
+    { group: "Americas",       name: "America/Los_Angeles", offset: "-07:00", label: "America/Los_Angeles — PDT (summer, UTC−07:00)" },
+
+    { group: "Atlantic",       name: "Atlantic/Canary",     offset: "+00:00", label: "Atlantic/Canary — WET (winter, UTC+00:00)" },
+    { group: "Atlantic",       name: "Atlantic/Canary",     offset: "+01:00", label: "Atlantic/Canary — WEST (summer, UTC+01:00)" },
+    { group: "Atlantic",       name: "Atlantic/Cape_Verde", offset: "-01:00", label: "Atlantic/Cape_Verde (UTC−01:00)" },
+    { group: "Atlantic",       name: "Atlantic/Azores",     offset: "-01:00", label: "Atlantic/Azores (winter, UTC−01:00)" },
+    { group: "Atlantic",       name: "Atlantic/Azores",     offset: "+00:00", label: "Atlantic/Azores (summer, UTC+00:00)" },
+
+    { group: "Rest of world",  name: "Asia/Dubai",          offset: "+04:00", label: "Asia/Dubai — GST (UTC+04:00)" },
+    { group: "Rest of world",  name: "Asia/Singapore",      offset: "+08:00", label: "Asia/Singapore (UTC+08:00)" },
+    { group: "Rest of world",  name: "Asia/Tokyo",          offset: "+09:00", label: "Asia/Tokyo — JST (UTC+09:00)" },
+    { group: "Rest of world",  name: "Australia/Sydney",    offset: "+10:00", label: "Australia/Sydney — AEST (winter, UTC+10:00)" },
+    { group: "Rest of world",  name: "Australia/Sydney",    offset: "+11:00", label: "Australia/Sydney — AEDT (summer, UTC+11:00)" },
+    { group: "Rest of world",  name: "Pacific/Auckland",    offset: "+12:00", label: "Pacific/Auckland — NZST (winter, UTC+12:00)" },
+    { group: "Rest of world",  name: "Pacific/Auckland",    offset: "+13:00", label: "Pacific/Auckland — NZDT (summer, UTC+13:00)" },
+];
+
 // ---------- Row builders ----------
 function num(name, label, opts = {}) {
     const { step = "0.0001", min, max, required = true } = opts;
@@ -175,6 +241,39 @@ document.body.addEventListener("click", e => {
     if (key) rebuildList(key);
 });
 
+// ---------- Timezone dropdown → auto-fill UTC offset ----------
+function populateTimezones() {
+    const sel = document.getElementById("tzSelect");
+    const off = document.getElementById("tzOffset");
+    if (!sel) return;
+
+    // Group entries into <optgroup>s, preserving list order.
+    const groups = new Map();
+    TIMEZONES.forEach((tz, i) => {
+        if (!groups.has(tz.group)) groups.set(tz.group, []);
+        groups.get(tz.group).push({ ...tz, i });
+    });
+    for (const [groupLabel, entries] of groups) {
+        const og = document.createElement("optgroup");
+        og.label = groupLabel;
+        entries.forEach(tz => {
+            const opt = document.createElement("option");
+            opt.value = String(tz.i);          // index into TIMEZONES (name alone isn't unique)
+            opt.textContent = tz.label;
+            opt.dataset.name = tz.name;
+            opt.dataset.offset = tz.offset;
+            og.appendChild(opt);
+        });
+        sel.appendChild(og);
+    }
+
+    sel.addEventListener("change", () => {
+        const opt = sel.selectedOptions[0];
+        if (opt && opt.dataset.offset && off) off.value = opt.dataset.offset;
+    });
+}
+populateTimezones();
+
 // initial seed: leeway (fixed 4) + one row each for required arrays
 document.getElementById("leewayList").innerHTML = leewayHTML();
 addRow("mv");
@@ -223,6 +322,7 @@ function withChartSuffix(filename) {
 
 function buildJSON() {
     const tzOffset = val("tz.offset");
+    const tzName = document.getElementById("tzSelect")?.selectedOptions[0]?.dataset.name;
 
     const mvRows = document.querySelectorAll("#mvList .row");
     const magnetic_variation_list = Array.from(mvRows).map((_, i) => ({
@@ -291,7 +391,7 @@ function buildJSON() {
             content_md:  val("meta.content_md") ?? "",
         },
         navigation: {
-            timezone: { name: val("tz.name"), offset: tzOffset },
+            timezone: { name: tzName, offset: tzOffset },
             magnetic_variation_list,
             compass_deviation_table,
             leeway,

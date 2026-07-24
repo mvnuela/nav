@@ -353,13 +353,15 @@
                     <div class="grid">
                         <div class="field">
                             <label>Name <span class="req">*</span></label>
-                            <input name="tz.name" placeholder="Europe/Warsaw" required>
+                            <select id="tzSelect" name="tz.name" required>
+                                <option value="" selected disabled>— Select timezone —</option>
+                            </select>
                         </div>
                         <div class="field">
                             <label>UTC offset <span class="req">*</span></label>
-                            <input name="tz.offset" placeholder="+02:00"
+                            <input id="tzOffset" name="tz.offset" placeholder="+02:00"
                                    pattern="^[+-](0[0-9]|1[0-4]):[0-5][0-9]$" required>
-                            <span class="hint">Format ±HH:MM (e.g. +02:00)</span>
+                            <span class="hint">Auto-filled from the timezone (UTC offset); edit if needed. Format ±HH:MM</span>
                         </div>
                     </div>
                 </div>
