@@ -339,95 +339,11 @@ function downloadJSON(obj, filename) {
     a.remove(); URL.revokeObjectURL(url);
 }
 
-// ---------- Dead reckoning calculator ----------
-function computeDR({ lat, lon, courseDeg, speedKn, timeH }) {
-    const distance = speedKn * timeH;                 // nautical miles
-    const courseRad = courseDeg * Math.PI / 180;
-    const dLat = distance * Math.cos(courseRad) / 60;
-    const dLon = distance * Math.sin(courseRad) / (60 * Math.cos(lat * Math.PI / 180));
-    return {
-        distance,
-        newLat: lat + dLat,
-        newLon: lon + dLon,
-    };
-}
-
-function fmtCoord(deg, isLat) {
-    const hemi = isLat ? (deg >= 0 ? "N" : "S") : (deg >= 0 ? "E" : "W");
-    const abs = Math.abs(deg);
-    const d = Math.floor(abs);
-    const m = (abs - d) * 60;
-    return `${d}°${m.toFixed(3)}'${hemi}`;
-}
-
-function readNum(id) {
-    const v = document.getElementById(id).value;
-    return v === "" ? NaN : Number(v);
-}
-
-let lastDR = null;
-
-function showDRError(msg) {
-    const el = document.getElementById("drResult");
-    el.className = "dr-result show err";
-    el.textContent = "⚠ " + msg;
-    document.getElementById("drCopyBtn").disabled = true;
-    document.getElementById("drCopyLatLonBtn").disabled = true;
-    lastDR = null;
-}
-
-function normalizeDeg(a) {
-    a = a % 360;
-    return a < 0 ? a + 360 : a;
-}
-
-document.getElementById("drCalcBtn")?.addEventListener("click", () => {
-    const lat        = readNum("drStartLat");
-    const lon        = readNum("drStartLon");
-    const compassDeg = readNum("drCourse");
-    const deviation  = readNum("drDeviation");
-    const variation  = readNum("drVariation");
-    const leeway     = readNum("drLeeway");
-    const speedKn    = readNum("drSpeed");
-    const timeH      = readNum("drTime");
-
-    if ([lat, lon, compassDeg, speedKn, timeH].some(Number.isNaN)) {
-        return showDRError("Fill in start position, compass course, speed and time.");
-    }
-    if ([deviation, variation, leeway].some(Number.isNaN)) {
-        return showDRError("Deviation, variation and leeway must be numbers (use 0 if unused).");
-    }
-    if (lat < -90 || lat > 90)               return showDRError("Latitude must be -90…90.");
-    if (lon < -180 || lon > 180)             return showDRError("Longitude must be -180…180.");
-    if (compassDeg < 0 || compassDeg >= 360) return showDRError("Compass course must be 0…<360.");
-    if (speedKn < 0)                         return showDRError("Speed must be ≥ 0.");
-    if (timeH < 0)                           return showDRError("Time must be ≥ 0.");
-
-    // CADET: Compass + Deviation = Magnetic; + Variation = True heading; + Leeway = CTW
-    const magneticDeg    = normalizeDeg(compassDeg + deviation);
-    const trueHeadingDeg = normalizeDeg(magneticDeg + variation);
-    const ctwDeg         = normalizeDeg(trueHeadingDeg + leeway);
-
-    const r = computeDR({ lat, lon, courseDeg: ctwDeg, speedKn, timeH });
-    lastDR = r;
-
-    const text =
-`Start position  : ${lat.toFixed(4)}°, ${lon.toFixed(4)}°  (${fmtCoord(lat, true)} ${fmtCoord(lon, false)})
-Compass course  : ${compassDeg.toFixed(2)}°
-+ Deviation     : ${deviation >= 0 ? "+" : ""}${deviation.toFixed(2)}°  →  Magnetic ${magneticDeg.toFixed(2)}°
-+ Variation     : ${variation >= 0 ? "+" : ""}${variation.toFixed(2)}°  →  True HDG ${trueHeadingDeg.toFixed(2)}°
-+ Leeway        : ${leeway >= 0 ? "+" : ""}${leeway.toFixed(2)}°  →  CTW      ${ctwDeg.toFixed(2)}°
-Speed           : ${speedKn} kn
-Time            : ${timeH} h
-Distance        : ${r.distance.toFixed(4)} nm
-New position    : ${r.newLat.toFixed(4)}°, ${r.newLon.toFixed(4)}°  (${fmtCoord(r.newLat, true)} ${fmtCoord(r.newLon, false)})`;
-
-    const el = document.getElementById("drResult");
-    el.className = "dr-result show";
-    el.textContent = text;
-    document.getElementById("drCopyBtn").disabled = false;
-    document.getElementById("drCopyLatLonBtn").disabled = false;
-});
+// The Dead Reckoning calculator (and the other three) now live in the shared
+// right-side calculator sidebar, powered by the calculator cores/adapters
+// (window.DR/Fix/RunFix/TravPOI + *_enhanced.js) loaded in the template. The
+// form's earlier private DR reimplementation was removed to avoid two click
+// handlers fighting over #drCalcBtn.
 
 async function copyToClipboard(text, btn) {
     try {
@@ -442,17 +358,6 @@ async function copyToClipboard(text, btn) {
     btn.classList.add("copied");
     setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1500);
 }
-
-document.getElementById("drCopyBtn")?.addEventListener("click", e => {
-    if (!lastDR) return;
-    copyToClipboard(document.getElementById("drResult").textContent, e.currentTarget);
-});
-
-document.getElementById("drCopyLatLonBtn")?.addEventListener("click", e => {
-    if (!lastDR) return;
-    const txt = `${lastDR.newLat.toFixed(4)}, ${lastDR.newLon.toFixed(4)}`;
-    copyToClipboard(txt, e.currentTarget);
-});
 
 // ---------- Universal coordinate format converter (DMS · DMM → decimal degrees) ----------
 // Matches one coordinate. Degrees + minutes are mandatory (this is the "conversion" job);
