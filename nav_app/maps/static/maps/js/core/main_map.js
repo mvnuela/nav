@@ -138,13 +138,17 @@
             const bounds = map.getBounds();
             const zoom = map.getZoom();
 
-            // Determine interval based on zoom level (matching original)
+            // Determine interval based on zoom level. The higher zooms are
+            // refined so the grid keeps pace as the view narrows: past zoom 9 a
+            // single 0.5° spacing left only one line of each in view at zoom 12.
             let interval;
             if (zoom <= 3) interval = 30;
             else if (zoom <= 5) interval = 10;
             else if (zoom <= 7) interval = 5;
             else if (zoom <= 9) interval = 1;
-            else interval = 0.5;
+            else if (zoom === 10) interval = 0.5;      // 30′
+            else if (zoom === 11) interval = 0.25;     // 15′
+            else interval = 0.1;                       // 6′  (zoom 12)
 
             // Calculate bounds
             const latStart = Math.floor(bounds.getSouth() / interval) * interval;
@@ -159,9 +163,9 @@
                     [lat, bounds.getWest()],
                     [lat, bounds.getEast()]
                 ], {
-                    color: '#0078A8',
+                    color: '#483D8B',
                     weight: 1,
-                    opacity: 0.4,
+                    opacity: 0.7,
                     dashArray: '5, 5'
                 });
                 line.addTo(graticuleLayer);
@@ -177,9 +181,9 @@
                     [bounds.getSouth(), lng],
                     [bounds.getNorth(), lng]
                 ], {
-                    color: '#0078A8',
+                    color: '#483D8B',
                     weight: 1,
-                    opacity: 0.4,
+                    opacity: 0.7,
                     dashArray: '5, 5'
                 });
                 line.addTo(graticuleLayer);
