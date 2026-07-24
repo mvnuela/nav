@@ -27,10 +27,19 @@ L.Control.CoordinateDisplay = L.Control.extend({
         this._container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
         this._container.innerHTML = this.options.emptyString;
 
+        // Remembered so the copy shortcut has a position to work from, and so
+        // the guard can tell whether the pointer is currently over the map.
+        this._lastLatLng = null;
+        this._pointerOver = false;
+
         L.DomEvent.disableClickPropagation(this._container);
-        
+
         map.on('mousemove', this._onMouseMove, this);
         map.on('mouseout', this._onMouseOut, this);
+
+        // Bound once so the same reference can be removed in onRemove.
+        this._onKeyDown = this._onKeyDown.bind(this);
+        document.addEventListener('keydown', this._onKeyDown);
 
         return this._container;
     },
@@ -38,21 +47,90 @@ L.Control.CoordinateDisplay = L.Control.extend({
     onRemove: function(map) {
         map.off('mousemove', this._onMouseMove, this);
         map.off('mouseout', this._onMouseOut, this);
+        document.removeEventListener('keydown', this._onKeyDown);
     },
 
     _onMouseMove: function(e) {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-        
-        const latFormatted = decimalToNautical(lat, true);
-        const lngFormatted = decimalToNautical(lng, false);
-        
-        this._container.innerHTML = this.options.prefix + 
-            latFormatted + this.options.separator + lngFormatted;
+        this._lastLatLng = e.latlng;
+        this._pointerOver = true;
+        this._container.innerHTML = this._liveHtml();
+    },
+
+    /**
+     * The live readout: the coordinate under the cursor plus a dim hint about
+     * the copy shortcut. Shared by mousemove and the post-copy flash restore.
+     */
+    _liveHtml: function() {
+        const latFormatted = decimalToNautical(this._lastLatLng.lat, true);
+        const lngFormatted = decimalToNautical(this._lastLatLng.lng, false);
+        return this.options.prefix +
+            latFormatted + this.options.separator + lngFormatted +
+            '<br><span style="opacity:0.6;">press ' +
+            '<kbd style="font-family:inherit;">C</kbd> to copy</span>';
     },
 
     _onMouseOut: function() {
+        this._pointerOver = false;
         this._container.innerHTML = this.options.emptyString;
+    },
+
+    /**
+     * The cursor position as a single line, in the same nautical notation the
+     * readout displays. Round-trips through parseCoordinate(), so it can be
+     * pasted back into the "Go to Coordinates" field or a calculator.
+     *
+     * @returns {string|null} e.g. "54°22.10'N 018°30.00'E", or null if the
+     *          pointer has not been over the map yet.
+     */
+    _formatCoords: function() {
+        if (!this._lastLatLng) return null;
+        const lat = decimalToNautical(this._lastLatLng.lat, true);
+        const lng = decimalToNautical(this._lastLatLng.lng, false);
+        return lat + ' ' + lng;
+    },
+
+    /**
+     * "C" copies the position under the cursor to the clipboard.
+     *
+     * Every modifier combination is ignored, so Ctrl+C / Cmd+C keep their
+     * normal meaning and never reach this handler. Key presses aimed at a form
+     * field are ignored too, so typing "c" into the "Go to Coordinates" input
+     * or a calculator does not copy.
+     */
+    _onKeyDown: function(e) {
+        if (e.key !== 'c' && e.key !== 'C') return;
+        if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+        if (!this._pointerOver) return;
+
+        const el = e.target;
+        if (el && (el.isContentEditable ||
+                   /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || ''))) {
+            return;
+        }
+
+        const text = this._formatCoords();
+        if (!text) return;
+
+        e.preventDefault();
+        copyTextToClipboard(text).then((ok) => {
+            this._flash(ok
+                ? '✓ Copied<br>' + text
+                : 'Copy failed');
+        });
+    },
+
+    /**
+     * Show a transient message in the readout, then hand it back to the live
+     * coordinates (or the empty prompt if the pointer has since left the map).
+     */
+    _flash: function(message) {
+        clearTimeout(this._copyFlashTimer);
+        this._container.innerHTML = message;
+        this._copyFlashTimer = setTimeout(() => {
+            this._container.innerHTML = (this._pointerOver && this._lastLatLng)
+                ? this._liveHtml()
+                : this.options.emptyString;
+        }, 1500);
     }
 });
 
