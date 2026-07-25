@@ -197,7 +197,10 @@ class GeometryManagerCanvas {
         if (!this.mapper) return false;
         const geo = this.mapper.screenToGeographic(x, y);
         this.store.addPoint(geo.lat, geo.lon);
-        this.onStateChange?.();
+        // One-shot: disarm after a single placement so the next canvas click
+        // can't accidentally place more points. setMode('none') also fires
+        // onStateChange, so the panel resyncs.
+        this.setMode('none');
         return true;
     }
 
@@ -214,8 +217,8 @@ class GeometryManagerCanvas {
         if (hitPt.id === this.pendingFirstPointId) return true;
 
         this.store.addConnection(this.pendingFirstPointId, hitPt.id);
-        this.pendingFirstPointId = null;
-        this.onStateChange?.();
+        // One-shot: the connection is complete, disarm back to idle.
+        this.setMode('none');
         return true;
     }
 
@@ -232,8 +235,8 @@ class GeometryManagerCanvas {
         if (hitPt.id === this.pendingFirstPointId) return true;
 
         this.store.addRay(this.pendingFirstPointId, hitPt.id);
-        this.pendingFirstPointId = null;
-        this.onStateChange?.();
+        // One-shot: the ray is complete, disarm back to idle.
+        this.setMode('none');
         return true;
     }
 
@@ -242,24 +245,22 @@ class GeometryManagerCanvas {
         const hitPt = this.hitTestPoint(x, y);
         if (hitPt) {
             this.store.deletePoint(hitPt.id);
-            if (this.pendingFirstPointId === hitPt.id) {
-                this.pendingFirstPointId = null;
-            }
-            this.onStateChange?.();
+            // One-shot: disarm after a single deletion.
+            this.setMode('none');
             return true;
         }
 
         const hitConn = this.hitTestConnection(x, y);
         if (hitConn) {
             this.store.deleteConnection(hitConn.id);
-            this.onStateChange?.();
+            this.setMode('none');
             return true;
         }
 
         const hitRay = this.hitTestRay(x, y);
         if (hitRay) {
             this.store.deleteRay(hitRay.id);
-            this.onStateChange?.();
+            this.setMode('none');
             return true;
         }
 
@@ -285,8 +286,8 @@ class GeometryManagerCanvas {
             } else {
                 this.store.addRay(this.pendingFirstPointId, pointId);
             }
-            this.pendingFirstPointId = null;
-            this.onStateChange?.();
+            // One-shot: the shape is complete, disarm back to idle.
+            this.setMode('none');
             return true;
         }
         return false;

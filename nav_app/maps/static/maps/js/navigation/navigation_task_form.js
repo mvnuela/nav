@@ -11,6 +11,72 @@ const POINTS_OF_SAIL = [
     { key: "running",      label: "Running" },
 ];
 
+// Hardcoded timezone list feeding the #tzSelect dropdown. Selecting an entry
+// auto-fills the #tzOffset field with `offset`. Zones that observe DST appear
+// twice (winter/summer) so the teacher can pick the offset matching the task
+// dates; the offset field stays editable for any manual correction.
+const TIMEZONES = [
+    { group: "Universal",      name: "UTC",                 offset: "+00:00", label: "UTC (UTC+00:00)" },
+
+    { group: "Western Europe", name: "Europe/London",       offset: "+00:00", label: "Europe/London — GMT (winter, UTC+00:00)" },
+    { group: "Western Europe", name: "Europe/London",       offset: "+01:00", label: "Europe/London — BST (summer, UTC+01:00)" },
+    { group: "Western Europe", name: "Europe/Lisbon",       offset: "+00:00", label: "Europe/Lisbon — WET (winter, UTC+00:00)" },
+    { group: "Western Europe", name: "Europe/Lisbon",       offset: "+01:00", label: "Europe/Lisbon — WEST (summer, UTC+01:00)" },
+
+    { group: "Central Europe", name: "Europe/Warsaw",       offset: "+01:00", label: "Europe/Warsaw — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Warsaw",       offset: "+02:00", label: "Europe/Warsaw — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Berlin",       offset: "+01:00", label: "Europe/Berlin — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Berlin",       offset: "+02:00", label: "Europe/Berlin — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Amsterdam",    offset: "+01:00", label: "Europe/Amsterdam — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Amsterdam",    offset: "+02:00", label: "Europe/Amsterdam — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Paris",        offset: "+01:00", label: "Europe/Paris — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Paris",        offset: "+02:00", label: "Europe/Paris — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Copenhagen",   offset: "+01:00", label: "Europe/Copenhagen — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Copenhagen",   offset: "+02:00", label: "Europe/Copenhagen — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Oslo",         offset: "+01:00", label: "Europe/Oslo — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Oslo",         offset: "+02:00", label: "Europe/Oslo — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Stockholm",    offset: "+01:00", label: "Europe/Stockholm — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Stockholm",    offset: "+02:00", label: "Europe/Stockholm — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Madrid",       offset: "+01:00", label: "Europe/Madrid — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Madrid",       offset: "+02:00", label: "Europe/Madrid — CEST (summer, UTC+02:00)" },
+    { group: "Central Europe", name: "Europe/Rome",         offset: "+01:00", label: "Europe/Rome — CET (winter, UTC+01:00)" },
+    { group: "Central Europe", name: "Europe/Rome",         offset: "+02:00", label: "Europe/Rome — CEST (summer, UTC+02:00)" },
+
+    { group: "Eastern Europe", name: "Europe/Helsinki",     offset: "+02:00", label: "Europe/Helsinki — EET (winter, UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Helsinki",     offset: "+03:00", label: "Europe/Helsinki — EEST (summer, UTC+03:00)" },
+    { group: "Eastern Europe", name: "Europe/Riga",         offset: "+02:00", label: "Europe/Riga — EET (winter, UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Riga",         offset: "+03:00", label: "Europe/Riga — EEST (summer, UTC+03:00)" },
+    { group: "Eastern Europe", name: "Europe/Tallinn",      offset: "+02:00", label: "Europe/Tallinn — EET (winter, UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Tallinn",      offset: "+03:00", label: "Europe/Tallinn — EEST (summer, UTC+03:00)" },
+    { group: "Eastern Europe", name: "Europe/Athens",       offset: "+02:00", label: "Europe/Athens — EET (winter, UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Athens",       offset: "+03:00", label: "Europe/Athens — EEST (summer, UTC+03:00)" },
+    { group: "Eastern Europe", name: "Europe/Kaliningrad",  offset: "+02:00", label: "Europe/Kaliningrad — EET (UTC+02:00)" },
+    { group: "Eastern Europe", name: "Europe/Moscow",       offset: "+03:00", label: "Europe/Moscow — MSK (UTC+03:00)" },
+
+    { group: "Americas",       name: "America/New_York",    offset: "-05:00", label: "America/New_York — EST (winter, UTC−05:00)" },
+    { group: "Americas",       name: "America/New_York",    offset: "-04:00", label: "America/New_York — EDT (summer, UTC−04:00)" },
+    { group: "Americas",       name: "America/Chicago",     offset: "-06:00", label: "America/Chicago — CST (winter, UTC−06:00)" },
+    { group: "Americas",       name: "America/Chicago",     offset: "-05:00", label: "America/Chicago — CDT (summer, UTC−05:00)" },
+    { group: "Americas",       name: "America/Denver",      offset: "-07:00", label: "America/Denver — MST (winter, UTC−07:00)" },
+    { group: "Americas",       name: "America/Denver",      offset: "-06:00", label: "America/Denver — MDT (summer, UTC−06:00)" },
+    { group: "Americas",       name: "America/Los_Angeles", offset: "-08:00", label: "America/Los_Angeles — PST (winter, UTC−08:00)" },
+    { group: "Americas",       name: "America/Los_Angeles", offset: "-07:00", label: "America/Los_Angeles — PDT (summer, UTC−07:00)" },
+
+    { group: "Atlantic",       name: "Atlantic/Canary",     offset: "+00:00", label: "Atlantic/Canary — WET (winter, UTC+00:00)" },
+    { group: "Atlantic",       name: "Atlantic/Canary",     offset: "+01:00", label: "Atlantic/Canary — WEST (summer, UTC+01:00)" },
+    { group: "Atlantic",       name: "Atlantic/Cape_Verde", offset: "-01:00", label: "Atlantic/Cape_Verde (UTC−01:00)" },
+    { group: "Atlantic",       name: "Atlantic/Azores",     offset: "-01:00", label: "Atlantic/Azores (winter, UTC−01:00)" },
+    { group: "Atlantic",       name: "Atlantic/Azores",     offset: "+00:00", label: "Atlantic/Azores (summer, UTC+00:00)" },
+
+    { group: "Rest of world",  name: "Asia/Dubai",          offset: "+04:00", label: "Asia/Dubai — GST (UTC+04:00)" },
+    { group: "Rest of world",  name: "Asia/Singapore",      offset: "+08:00", label: "Asia/Singapore (UTC+08:00)" },
+    { group: "Rest of world",  name: "Asia/Tokyo",          offset: "+09:00", label: "Asia/Tokyo — JST (UTC+09:00)" },
+    { group: "Rest of world",  name: "Australia/Sydney",    offset: "+10:00", label: "Australia/Sydney — AEST (winter, UTC+10:00)" },
+    { group: "Rest of world",  name: "Australia/Sydney",    offset: "+11:00", label: "Australia/Sydney — AEDT (summer, UTC+11:00)" },
+    { group: "Rest of world",  name: "Pacific/Auckland",    offset: "+12:00", label: "Pacific/Auckland — NZST (winter, UTC+12:00)" },
+    { group: "Rest of world",  name: "Pacific/Auckland",    offset: "+13:00", label: "Pacific/Auckland — NZDT (summer, UTC+13:00)" },
+];
+
 // ---------- Row builders ----------
 function num(name, label, opts = {}) {
     const { step = "0.0001", min, max, required = true } = opts;
@@ -60,14 +126,30 @@ function mvRowHTML(idx) {
     return rowWrap("Variation", idx, inner);
 }
 
-// ---- compass deviation ----
-function cdRowHTML(idx) {
-    const inner = `
-        <div class="grid">
-            ${num(`cd.${idx}.heading_deg`,   "Heading (°)",   { min: 0, max: 359.9999 })}
-            ${num(`cd.${idx}.deviation_deg`, "Deviation (°)")}
+// ---- compass deviation card: fixed 10° headings (0…350), deviation optional ----
+// A standard deviation card: 36 headings every 10°, laid out as a compact
+// 4-column table (heading | deviation | heading | deviation). Headings are
+// fixed; the teacher fills only the deviation values. Empty cells are skipped
+// on export — at least one deviation is required (schema minItems: 1).
+const CD_HEADINGS = Array.from({ length: 36 }, (_, i) => i * 10); // 0,10,…,350
+
+function cdCell(idx) {
+    const heading = CD_HEADINGS[idx];
+    return `
+        <div class="dev-cell">
+            <span class="hdg">${heading}°</span>
+            <input type="number" step="0.0001" name="cd.${idx}.deviation_deg"
+                   placeholder="dev" aria-label="Deviation at ${heading}°">
         </div>`;
-    return rowWrap("Heading", idx, inner);
+}
+
+function cdCardHTML() {
+    const half = CD_HEADINGS.length / 2; // 18 rows, two heading/deviation pairs each
+    let cells = "";
+    for (let r = 0; r < half; r++) {
+        cells += cdCell(r) + cdCell(r + half); // left col 0…170, right col 180…350
+    }
+    return `<div class="dev-card">${cells}</div>`;
 }
 
 // ---- leeway: 4 fixed entries, not dynamic ----
@@ -99,6 +181,42 @@ function poiRowHTML(idx) {
     return rowWrap("POI", idx, inner);
 }
 
+// ---- wind true: hardcoded 16-point compass dropdown ----
+// Each option shows "ABBR - deg°" (e.g. "NE - 45°"); the option value is the
+// bare degree, so only the number is stored in the exported JSON.
+const WIND_DIRECTIONS = [
+    { name: "N",   deg: 0 },
+    { name: "NNE", deg: 22.5 },
+    { name: "NE",  deg: 45 },
+    { name: "ENE", deg: 67.5 },
+    { name: "E",   deg: 90 },
+    { name: "ESE", deg: 112.5 },
+    { name: "SE",  deg: 135 },
+    { name: "SSE", deg: 157.5 },
+    { name: "S",   deg: 180 },
+    { name: "SSW", deg: 202.5 },
+    { name: "SW",  deg: 225 },
+    { name: "WSW", deg: 247.5 },
+    { name: "W",   deg: 270 },
+    { name: "WNW", deg: 292.5 },
+    { name: "NW",  deg: 315 },
+    { name: "NNW", deg: 337.5 },
+];
+
+function windField(name, label) {
+    const options = WIND_DIRECTIONS
+        .map(w => `<option value="${w.deg}">${w.name} - ${w.deg}°</option>`)
+        .join("");
+    return `
+        <div class="field">
+            <label>${label} <span class="req">*</span></label>
+            <select name="${name}" required>
+                <option value="" selected disabled>— Select direction —</option>
+                ${options}
+            </select>
+        </div>`;
+}
+
 // ---- track ----
 function trkRowHTML(idx) {
     const inner = `
@@ -116,7 +234,7 @@ function trkRowHTML(idx) {
             ${num(`trk.${idx}.course_compass_deg`,        "Course compass (°)",        { min: 0, max: 359.9999 })}
             ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999 })}
             ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999 })}
-            ${num(`trk.${idx}.wind_true_deg`, "Wind true (°)",      { min: 0, max: 359.9999 })}
+            ${windField(`trk.${idx}.wind_true_deg`, "Wind true (°)")}
             ${num(`trk.${idx}.wind_app_deg`,  "Wind apparent (°)",  { min: 0, max: 359.9999 })}
             ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0 })}
         </div>`;
@@ -126,7 +244,6 @@ function trkRowHTML(idx) {
 // ---------- Dynamic list manager ----------
 const lists = {
     mv:  { container: "mvList",  build: mvRowHTML  },
-    cd:  { container: "cdList",  build: cdRowHTML  },
     poi: { container: "poiList", build: poiRowHTML },
     trk: { container: "trkList", build: trkRowHTML },
 };
@@ -138,17 +255,18 @@ function rebuildList(key) {
     const values = rows.map(r => collectRow(r));
     el.innerHTML = values.map((_, i) => cfg.build(i)).join("");
     rows.forEach((_, i) => applyRow(el.querySelectorAll(".row")[i], values[i]));
+    if (key === "trk") recomputeLogs();
 }
 
 function collectRow(rowEl) {
     const out = {};
-    rowEl.querySelectorAll("input, textarea").forEach(inp => {
+    rowEl.querySelectorAll("input, textarea, select").forEach(inp => {
         out[inp.name] = inp.value;
     });
     return out;
 }
 function applyRow(rowEl, values) {
-    rowEl.querySelectorAll("input, textarea").forEach(inp => {
+    rowEl.querySelectorAll("input, textarea, select").forEach(inp => {
         const matchKey = Object.keys(values).find(k => k.replace(/\.\d+\./, ".X.") === inp.name.replace(/\.\d+\./, ".X."));
         if (matchKey !== undefined) inp.value = values[matchKey];
     });
@@ -162,7 +280,10 @@ function addRow(key) {
 }
 
 document.querySelectorAll("button[data-add]").forEach(btn => {
-    btn.addEventListener("click", () => addRow(btn.dataset.add));
+    btn.addEventListener("click", () => {
+        addRow(btn.dataset.add);
+        if (btn.dataset.add === "trk") recomputeLogs();
+    });
 });
 
 document.body.addEventListener("click", e => {
@@ -175,12 +296,95 @@ document.body.addEventListener("click", e => {
     if (key) rebuildList(key);
 });
 
+// ---------- Timezone dropdown → auto-fill UTC offset ----------
+function populateTimezones() {
+    const sel = document.getElementById("tzSelect");
+    const off = document.getElementById("tzOffset");
+    if (!sel) return;
+
+    // Group entries into <optgroup>s, preserving list order.
+    const groups = new Map();
+    TIMEZONES.forEach((tz, i) => {
+        if (!groups.has(tz.group)) groups.set(tz.group, []);
+        groups.get(tz.group).push({ ...tz, i });
+    });
+    for (const [groupLabel, entries] of groups) {
+        const og = document.createElement("optgroup");
+        og.label = groupLabel;
+        entries.forEach(tz => {
+            const opt = document.createElement("option");
+            opt.value = String(tz.i);          // index into TIMEZONES (name alone isn't unique)
+            opt.textContent = tz.label;
+            opt.dataset.name = tz.name;
+            opt.dataset.offset = tz.offset;
+            og.appendChild(opt);
+        });
+        sel.appendChild(og);
+    }
+
+    sel.addEventListener("change", () => {
+        const opt = sel.selectedOptions[0];
+        if (opt && opt.dataset.offset && off) off.value = opt.dataset.offset;
+    });
+}
+populateTimezones();
+
+// ---------- Track log auto-fill ----------
+// The "log" is the running cumulative distance sailed. The first track point
+// has distance 0 (nothing travelled yet) and its log is the editable starting
+// reading. Every later point's log is derived as previous log + its distance,
+// and shown read-only. Recompute cascades so editing any earlier distance
+// updates all following logs.
+function nm4(x) {
+    return Math.round(x * 10000) / 10000; // keep to the schema's 0.0001 precision
+}
+
+function recomputeLogs() {
+    const rows = document.querySelectorAll("#trkList .row");
+    let prevLog = 0;
+    rows.forEach((row, i) => {
+        const dist = row.querySelector(`[name="trk.${i}.distance_nm"]`);
+        const log  = row.querySelector(`[name="trk.${i}.log_nm"]`);
+        if (!dist || !log) return;
+
+        if (i === 0) {
+            // start point: distance fixed at 0; log is the base reading (editable)
+            dist.value = "0";
+            dist.readOnly = true;
+            log.readOnly = false;
+            const base = parseFloat(log.value);
+            prevLog = Number.isFinite(base) ? base : 0;
+        } else {
+            dist.readOnly = false;
+            log.readOnly = true;
+            const d = parseFloat(dist.value);
+            if (Number.isFinite(d)) {
+                prevLog = nm4(prevLog + d);
+                log.value = String(prevLog);
+            } else {
+                log.value = ""; // distance not entered yet → leave the log blank
+            }
+        }
+    });
+}
+
+// Any distance edit (or the start point's log) re-derives the cumulative logs.
+document.body.addEventListener("input", e => {
+    if (/^trk\.\d+\.(distance_nm|log_nm)$/.test(e.target.name || "")) recomputeLogs();
+});
+
 // initial seed: leeway (fixed 4) + one row each for required arrays
 document.getElementById("leewayList").innerHTML = leewayHTML();
+document.getElementById("cdList").innerHTML = cdCardHTML();
 addRow("mv");
-addRow("cd");
+// first magnetic-variation entry is the base entry: default lat/lon/range to 0
+["lat", "lon", "range_nm"].forEach(f => {
+    const el = document.querySelector(`[name="mv.0.${f}"]`);
+    if (el) el.value = "0";
+});
 addRow("poi");
 addRow("trk");
+recomputeLogs();
 
 // ---------- Build JSON from form ----------
 function val(name, { number = false } = {}) {
@@ -223,6 +427,7 @@ function withChartSuffix(filename) {
 
 function buildJSON() {
     const tzOffset = val("tz.offset");
+    const tzName = document.getElementById("tzSelect")?.selectedOptions[0]?.dataset.name;
 
     const mvRows = document.querySelectorAll("#mvList .row");
     const magnetic_variation_list = Array.from(mvRows).map((_, i) => ({
@@ -234,11 +439,13 @@ function buildJSON() {
         range_nm:          val(`mv.${i}.range_nm`,          { number: true }),
     }));
 
-    const cdRows = document.querySelectorAll("#cdList .row");
-    const compass_deviation_table = Array.from(cdRows).map((_, i) => ({
-        heading_deg:   val(`cd.${i}.heading_deg`,   { number: true }),
-        deviation_deg: val(`cd.${i}.deviation_deg`, { number: true }),
-    }));
+    // Fixed 10° headings; keep only the cells where a deviation was entered.
+    const compass_deviation_table = CD_HEADINGS
+        .map((heading, i) => ({
+            heading_deg:   heading,
+            deviation_deg: val(`cd.${i}.deviation_deg`, { number: true }),
+        }))
+        .filter(entry => entry.deviation_deg !== undefined);
 
     const leeway = {};
     POINTS_OF_SAIL.forEach(p => {
@@ -291,7 +498,7 @@ function buildJSON() {
             content_md:  val("meta.content_md") ?? "",
         },
         navigation: {
-            timezone: { name: val("tz.name"), offset: tzOffset },
+            timezone: { name: tzName, offset: tzOffset },
             magnetic_variation_list,
             compass_deviation_table,
             leeway,
@@ -339,95 +546,11 @@ function downloadJSON(obj, filename) {
     a.remove(); URL.revokeObjectURL(url);
 }
 
-// ---------- Dead reckoning calculator ----------
-function computeDR({ lat, lon, courseDeg, speedKn, timeH }) {
-    const distance = speedKn * timeH;                 // nautical miles
-    const courseRad = courseDeg * Math.PI / 180;
-    const dLat = distance * Math.cos(courseRad) / 60;
-    const dLon = distance * Math.sin(courseRad) / (60 * Math.cos(lat * Math.PI / 180));
-    return {
-        distance,
-        newLat: lat + dLat,
-        newLon: lon + dLon,
-    };
-}
-
-function fmtCoord(deg, isLat) {
-    const hemi = isLat ? (deg >= 0 ? "N" : "S") : (deg >= 0 ? "E" : "W");
-    const abs = Math.abs(deg);
-    const d = Math.floor(abs);
-    const m = (abs - d) * 60;
-    return `${d}°${m.toFixed(3)}'${hemi}`;
-}
-
-function readNum(id) {
-    const v = document.getElementById(id).value;
-    return v === "" ? NaN : Number(v);
-}
-
-let lastDR = null;
-
-function showDRError(msg) {
-    const el = document.getElementById("drResult");
-    el.className = "dr-result show err";
-    el.textContent = "⚠ " + msg;
-    document.getElementById("drCopyBtn").disabled = true;
-    document.getElementById("drCopyLatLonBtn").disabled = true;
-    lastDR = null;
-}
-
-function normalizeDeg(a) {
-    a = a % 360;
-    return a < 0 ? a + 360 : a;
-}
-
-document.getElementById("drCalcBtn")?.addEventListener("click", () => {
-    const lat        = readNum("drStartLat");
-    const lon        = readNum("drStartLon");
-    const compassDeg = readNum("drCourse");
-    const deviation  = readNum("drDeviation");
-    const variation  = readNum("drVariation");
-    const leeway     = readNum("drLeeway");
-    const speedKn    = readNum("drSpeed");
-    const timeH      = readNum("drTime");
-
-    if ([lat, lon, compassDeg, speedKn, timeH].some(Number.isNaN)) {
-        return showDRError("Fill in start position, compass course, speed and time.");
-    }
-    if ([deviation, variation, leeway].some(Number.isNaN)) {
-        return showDRError("Deviation, variation and leeway must be numbers (use 0 if unused).");
-    }
-    if (lat < -90 || lat > 90)               return showDRError("Latitude must be -90…90.");
-    if (lon < -180 || lon > 180)             return showDRError("Longitude must be -180…180.");
-    if (compassDeg < 0 || compassDeg >= 360) return showDRError("Compass course must be 0…<360.");
-    if (speedKn < 0)                         return showDRError("Speed must be ≥ 0.");
-    if (timeH < 0)                           return showDRError("Time must be ≥ 0.");
-
-    // CADET: Compass + Deviation = Magnetic; + Variation = True heading; + Leeway = CTW
-    const magneticDeg    = normalizeDeg(compassDeg + deviation);
-    const trueHeadingDeg = normalizeDeg(magneticDeg + variation);
-    const ctwDeg         = normalizeDeg(trueHeadingDeg + leeway);
-
-    const r = computeDR({ lat, lon, courseDeg: ctwDeg, speedKn, timeH });
-    lastDR = r;
-
-    const text =
-`Start position  : ${lat.toFixed(4)}°, ${lon.toFixed(4)}°  (${fmtCoord(lat, true)} ${fmtCoord(lon, false)})
-Compass course  : ${compassDeg.toFixed(2)}°
-+ Deviation     : ${deviation >= 0 ? "+" : ""}${deviation.toFixed(2)}°  →  Magnetic ${magneticDeg.toFixed(2)}°
-+ Variation     : ${variation >= 0 ? "+" : ""}${variation.toFixed(2)}°  →  True HDG ${trueHeadingDeg.toFixed(2)}°
-+ Leeway        : ${leeway >= 0 ? "+" : ""}${leeway.toFixed(2)}°  →  CTW      ${ctwDeg.toFixed(2)}°
-Speed           : ${speedKn} kn
-Time            : ${timeH} h
-Distance        : ${r.distance.toFixed(4)} nm
-New position    : ${r.newLat.toFixed(4)}°, ${r.newLon.toFixed(4)}°  (${fmtCoord(r.newLat, true)} ${fmtCoord(r.newLon, false)})`;
-
-    const el = document.getElementById("drResult");
-    el.className = "dr-result show";
-    el.textContent = text;
-    document.getElementById("drCopyBtn").disabled = false;
-    document.getElementById("drCopyLatLonBtn").disabled = false;
-});
+// The Dead Reckoning calculator (and the other three) now live in the shared
+// right-side calculator sidebar, powered by the calculator cores/adapters
+// (window.DR/Fix/RunFix/TravPOI + *_enhanced.js) loaded in the template. The
+// form's earlier private DR reimplementation was removed to avoid two click
+// handlers fighting over #drCalcBtn.
 
 async function copyToClipboard(text, btn) {
     try {
@@ -442,17 +565,6 @@ async function copyToClipboard(text, btn) {
     btn.classList.add("copied");
     setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1500);
 }
-
-document.getElementById("drCopyBtn")?.addEventListener("click", e => {
-    if (!lastDR) return;
-    copyToClipboard(document.getElementById("drResult").textContent, e.currentTarget);
-});
-
-document.getElementById("drCopyLatLonBtn")?.addEventListener("click", e => {
-    if (!lastDR) return;
-    const txt = `${lastDR.newLat.toFixed(4)}, ${lastDR.newLon.toFixed(4)}`;
-    copyToClipboard(txt, e.currentTarget);
-});
 
 // ---------- Universal coordinate format converter (DMS · DMM → decimal degrees) ----------
 // Matches one coordinate. Degrees + minutes are mandatory (this is the "conversion" job);

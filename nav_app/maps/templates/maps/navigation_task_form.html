@@ -115,6 +115,9 @@
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
         .field textarea { resize: vertical; min-height: 70px; }
+        .field input[readonly] {
+            background: #f3f4f6; color: #6b7280; cursor: not-allowed;
+        }
         .field .hint { font-size: 0.75em; color: #6b7280; }
 
         .row {
@@ -147,6 +150,30 @@
             font-size: 0.9em; margin-top: 6px;
         }
         .add-btn:hover { background: #1d4ed8; }
+
+        /* Compass deviation card: fixed 10° headings, compact 4-column table */
+        .dev-card {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(160px, 1fr));
+            gap: 6px 16px;
+            max-width: 560px;
+        }
+        .dev-cell { display: flex; align-items: center; gap: 8px; }
+        .dev-cell .hdg {
+            min-width: 46px; text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.9em; font-weight: 600; color: #374151;
+        }
+        .dev-cell input {
+            width: 80px; padding: 6px 8px;
+            border: 1px solid #d1d5db; border-radius: 6px;
+            font-size: 0.9em; font-family: inherit; background: #fff;
+        }
+        .dev-cell input:focus {
+            outline: none; border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        @media (max-width: 480px) { .dev-card { grid-template-columns: 1fr; } }
 
         .subgroup {
             border-left: 3px solid #c7d2fe;
@@ -233,6 +260,80 @@
         .dr-buttons button.copy { background: #0891b2; }
         .dr-buttons button.copy:hover { background: #0e7490; }
         .dr-buttons button.copy.copied { background: #059669; }
+
+        /* ============ Calculator sidebar (independent, right side) ============ */
+        #calcToggle {
+            position: fixed; top: 90px; right: 0; z-index: 49;
+            background: #4f46e5; color: #fff; border: none;
+            border-radius: 8px 0 0 8px; padding: 14px 9px; cursor: pointer;
+            font-weight: 600; font-size: 0.85em; letter-spacing: 0.03em;
+            writing-mode: vertical-rl; text-orientation: mixed;
+            box-shadow: -2px 2px 8px rgba(0,0,0,0.2);
+        }
+        #calcToggle:hover { background: #4338ca; }
+
+        #calcSidebar {
+            position: fixed; top: 0; right: 0; z-index: 50;
+            width: 360px; max-width: 92vw; height: 100vh;
+            background: #fff; border-left: 1px solid #e5e7eb;
+            box-shadow: -3px 0 14px rgba(0,0,0,0.10);
+            overflow-y: auto; transition: transform 0.2s ease;
+        }
+        #calcSidebar.collapsed { transform: translateX(100%); }
+
+        /* When the sidebar is open, reserve space so it never covers the form
+           (wide screens only — on narrow ones it stays an overlay you close). */
+        body { transition: padding-right 0.2s ease; }
+        @media (min-width: 1000px) {
+            body.calc-open { padding-right: 384px; }
+        }
+
+        #calcSidebar .calc-header {
+            position: sticky; top: 0; z-index: 1;
+            background: #4338ca; color: #fff;
+            padding: 14px 16px; font-weight: 700; font-size: 1.05em;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        #calcSidebar .calc-close {
+            background: transparent; border: none; color: #fff;
+            font-size: 1.3em; cursor: pointer; line-height: 1;
+        }
+        #calcSidebar .calc-intro { padding: 10px 16px 0; font-size: 0.82em; color: #6b7280; }
+
+        #calcSidebar .panel {
+            background: #f9fafb; border: 1px solid #e5e7eb;
+            border-radius: 8px; margin: 12px; padding: 14px;
+        }
+        #calcSidebar .panel h3 { margin: 0 0 4px; font-size: 1em; color: #1e3a8a; }
+        #calcSidebar .panel .hint { font-size: 0.78em; color: #6b7280; margin: 0 0 10px; }
+        #calcSidebar .form-group { margin-bottom: 8px; }
+        #calcSidebar .form-group > label {
+            display: block; font-size: 0.8em; color: #374151;
+            font-weight: 500; margin-bottom: 3px;
+        }
+        #calcSidebar .form-group input[type="text"],
+        #calcSidebar .form-group input[type="number"] {
+            width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
+            border-radius: 6px; font-size: 0.9em; font-family: inherit; background: #fff;
+        }
+        #calcSidebar .form-group input:focus {
+            outline: none; border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        }
+        #calcSidebar .form-group small { display: block; font-size: 0.72em; color: #9ca3af; margin-top: 2px; }
+        #calcSidebar .btn {
+            border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;
+            font-size: 0.88em; font-weight: 600; margin: 6px 6px 0 0;
+        }
+        #calcSidebar .btn-primary { background: #4f46e5; color: #fff; }
+        #calcSidebar .btn-primary:hover { background: #4338ca; }
+        #calcSidebar .btn-secondary { background: #e5e7eb; color: #374151; }
+        #calcSidebar .btn-secondary:hover { background: #d1d5db; }
+        #calcSidebar .info-box {
+            margin-top: 10px; padding: 10px 12px; background: #eef2ff;
+            border: 1px solid #c7d2fe; border-radius: 6px;
+            font-size: 0.88em; color: #1e3a8a; line-height: 1.45; word-break: break-word;
+        }
     </style>
 </head>
 <body>
@@ -279,13 +380,15 @@
                     <div class="grid">
                         <div class="field">
                             <label>Name <span class="req">*</span></label>
-                            <input name="tz.name" placeholder="Europe/Warsaw" required>
+                            <select id="tzSelect" name="tz.name" required>
+                                <option value="" selected disabled>— Select timezone —</option>
+                            </select>
                         </div>
                         <div class="field">
                             <label>UTC offset <span class="req">*</span></label>
-                            <input name="tz.offset" placeholder="+02:00"
+                            <input id="tzOffset" name="tz.offset" placeholder="+02:00"
                                    pattern="^[+-](0[0-9]|1[0-4]):[0-5][0-9]$" required>
-                            <span class="hint">Format ±HH:MM (e.g. +02:00)</span>
+                            <span class="hint">Auto-filled from the timezone (UTC offset); edit if needed. Format ±HH:MM</span>
                         </div>
                     </div>
                 </div>
@@ -298,8 +401,11 @@
 
                 <div class="subgroup">
                     <div class="subgroup-title">Compass deviation table</div>
+                    <div class="hint" style="margin-bottom:8px">
+                        Headings are fixed every 10° (0°–350°). Fill only the deviations you know.
+                        blank cells are skipped. at least one value is required.
+                    </div>
                     <div id="cdList"></div>
-                    <button type="button" class="add-btn" data-add="cd">+ Add deviation entry</button>
                 </div>
 
                 <div class="subgroup">
@@ -476,5 +582,265 @@
 
 {{ schema|json_script:"ntSchema" }}
 <script type="module" src="{% static 'maps/js/navigation/navigation_task_form.js' %}"></script>
+
+<!-- ============ CALCULATOR SIDEBAR (independent helper tools, not task data) ============ -->
+<button id="calcToggle" type="button" aria-label="Open calculators">🧮 Calculators</button>
+<aside id="calcSidebar" aria-label="Navigation calculators">
+    <div class="calc-header">
+        <span>🧮 Calculators</span>
+        <button type="button" class="calc-close" id="calcClose" aria-label="Close">✕</button>
+    </div>
+    <p class="calc-intro">Standalone helper tools. results are not saved into the task JSON.Coordinates accept decimal (<code>54.5</code>) or nautical (<code>54°22.5'N</code>).</p>
+
+    <div class="panel" id="courseCalculatorPanel">
+        <h3>⚓ Dead Reckoning Calculator</h3>
+        <p class="hint">Compute new position from course, speed, time, and current</p>
+
+        <div class="form-group">
+            <label>Start Latitude:</label>
+            <input type="text" id="drStartLat" placeholder="54.5 or 54°22.5'N">
+        </div>
+        <div class="form-group">
+            <label>Start Longitude:</label>
+            <input type="text" id="drStartLon" placeholder="18.5 or 018°34.2'E">
+        </div>
+        <div class="form-group">
+            <label>Course type:</label>
+            <label style="font-weight:normal; display:inline-block; margin-right:14px;">
+                <input type="radio" name="drCourseType" value="compass" checked> Compass
+            </label>
+            <label style="font-weight:normal; display:inline-block;">
+                <input type="radio" name="drCourseType" value="true"> True
+            </label>
+        </div>
+        <div class="form-group">
+            <label>Course (°):</label>
+            <input type="number" id="drCourse" min="0" max="360" step="0.1" placeholder="045">
+        </div>
+        <div class="form-group">
+            <label>Magnetic Variation (°):</label>
+            <input type="number" id="drVariation" step="0.1" placeholder="0.0" value="0">
+            <small>+East / −West</small>
+        </div>
+        <div class="form-group">
+            <label>Compass Deviation (°):</label>
+            <input type="number" id="drDeviation" step="0.1" placeholder="0.0" value="0">
+            <small>From deviation table; +East / −West</small>
+        </div>
+        <div class="form-group">
+            <label>Leeway (°):</label>
+            <input type="number" id="drLeeway" step="0.1" placeholder="0.0" value="0">
+            <small>+Starboard / −Port (wind drift)</small>
+        </div>
+        <div class="form-group">
+            <label>Boat Speed STW (knots):</label>
+            <input type="number" id="drSpeed" min="0" step="0.1" placeholder="5.0">
+        </div>
+        <div class="form-group">
+            <label>Current Set (° true):</label>
+            <input type="number" id="drCurrentSet" min="0" max="360" step="0.1" value="0">
+            <small>Direction current flows TO</small>
+        </div>
+        <div class="form-group">
+            <label>Current Drift (knots):</label>
+            <input type="number" id="drCurrentDrift" min="0" step="0.1" value="0">
+        </div>
+        <div class="form-group">
+            <label>Time (hours):</label>
+            <input type="number" id="drTime" min="0" step="0.5" placeholder="2.0">
+        </div>
+
+        <button id="drCalcBtn" class="btn btn-primary">Calculate Position</button>
+        <button id="drClearBtn" class="btn btn-secondary">Clear</button>
+        <div id="drOut" class="info-box" style="display:none;"></div>
+    </div>
+
+    <div class="panel" id="fixCalculatorPanel">
+        <h3>📍 Two-Bearing Fix</h3>
+        <p class="hint">Observed position from two simultaneous bearings on two charted objects</p>
+
+        <div class="form-group">
+            <label>Object A Latitude:</label>
+            <input type="text" id="fixObjALat" placeholder="54.5 or 54°22.5'N">
+        </div>
+        <div class="form-group">
+            <label>Object A Longitude:</label>
+            <input type="text" id="fixObjALon" placeholder="18.5 or 018°34.2'E">
+        </div>
+        <div class="form-group">
+            <label>Object B Latitude:</label>
+            <input type="text" id="fixObjBLat" placeholder="54.6 or 54°36.0'N">
+        </div>
+        <div class="form-group">
+            <label>Object B Longitude:</label>
+            <input type="text" id="fixObjBLon" placeholder="18.8 or 018°48.0'E">
+        </div>
+        <div class="form-group">
+            <label>Compass Bearing to A (°):</label>
+            <input type="number" id="fixBearingA" min="0" max="360" step="0.1" placeholder="045">
+        </div>
+        <div class="form-group">
+            <label>Compass Bearing to B (°):</label>
+            <input type="number" id="fixBearingB" min="0" max="360" step="0.1" placeholder="110">
+        </div>
+        <div class="form-group">
+            <label>Compass Deviation (°):</label>
+            <input type="number" id="fixDeviation" step="0.1" placeholder="0.0" value="0">
+            <small>+East / −West</small>
+        </div>
+        <div class="form-group">
+            <label>Magnetic Variation (°):</label>
+            <input type="number" id="fixVariation" step="0.1" placeholder="0.0" value="0">
+            <small>+East / −West</small>
+        </div>
+
+        <button id="fixCalcBtn" class="btn btn-primary">Calculate Fix</button>
+        <button id="fixClearBtn" class="btn btn-secondary">Clear</button>
+        <div id="fixOut" class="info-box" style="display:none;"></div>
+    </div>
+
+    <div class="panel" id="runfixCalculatorPanel">
+        <h3>🧭 Running Fix</h3>
+        <p class="hint">Observed position from two bearings on the same object, with the vessel running between them</p>
+
+        <div class="form-group">
+            <label>Object Latitude:</label>
+            <input type="text" id="runfixObjLat" placeholder="54.5 or 54°22.5'N">
+        </div>
+        <div class="form-group">
+            <label>Object Longitude:</label>
+            <input type="text" id="runfixObjLon" placeholder="18.5 or 018°34.2'E">
+        </div>
+        <div class="form-group">
+            <label>Bearings are:</label>
+            <label style="font-weight:normal; display:inline-block; margin-right:14px;">
+                <input type="radio" name="runfixBearingType" value="compass" checked> Compass
+            </label>
+            <label style="font-weight:normal; display:inline-block;">
+                <input type="radio" name="runfixBearingType" value="true"> True
+            </label>
+        </div>
+        <div class="form-group">
+            <label>First bearing to object (°):</label>
+            <input type="number" id="runfixBearing1" min="0" max="360" step="0.1" placeholder="045">
+        </div>
+        <div class="form-group">
+            <label>Second bearing to object (°):</label>
+            <input type="number" id="runfixBearing2" min="0" max="360" step="0.1" placeholder="095">
+        </div>
+        <div class="form-group">
+            <label>Course type:</label>
+            <label style="font-weight:normal; display:inline-block; margin-right:14px;">
+                <input type="radio" name="runfixCourseType" value="compass" checked> Compass
+            </label>
+            <label style="font-weight:normal; display:inline-block;">
+                <input type="radio" name="runfixCourseType" value="true"> True
+            </label>
+        </div>
+        <div class="form-group">
+            <label>Course / heading (°):</label>
+            <input type="number" id="runfixCourse" min="0" max="360" step="0.1" placeholder="050">
+        </div>
+        <div class="form-group">
+            <label>Magnetic Variation (°):</label>
+            <input type="number" id="runfixVariation" step="0.1" placeholder="0.0" value="0">
+            <small>+East / −West</small>
+        </div>
+        <div class="form-group">
+            <label>Compass Deviation (°):</label>
+            <input type="number" id="runfixDeviation" step="0.1" placeholder="0.0" value="0">
+            <small>From deviation table; +East / −West</small>
+        </div>
+        <div class="form-group">
+            <label>Leeway (°):</label>
+            <input type="number" id="runfixLeeway" step="0.1" placeholder="0.0" value="0">
+            <small>+Starboard / −Port (wind drift)</small>
+        </div>
+        <div class="form-group">
+            <label>Boat Speed STW (knots):</label>
+            <input type="number" id="runfixSpeed" min="0" step="0.1" placeholder="6.0">
+        </div>
+        <div class="form-group">
+            <label>Current Set (° true):</label>
+            <input type="number" id="runfixCurrentSet" min="0" max="360" step="0.1" value="0">
+            <small>Direction current flows TO</small>
+        </div>
+        <div class="form-group">
+            <label>Current Drift (knots):</label>
+            <input type="number" id="runfixCurrentDrift" min="0" step="0.1" value="0">
+        </div>
+        <div class="form-group">
+            <label>Run time T₂−T₁ (hours):</label>
+            <input type="number" id="runfixRunTime" min="0" step="0.5" placeholder="2.0">
+        </div>
+
+        <button id="runfixCalcBtn" class="btn btn-primary">Calculate Fix</button>
+        <button id="runfixClearBtn" class="btn btn-secondary">Clear</button>
+        <div id="runfixOut" class="info-box" style="display:none;"></div>
+    </div>
+
+    <div class="panel" id="travpoiCalculatorPanel">
+        <h3>🎯 Travers POI</h3>
+        <p class="hint">Point on the current course where a POI (lighthouse, buoy, waypoint, island…) comes exactly abeam — 90° to the ship's axis</p>
+
+        <div class="form-group">
+            <label>Vessel Latitude:</label>
+            <input type="text" id="travpoiShipLat" placeholder="54.5 or 54°22.5'N">
+        </div>
+        <div class="form-group">
+            <label>Vessel Longitude:</label>
+            <input type="text" id="travpoiShipLon" placeholder="18.5 or 018°34.2'E">
+        </div>
+        <div class="form-group">
+            <label>POI Latitude:</label>
+            <input type="text" id="travpoiPoiLat" placeholder="54.7 or 54°42.0'N">
+        </div>
+        <div class="form-group">
+            <label>POI Longitude:</label>
+            <input type="text" id="travpoiPoiLon" placeholder="18.9 or 018°54.0'E">
+        </div>
+        <div class="form-group">
+            <label>True course Kdd (0-359°):</label>
+            <input type="number" id="travpoiCourse" min="0" max="359" step="0.1" placeholder="050">
+        </div>
+        <div class="form-group">
+            <label>Speed (knots):</label>
+            <input type="number" id="travpoiSpeed" min="0" step="0.1" placeholder="6.0">
+            <small>Optional — enables time-to-traverse</small>
+        </div>
+
+        <button id="travpoiCalcBtn" class="btn btn-primary">Calculate Traverse</button>
+        <button id="travpoiClearBtn" class="btn btn-secondary">Clear</button>
+        <div id="travpoiOut" class="info-box" style="display:none;"></div>
+    </div>
+</aside>
+
+<!-- Shared coordinate helpers (nauticalToDecimal, formatCoordinatePair) -->
+<script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
+<!-- Calculator cores + adapters (served from private_js). Load order matters:
+     DR and Fix must precede RunFix (which depends on them). -->
+<script src="{% url 'maps:calculator_js' 'dr/dr_core.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'dr/dr_enhanced.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'fix/fix_core.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'fix/fix_enhanced.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'runfix/runfix_core.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'runfix/runfix_enhanced.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'travpoi/travpoi_core.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'travpoi/travpoi_enhanced.js' %}"></script>
+<script>
+    (function () {
+        const sidebar = document.getElementById('calcSidebar');
+        const toggle = document.getElementById('calcToggle');
+        const closeBtn = document.getElementById('calcClose');
+        function setOpen(open) {
+            sidebar.classList.toggle('collapsed', !open);
+            toggle.style.display = open ? 'none' : 'block';
+            document.body.classList.toggle('calc-open', open);
+        }
+        toggle.addEventListener('click', () => setOpen(true));
+        closeBtn.addEventListener('click', () => setOpen(false));
+        setOpen(true);   // open by default (also hides the reopen tab)
+    })();
+</script>
 </body>
 </html>

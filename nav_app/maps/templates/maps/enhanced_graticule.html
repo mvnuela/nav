@@ -1624,6 +1624,12 @@
 
         function toggleGeometry() {
             const isVisible = graticuleSystem.toggleGeometry();
+            // The manager exists now (toggleGeometry lazily creates it). Wire the
+            // one-shot resync so the panel follows the manager when it auto-disarms
+            // after a completed action. Idempotent — safe to set on every toggle.
+            if (graticuleSystem.geometryManager) {
+                graticuleSystem.geometryManager.onStateChange = handleGeometryStateChange;
+            }
             const btn = document.getElementById('toggleGeometryBtn');
             const controls = document.getElementById('geometryControls');
             const info = document.getElementById('geometryInfo');
@@ -1717,6 +1723,16 @@
             document.getElementById('geometryStats').textContent =
                 graticuleSystem.geometryManager.getStatusText();
             updateGeometryButtons();
+        }
+
+        // Called by the manager on every state change. Keeps the panel's
+        // activeGeometryMode mirror in sync with the manager — in particular so
+        // the button/status reflect the auto-disarm that follows a completed
+        // one-shot action (place point, connect, ray, delete).
+        function handleGeometryStateChange() {
+            const m = graticuleSystem.geometryManager?.mode;
+            activeGeometryMode = (!m || m === 'none') ? null : m;
+            updateGeometryUI();
         }
 
         function clearAllGeometry() {
