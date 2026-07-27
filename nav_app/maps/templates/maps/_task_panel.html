@@ -3,6 +3,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.2/dist/purify.min.js" crossorigin="anonymous"></script>
+<script src="{% static 'maps/js/navigation/angle_units.js' %}"></script>
 
 <style>
     .task-panel-content {
@@ -210,9 +211,11 @@
     }
     if (Array.isArray(nav.magnetic_variation_list) && nav.magnetic_variation_list.length) {
         parts.push('<div style="margin-top:6px"><strong>Magnetic variation:</strong></div>');
-        parts.push('<table><thead><tr><th>Base °</th><th>Year</th><th>Δ°/yr</th><th>Lat</th><th>Lon</th><th>Range nm</th></tr></thead><tbody>');
+        parts.push('<table><thead><tr><th>Base °</th><th>Year</th><th>Δ′/yr</th><th>Lat</th><th>Lon</th><th>Range nm</th></tr></thead><tbody>');
         nav.magnetic_variation_list.forEach(v => {
-            parts.push(`<tr><td>${v.base_deg}</td><td>${v.base_year}</td><td>${v.annual_change_deg}</td><td>${v.lat}</td><td>${v.lon}</td><td>${v.range_nm}</td></tr>`);
+            // Stored in degrees, shown in minutes — the unit it was entered in.
+            const annualChangeMin = roundTo(degreesToMinutes(v.annual_change_deg), 1);
+            parts.push(`<tr><td>${v.base_deg}</td><td>${v.base_year}</td><td>${annualChangeMin}</td><td>${v.lat}</td><td>${v.lon}</td><td>${v.range_nm}</td></tr>`);
         });
         parts.push('</tbody></table>');
     }

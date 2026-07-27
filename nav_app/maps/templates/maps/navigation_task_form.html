@@ -143,6 +143,19 @@
         }
         .row .remove-btn:hover { background: #fecaca; }
 
+        .row .row-actions { display: flex; gap: 6px; align-items: center; }
+        .row .calc-btn {
+            background: #dbeafe; color: #1d4ed8;
+            border: none; padding: 4px 10px;
+            border-radius: 5px; cursor: pointer;
+            font-size: 0.8em;
+        }
+        .row .calc-btn:hover { background: #bfdbfe; }
+        .field .hint.filled { color: #15803d; }
+        .field .hint.warn { color: #b45309; }
+        .row .calc-summary { margin-top: 8px; font-size: 0.8em; color: #4b5563; }
+        .row .calc-summary.warn { color: #b45309; }
+
         .add-btn {
             background: #2563eb; color: #fff;
             border: none; padding: 8px 14px;
@@ -581,6 +594,8 @@
 </div>
 
 {{ schema|json_script:"ntSchema" }}
+<!-- Classic script: runs before the deferred module below, which uses its globals. -->
+<script src="{% static 'maps/js/navigation/angle_units.js' %}"></script>
 <script type="module" src="{% static 'maps/js/navigation/navigation_task_form.js' %}"></script>
 
 <!-- ============ CALCULATOR SIDEBAR (independent helper tools, not task data) ============ -->
@@ -817,6 +832,8 @@
 
 <!-- Shared coordinate helpers (nauticalToDecimal, formatCoordinatePair) -->
 <script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
+<!-- Navigation maths for the track-row calculator button; needs calculateDistance above. -->
+<script src="{% static 'maps/js/navigation/course_chain.js' %}"></script>
 <!-- Calculator cores + adapters (served from private_js). Load order matters:
      DR and Fix must precede RunFix (which depends on them). -->
 <script src="{% url 'maps:calculator_js' 'dr/dr_core.js' %}"></script>

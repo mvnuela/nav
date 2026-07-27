@@ -128,6 +128,22 @@ function formatCoordinatePair(lat, lon) {
 }
 
 /**
+ * Format a position for display, or nothing at all if it is incomplete.
+ *
+ * Unlike formatCoordinatePair this refuses to describe a half-known position:
+ * a missing coordinate yields an empty string rather than a coordinate silently
+ * built around NaN. Used for the derived "Position text" of a track point.
+ *
+ * @param {number} lat - Latitude in decimal degrees.
+ * @param {number} lon - Longitude in decimal degrees.
+ * @returns {string} Formatted pair, or '' if either coordinate is not a number.
+ */
+function formatPositionText(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+    return formatCoordinatePair(lat, lon);
+}
+
+/**
  * Custom graticule label formatter for Leaflet
  * @param {number} coord - Coordinate value
  * @param {string} type - 'lat' or 'lng'
@@ -241,6 +257,7 @@ if (typeof module !== 'undefined' && module.exports) {
         nauticalToDecimal,
         parseCoordinate,
         formatCoordinatePair,
+        formatPositionText,
         graticuleFormatter,
         createNauticalGraticule,
         calculateDistance,
