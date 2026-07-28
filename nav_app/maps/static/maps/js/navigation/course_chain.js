@@ -379,6 +379,92 @@
         return out;
     }
 
+    /** "YYYY-MM-DDTHH:MM[:SS]" -> epoch ms, reading the wall clock as if UTC. */
+    function parseLocal(s) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(s || '');
+        if (!m) return null;
+        return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], m[6] ? +m[6] : 0);
+    }
+
+    /**
+     * Wall-clock hours between two datetime-local values.
+     *
+     * Deliberately read through Date.UTC: the task carries one UTC offset for
+     * every track point, so the naive wall-clock difference is the right answer,
+     * and going through Date.UTC stops a DST boundary in the browser's own
+     * timezone from shifting it by an hour.
+     *
+     * @returns {number} hours (negative when the times are out of order), or NaN
+     */
+    function hoursBetween(localA, localB) {
+        const a = parseLocal(localA);
+        const b = parseLocal(localB);
+        if (a === null || b === null) return NaN;
+        return (b - a) / 3600000;
+    }
+
+    /**
+     * Every distance the leg into a track point can be worked out from, in the
+     * priority order the teacher chose: the log difference first, then the
+     * previous point's speed over the elapsed time, then the two plotted
+     * positions.
+     *
+     * All available sources are returned, not just the winner: the caller fills
+     * the field from the first and cross-checks it against the rest, so a log
+     * column that contradicts the speed column gets caught in the form.
+     *
+     * Row i's distance is the leg arriving at it
+     , sailed at row i-1's speed — hence speedPrev.
+     *
+     * @param {Object} leg
+     *   logPrev, logThis : nm, log readings of the two points (teacher-entered only)
+     *   speedPrev        : kn, speed leaving the previous point
+     *   hours            : elapsed hours between the two points
+     *   posPrev, posThis : {lat, lon} or null
+     * @returns {Array<{nm:number, source:string}>} possibly empty
+     */
+    function legDistances(leg) {
+        const out = [];
+        if (Number.isFinite(leg.logPrev) && Number.isFinite(leg.logThis)) {
+            const nm = round4(leg.logThis - leg.logPrev);
+            // A log that reads backwards is bad data, not a short leg: skip it and
+            // let another source answer.
+            if (nm >= 0) out.push({ nm: nm, source: 'log' });
+        }
+        if (Number.isFinite(leg.speedPrev) && Number.isFinite(leg.hours) && leg.hours > 0) {
+            out.push({ nm: round4(leg.speedPrev * leg.hours), source: 'speed-time' });
+        }
+        if (leg.posPrev && leg.posThis) {
+            out.push({
+                nm: round4(distanceNm(leg.posPrev.lat, leg.posPrev.lon, leg.posThis.lat, leg.posThis.lon)),
+                source: 'positions',
+            });
+        }
+        return out;
+    }
+
+    /**
+     * Run a position out along a course for a distance, flat-earth — the same
+     * conversion as dr_core.js:184-192, adequate for a DR leg.
+     *
+     * Called directly instead of through window.DR.calculate, whose API takes a
+     * speed and a time: the distance here may have come from a log difference,
+     * with no speed involved at all.
+     *
+     * @returns {{lat:number, lon:number}|null}
+     */
+    function positionFrom(lat, lon, cogDeg, nm) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) ||
+            !Number.isFinite(cogDeg) || !Number.isFinite(nm)) return null;
+        const rad = normalize360(cogDeg) * Math.PI / 180;
+        const north = nm * Math.cos(rad);
+        const east = nm * Math.sin(rad);
+        return {
+            lat: round4(lat + north / 60),
+            lon: round4(lon + east / (60 * Math.cos(lat * Math.PI / 180))),
+        };
+    }
+
     const CourseChain = {
         POINTS_OF_SAIL: POINTS_OF_SAIL,
         normalize360: normalize360,
@@ -391,6 +477,9 @@
         forward: forward,
         solveFromTrue: solveFromTrue,
         solveFromCOG: solveFromCOG,
+        hoursBetween: hoursBetween,
+        legDistances: legDistances,
+        positionFrom: positionFrom,
     };
 
     global.CourseChain = CourseChain;

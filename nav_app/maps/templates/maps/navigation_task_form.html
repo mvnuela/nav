@@ -834,6 +834,8 @@
 <script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
 <!-- Navigation maths for the track-row calculator button; needs calculateDistance above. -->
 <script src="{% static 'maps/js/navigation/course_chain.js' %}"></script>
+<!-- 4-decimal download serialiser (DokumentacjaJSON_v1.docx section 3). -->
+<script src="{% static 'maps/js/navigation/task_json.js' %}"></script>
 <!-- Calculator cores + adapters (served from private_js). Load order matters:
      DR and Fix must precede RunFix (which depends on them). -->
 <script src="{% url 'maps:calculator_js' 'dr/dr_core.js' %}"></script>

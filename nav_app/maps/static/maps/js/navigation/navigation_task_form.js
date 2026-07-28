@@ -5,7 +5,9 @@ import Ajv2020 from "https://esm.sh/ajv@8.17.1/dist/2020.js";
 // their globals are in place before this deferred module runs.
 
 const schema = JSON.parse(document.getElementById("ntSchema").textContent);
-const ajv = new Ajv2020({ allErrors: true, strict: false });
+// multipleOfPrecision: without it Ajv checks multipleOf by exact float division,
+// and a legal 4-decimal value like 18.7826 fails (18.7826/0.0001 is 187825.999…).
+const ajv = new Ajv2020({ allErrors: true, strict: false, multipleOfPrecision: 6 });
 const validate = ajv.compile(schema);
 
 const POINTS_OF_SAIL = [
@@ -275,8 +277,21 @@ function rebuildList(key) {
     const el = document.getElementById(cfg.container);
     const rows = Array.from(el.querySelectorAll(".row"));
     const values = rows.map(r => collectRow(r));
+    // A typed log keeps its manual mark across the re-index, or a row removal
+    // would silently turn the teacher's reading back into a derived value.
+    const manualLogs = rows.map(r => {
+        const log = r.querySelector('[name$=".log_nm"]');
+        return !!log && log.dataset.manual === "1";
+    });
     el.innerHTML = values.map((_, i) => cfg.build(i)).join("");
-    rows.forEach((_, i) => applyRow(el.querySelectorAll(".row")[i], values[i]));
+    const rebuilt = el.querySelectorAll(".row");
+    rows.forEach((_, i) => {
+        applyRow(rebuilt[i], values[i]);
+        if (manualLogs[i]) {
+            const log = rebuilt[i].querySelector('[name$=".log_nm"]');
+            if (log) log.dataset.manual = "1";
+        }
+    });
     if (key === "trk") recomputeTrack();
 }
 
@@ -370,22 +385,26 @@ function recomputeLogs() {
         if (!dist || !log) return;
 
         if (i === 0) {
-            // start point: distance fixed at 0; log is the base reading (editable)
+            // start point: distance fixed at 0; log is the base reading
             dist.value = "0";
             dist.readOnly = true;
-            log.readOnly = false;
             const base = parseFloat(log.value);
             prevLog = Number.isFinite(base) ? base : 0;
+            return;
+        }
+        if (log.dataset.manual === "1") {
+            // The teacher has a real log reading for this row; hers wins, and the
+            // calculator uses it as a distance source.
+            const typed = parseFloat(log.value);
+            if (Number.isFinite(typed)) prevLog = typed;
+            return;
+        }
+        const d = parseFloat(dist.value);
+        if (Number.isFinite(d)) {
+            prevLog = nm4(prevLog + d);
+            log.value = String(prevLog);
         } else {
-            dist.readOnly = false;
-            log.readOnly = true;
-            const d = parseFloat(dist.value);
-            if (Number.isFinite(d)) {
-                prevLog = nm4(prevLog + d);
-                log.value = String(prevLog);
-            } else {
-                log.value = ""; // distance not entered yet → leave the log blank
-            }
+            log.value = ""; // distance not entered yet → leave the log blank
         }
     });
 }
@@ -521,8 +540,90 @@ function courseTargets(i, row) {
     }));
 }
 
-// Task 8 fills this in: distance, log and the DR position.
-function legTargets() { return []; }
+const DISTANCE_SOURCE = {
+    log: "the log difference",
+    "speed-time": "speed × time",
+    positions: "the plotted positions",
+};
+
+/** A log reading only counts as input if the teacher typed it. */
+function manualLog(i) {
+    const el = document.querySelector(`[name="trk.${i}.log_nm"]`);
+    if (!el || el.dataset.manual !== "1") return undefined;
+    const v = parseFloat(el.value);
+    return Number.isFinite(v) ? v : undefined;
+}
+
+// Row i's distance is the leg arriving at it, sailed at row i-1's speed along
+// row i-1's COG. Row 0 has no incoming leg.
+function legTargets(i, row) {
+    if (i === 0) return [];
+    const distInput = row.querySelector(`[name="trk.${i}.distance_nm"]`);
+    const logInput  = row.querySelector(`[name="trk.${i}.log_nm"]`);
+    const latInput  = row.querySelector(`[name="trk.${i}.position.lat"]`);
+    const lonInput  = row.querySelector(`[name="trk.${i}.position.lon"]`);
+    if (!distInput || !logInput) return [];
+
+    const logPrev = manualLog(i - 1);
+    const options = CourseChain.legDistances({
+        logPrev:   logPrev,
+        logThis:   manualLog(i),
+        speedPrev: val(`trk.${i - 1}.speed_kn`, { number: true }),
+        hours:     CourseChain.hoursBetween(val(`trk.${i - 1}.time`), val(`trk.${i}.time`)),
+        posPrev:   positionOf(i - 1),
+        posThis:   positionOf(i),
+    });
+    const winner = options[0];
+    const targets = [];
+
+    // A second source that disagrees with the one used means one of them is wrong.
+    const conflicts = winner
+        ? options.slice(1).filter(o => Math.abs(o.nm - winner.nm) > TOLERANCE.distance)
+        : [];
+
+    targets.push({
+        input: distInput, kind: "distance",
+        value: winner ? winner.nm : undefined,
+        source: winner ? DISTANCE_SOURCE[winner.source] : undefined,
+        missing: "two typed logs, a previous speed with both times, or two positions",
+        title: options.map(o => `${o.nm} nm from ${DISTANCE_SOURCE[o.source]}`).join("\n"),
+        warn: conflicts.length
+            ? `but ${conflicts.map(o => `${DISTANCE_SOURCE[o.source]} gives ${o.nm}`).join(" and ")}`
+            : undefined,
+    });
+
+    targets.push(Number.isFinite(logPrev) && winner
+        ? {
+            input: logInput, kind: "distance",
+            value: CourseChain.round4(logPrev + winner.nm),
+            source: `the previous log plus ${winner.nm} nm`,
+        }
+        : {
+            input: logInput, kind: "distance", value: undefined,
+            missing: "a typed log on the previous point and this leg's distance",
+        });
+
+    const prevPos = positionOf(i - 1);
+    const prevCog = val(`trk.${i - 1}.course_over_ground_deg`, { number: true });
+    const dr = (prevPos && Number.isFinite(prevCog) && winner)
+        ? CourseChain.positionFrom(prevPos.lat, prevPos.lon, prevCog, winner.nm)
+        : null;
+    const drMissing = "the previous position, its course over ground, and this leg's distance";
+    if (latInput) {
+        targets.push({
+            input: latInput, kind: "coord", value: dr ? dr.lat : undefined,
+            source: `dead reckoning from track point ${i}`, missing: drMissing,
+        });
+    }
+    if (lonInput) {
+        targets.push({
+            input: lonInput, kind: "coord", value: dr ? dr.lon : undefined,
+            source: `dead reckoning from track point ${i}`, missing: drMissing,
+        });
+    }
+
+    return targets;
+}
 
 function showRowSummary(row, outcome) {
     const el = row.querySelector(".calc-summary");
@@ -551,6 +652,7 @@ function calcRow(i) {
         flagged: first.flagged + second.flagged,
         missing: [...first.missing, ...second.missing],
     });
+    recomputeTrack();   // the distance feeds the derived logs, the DR position the text
 }
 
 document.body.addEventListener("click", e => {
@@ -560,10 +662,13 @@ document.body.addEventListener("click", e => {
     if (i >= 0) calcRow(i);
 });
 
-// Any distance edit (or the start point's log) re-derives the cumulative logs;
-// a coordinate edit re-derives that row's position text.
+// A log the teacher types is hers: it stops being derived from the distances and
+// becomes a distance source for the calculator instead. Any distance edit (or the
+// start point's log) re-derives the cumulative logs; a coordinate edit re-derives
+// that row's position text.
 document.body.addEventListener("input", e => {
     const name = e.target.name || "";
+    if (/^trk\.\d+\.log_nm$/.test(name)) e.target.dataset.manual = "1";
     if (/^trk\.\d+\.(distance_nm|log_nm)$/.test(name)) recomputeLogs();
     if (/^trk\.\d+\.position\.(lat|lon)$/.test(name)) recomputePositions();
 });
@@ -774,7 +879,9 @@ function showStatus(html, kind) {
 }
 
 function downloadJSON(obj, filename) {
-    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    // DokumentacjaJSON_v1.docx section 3: 4 decimal places, fractions padded,
+    // integers bare — JSON.stringify cannot express that.
+    const blob = new Blob([TaskJSON.formatTaskJSON(obj)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = filename;
