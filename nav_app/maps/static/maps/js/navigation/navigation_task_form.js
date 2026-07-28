@@ -1,7 +1,13 @@
 import Ajv2020 from "https://esm.sh/ajv@8.17.1/dist/2020.js";
 
+// minutesToDegrees()/roundTo() come from angle_units.js and formatPositionText()
+// from graticule_formatter.js, both loaded as plain scripts by the template —
+// their globals are in place before this deferred module runs.
+
 const schema = JSON.parse(document.getElementById("ntSchema").textContent);
-const ajv = new Ajv2020({ allErrors: true, strict: false });
+// multipleOfPrecision: without it Ajv checks multipleOf by exact float division,
+// and a legal 4-decimal value like 18.7826 fails (18.7826/0.0001 is 187825.999…).
+const ajv = new Ajv2020({ allErrors: true, strict: false, multipleOfPrecision: 6 });
 const validate = ajv.compile(schema);
 
 const POINTS_OF_SAIL = [
@@ -78,8 +84,16 @@ const TIMEZONES = [
 ];
 
 // ---------- Row builders ----------
+// A field's hint span is either static text — position text explains that it is
+// derived — or, with hint: true, an empty span the calculator button writes its
+// explanation into.
+function hintSpan(hint) {
+    if (hint === true) return '<span class="hint"></span>';
+    return hint ? `<span class="hint">${hint}</span>` : "";
+}
+
 function num(name, label, opts = {}) {
-    const { step = "0.0001", min, max, required = true } = opts;
+    const { step = "0.0001", min, max, required = true, hint = false } = opts;
     const attrs = [
         `type="number"`, `step="${step}"`, `name="${name}"`,
         min !== undefined ? `min="${min}"` : "",
@@ -90,25 +104,31 @@ function num(name, label, opts = {}) {
         <div class="field">
             <label>${label}${required ? ' <span class="req">*</span>' : ""}</label>
             <input ${attrs}>
+            ${hintSpan(hint)}
         </div>`;
 }
 
-function text(name, label, { required = true, placeholder = "" } = {}) {
+function text(name, label, { required = true, placeholder = "", readOnly = false, hint = "" } = {}) {
     return `
         <div class="field">
             <label>${label}${required ? ' <span class="req">*</span>' : ""}</label>
-            <input type="text" name="${name}"${required ? " required" : ""}${placeholder ? ` placeholder="${placeholder}"` : ""}>
+            <input type="text" name="${name}"${required ? " required" : ""}${readOnly ? " readonly" : ""}${placeholder ? ` placeholder="${placeholder}"` : ""}>
+            ${hintSpan(hint)}
         </div>`;
 }
 
-function rowWrap(title, idx, inner) {
+function rowWrap(title, idx, inner, extraButtons = "") {
     return `
         <div class="row" data-idx="${idx}">
             <div class="row-title">
                 <span>${title} #${idx + 1}</span>
-                <button type="button" class="remove-btn">Remove</button>
+                <span class="row-actions">
+                    ${extraButtons}
+                    <button type="button" class="remove-btn">Remove</button>
+                </span>
             </div>
             ${inner}
+            ${extraButtons ? '<div class="calc-summary" hidden></div>' : ""}
         </div>`;
 }
 
@@ -118,7 +138,7 @@ function mvRowHTML(idx) {
         <div class="grid">
             ${num(`mv.${idx}.base_deg`,         "Base variation (°)")}
             ${num(`mv.${idx}.base_year`,        "Base year", { step: "1", min: 1900, max: 2100 })}
-            ${num(`mv.${idx}.annual_change_deg`,"Annual change (°)")}
+            ${num(`mv.${idx}.annual_change_min`,"Annual change (′/yr)", { step: "0.1" })}
             ${num(`mv.${idx}.lat`,              "Latitude (°)",  { min: -90,  max: 90 })}
             ${num(`mv.${idx}.lon`,              "Longitude (°)", { min: -180, max: 180 })}
             ${num(`mv.${idx}.range_nm`,         "Range (nm)",    { min: 0 })}
@@ -226,19 +246,23 @@ function trkRowHTML(idx) {
                 <input type="datetime-local" step="1" name="trk.${idx}.time" required>
                 <span class="hint">Combined with timezone offset on export.</span>
             </div>
-            ${num(`trk.${idx}.position.lat`, "Latitude (°)",  { min: -90,  max: 90 })}
-            ${num(`trk.${idx}.position.lon`, "Longitude (°)", { min: -180, max: 180 })}
-            ${text(`trk.${idx}.position.position_txt`, "Position text", { placeholder: "54°30'N 18°30'E" })}
-            ${num(`trk.${idx}.distance_nm`, "Distance (nm)", { min: 0 })}
-            ${num(`trk.${idx}.log_nm`,      "Log (nm)",      { min: 0 })}
-            ${num(`trk.${idx}.course_compass_deg`,        "Course compass (°)",        { min: 0, max: 359.9999 })}
-            ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999 })}
-            ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999 })}
+            ${num(`trk.${idx}.position.lat`, "Latitude (°)",  { min: -90,  max: 90,  hint: true })}
+            ${num(`trk.${idx}.position.lon`, "Longitude (°)", { min: -180, max: 180, hint: true })}
+            ${text(`trk.${idx}.position.position_txt`, "Position text", {
+                readOnly: true,
+                hint: "Derived from the latitude and longitude.",
+            })}
+            ${num(`trk.${idx}.distance_nm`, "Distance (nm)", { min: 0, hint: true })}
+            ${num(`trk.${idx}.log_nm`,      "Log (nm)",      { min: 0, hint: true })}
+            ${num(`trk.${idx}.course_compass_deg`,        "Course compass (°)",        { min: 0, max: 359.9999, hint: true })}
+            ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999, hint: true })}
+            ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999, hint: true })}
             ${windField(`trk.${idx}.wind_true_deg`, "Wind true (°)")}
             ${num(`trk.${idx}.wind_app_deg`,  "Wind apparent (°)",  { min: 0, max: 359.9999 })}
             ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0 })}
         </div>`;
-    return rowWrap("Track point", idx, inner);
+    return rowWrap("Track point", idx, inner,
+        '<button type="button" class="calc-btn" title="Fill in the fields this row is missing">🧮 Calculate</button>');
 }
 
 // ---------- Dynamic list manager ----------
@@ -253,9 +277,22 @@ function rebuildList(key) {
     const el = document.getElementById(cfg.container);
     const rows = Array.from(el.querySelectorAll(".row"));
     const values = rows.map(r => collectRow(r));
+    // A typed log keeps its manual mark across the re-index, or a row removal
+    // would silently turn the teacher's reading back into a derived value.
+    const manualLogs = rows.map(r => {
+        const log = r.querySelector('[name$=".log_nm"]');
+        return !!log && log.dataset.manual === "1";
+    });
     el.innerHTML = values.map((_, i) => cfg.build(i)).join("");
-    rows.forEach((_, i) => applyRow(el.querySelectorAll(".row")[i], values[i]));
-    if (key === "trk") recomputeLogs();
+    const rebuilt = el.querySelectorAll(".row");
+    rows.forEach((_, i) => {
+        applyRow(rebuilt[i], values[i]);
+        if (manualLogs[i]) {
+            const log = rebuilt[i].querySelector('[name$=".log_nm"]');
+            if (log) log.dataset.manual = "1";
+        }
+    });
+    if (key === "trk") recomputeTrack();
 }
 
 function collectRow(rowEl) {
@@ -282,7 +319,7 @@ function addRow(key) {
 document.querySelectorAll("button[data-add]").forEach(btn => {
     btn.addEventListener("click", () => {
         addRow(btn.dataset.add);
-        if (btn.dataset.add === "trk") recomputeLogs();
+        if (btn.dataset.add === "trk") recomputeTrack();
     });
 });
 
@@ -336,7 +373,7 @@ populateTimezones();
 // and shown read-only. Recompute cascades so editing any earlier distance
 // updates all following logs.
 function nm4(x) {
-    return Math.round(x * 10000) / 10000; // keep to the schema's 0.0001 precision
+    return roundTo(x, 4); // keep to the schema's 0.0001 precision
 }
 
 function recomputeLogs() {
@@ -348,29 +385,292 @@ function recomputeLogs() {
         if (!dist || !log) return;
 
         if (i === 0) {
-            // start point: distance fixed at 0; log is the base reading (editable)
+            // start point: distance fixed at 0; log is the base reading
             dist.value = "0";
             dist.readOnly = true;
-            log.readOnly = false;
             const base = parseFloat(log.value);
             prevLog = Number.isFinite(base) ? base : 0;
+            return;
+        }
+        if (log.dataset.manual === "1") {
+            // The teacher has a real log reading for this row; hers wins, and the
+            // calculator uses it as a distance source.
+            const typed = parseFloat(log.value);
+            if (Number.isFinite(typed)) prevLog = typed;
+            return;
+        }
+        const d = parseFloat(dist.value);
+        if (Number.isFinite(d)) {
+            prevLog = nm4(prevLog + d);
+            log.value = String(prevLog);
         } else {
-            dist.readOnly = false;
-            log.readOnly = true;
-            const d = parseFloat(dist.value);
-            if (Number.isFinite(d)) {
-                prevLog = nm4(prevLog + d);
-                log.value = String(prevLog);
-            } else {
-                log.value = ""; // distance not entered yet → leave the log blank
-            }
+            log.value = ""; // distance not entered yet → leave the log blank
         }
     });
 }
 
-// Any distance edit (or the start point's log) re-derives the cumulative logs.
+// ---------- Track position text auto-fill ----------
+// Position text only ever restates the latitude and longitude above it, so it
+// is derived rather than typed: the input is read-only and refilled whenever
+// either coordinate changes. A half-entered position leaves it blank instead of
+// showing a coordinate built around the missing half.
+function recomputePositions() {
+    document.querySelectorAll("#trkList .row").forEach((row, i) => {
+        const txt = row.querySelector(`[name="trk.${i}.position.position_txt"]`);
+        if (!txt) return;
+        const lat = parseFloat(row.querySelector(`[name="trk.${i}.position.lat"]`)?.value);
+        const lon = parseFloat(row.querySelector(`[name="trk.${i}.position.lon"]`)?.value);
+        txt.value = formatPositionText(lat, lon);
+    });
+}
+
+// Every derived field of the track, refreshed together. Rows are added, removed
+// and re-indexed from several places; they all go through here.
+function recomputeTrack() {
+    recomputeLogs();
+    recomputePositions();
+}
+
+// ---------- The calculator button ----------
+// Whatever is filled is input, whatever is blank is output. A field that already
+// has a value is never overwritten; if the computed value disagrees beyond
+// tolerance the row says so and keeps the teacher's number.
+const TOLERANCE = { angle: 0.05, distance: 0.05, coord: 0.0002, text: 0 };
+const COURSE_FIELDS = { compass: "course_compass_deg", true: "course_true_deg", cog: "course_over_ground_deg" };
+const COURSE_ORDER = ["compass", "true", "cog"];
+
+function hintOf(input) {
+    const field = input.closest(".field");
+    return field ? field.querySelector(".hint") : null;
+}
+
+function setHint(hint, text, kind) {
+    if (!hint) return;
+    hint.textContent = text;
+    hint.classList.toggle("filled", kind === "filled");
+    hint.classList.toggle("warn", kind === "warn");
+}
+
+function disagrees(currentText, target) {
+    if (target.kind === "text") return currentText !== String(target.value);
+    const current = parseFloat(currentText);
+    if (!Number.isFinite(current)) return false;
+    const diff = target.kind === "angle"
+        ? Math.abs(CourseChain.normalize180(current - target.value))
+        : Math.abs(current - target.value);
+    return diff > TOLERANCE[target.kind];
+}
+
+/**
+ * @param {Array} targets each {input, kind, value, source, missing, title, warn}
+ * @returns {{filled:number, flagged:number, missing:string[]}}
+ */
+function applyTargets(targets) {
+    let filled = 0;
+    let flagged = 0;
+    const missing = [];
+
+    targets.forEach(t => {
+        const hint = hintOf(t.input);
+        const current = t.input.value.trim();
+        if (t.title) t.input.title = t.title;
+
+        const unavailable = t.value === undefined || t.value === null ||
+            (typeof t.value === "number" && !Number.isFinite(t.value));
+        if (unavailable) {
+            if (t.missing) missing.push(t.missing);
+            if (current === "" && t.missing) setHint(hint, `needs ${t.missing}`, "warn");
+            else setHint(hint, "", null);
+            return;
+        }
+
+        const text = typeof t.value === "number" ? String(nm4(t.value)) : String(t.value);
+        if (current === "") {
+            t.input.value = text;
+            filled++;
+            setHint(hint, `from ${t.source}`, "filled");
+        } else if (disagrees(current, t)) {
+            flagged++;
+            setHint(hint, `${t.source} gives ${text} — kept your ${current}`, "warn");
+        } else {
+            setHint(hint, "", null);
+        }
+
+        if (t.warn) {
+            flagged++;
+            const existing = hint ? hint.textContent : "";
+            setHint(hint, [existing, t.warn].filter(Boolean).join(" · "), "warn");
+        }
+    });
+
+    return { filled, flagged, missing };
+}
+
+// The three courses solve from whichever one is filled, in compass → true → COG
+// order. Any other filled course becomes a cross-check rather than an input.
+function courseTargets(i, row) {
+    const inputs = {};
+    for (const [key, suffix] of Object.entries(COURSE_FIELDS)) {
+        const el = row.querySelector(`[name="trk.${i}.${suffix}"]`);
+        if (!el) return [];
+        inputs[key] = el;
+    }
+
+    const anchor = COURSE_ORDER.find(k => inputs[k].value.trim() !== "");
+    if (!anchor) {
+        return COURSE_ORDER.map(key => ({
+            input: inputs[key], kind: "angle", value: undefined,
+            missing: "one of the three courses",
+        }));
+    }
+
+    const value = parseFloat(inputs[anchor].value);
+    const ctx = rowCtx(i);
+    const result = anchor === "compass" ? CourseChain.forward(value, ctx)
+                 : anchor === "true"    ? CourseChain.solveFromTrue(value, ctx)
+                 :                        CourseChain.solveFromCOG(value, ctx);
+    const derived = { compass: result.compass, true: result.trueDeg, cog: result.cog };
+    const missing = (result.missing || []).join(", ");
+    const title = (result.steps || []).join("\n");
+
+    return COURSE_ORDER.filter(key => key !== anchor).map(key => ({
+        input: inputs[key], kind: "angle", value: derived[key],
+        source: "the course chain", title: title,
+        missing: missing || "more input",
+    }));
+}
+
+const DISTANCE_SOURCE = {
+    log: "the log difference",
+    "speed-time": "speed × time",
+    positions: "the plotted positions",
+};
+
+/** A log reading only counts as input if the teacher typed it. */
+function manualLog(i) {
+    const el = document.querySelector(`[name="trk.${i}.log_nm"]`);
+    if (!el || el.dataset.manual !== "1") return undefined;
+    const v = parseFloat(el.value);
+    return Number.isFinite(v) ? v : undefined;
+}
+
+// Row i's distance is the leg arriving at it, sailed at row i-1's speed along
+// row i-1's COG. Row 0 has no incoming leg.
+function legTargets(i, row) {
+    if (i === 0) return [];
+    const distInput = row.querySelector(`[name="trk.${i}.distance_nm"]`);
+    const logInput  = row.querySelector(`[name="trk.${i}.log_nm"]`);
+    const latInput  = row.querySelector(`[name="trk.${i}.position.lat"]`);
+    const lonInput  = row.querySelector(`[name="trk.${i}.position.lon"]`);
+    if (!distInput || !logInput) return [];
+
+    const logPrev = manualLog(i - 1);
+    const options = CourseChain.legDistances({
+        logPrev:   logPrev,
+        logThis:   manualLog(i),
+        speedPrev: val(`trk.${i - 1}.speed_kn`, { number: true }),
+        hours:     CourseChain.hoursBetween(val(`trk.${i - 1}.time`), val(`trk.${i}.time`)),
+        posPrev:   positionOf(i - 1),
+        posThis:   positionOf(i),
+    });
+    const winner = options[0];
+    const targets = [];
+
+    // A second source that disagrees with the one used means one of them is wrong.
+    const conflicts = winner
+        ? options.slice(1).filter(o => Math.abs(o.nm - winner.nm) > TOLERANCE.distance)
+        : [];
+
+    targets.push({
+        input: distInput, kind: "distance",
+        value: winner ? winner.nm : undefined,
+        source: winner ? DISTANCE_SOURCE[winner.source] : undefined,
+        missing: "two typed logs, a previous speed with both times, or two positions",
+        title: options.map(o => `${o.nm} nm from ${DISTANCE_SOURCE[o.source]}`).join("\n"),
+        warn: conflicts.length
+            ? `but ${conflicts.map(o => `${DISTANCE_SOURCE[o.source]} gives ${o.nm}`).join(" and ")}`
+            : undefined,
+    });
+
+    targets.push(Number.isFinite(logPrev) && winner
+        ? {
+            input: logInput, kind: "distance",
+            value: CourseChain.round4(logPrev + winner.nm),
+            source: `the previous log plus ${winner.nm} nm`,
+        }
+        : {
+            input: logInput, kind: "distance", value: undefined,
+            missing: "a typed log on the previous point and this leg's distance",
+        });
+
+    const prevPos = positionOf(i - 1);
+    const prevCog = val(`trk.${i - 1}.course_over_ground_deg`, { number: true });
+    const dr = (prevPos && Number.isFinite(prevCog) && winner)
+        ? CourseChain.positionFrom(prevPos.lat, prevPos.lon, prevCog, winner.nm)
+        : null;
+    const drMissing = "the previous position, its course over ground, and this leg's distance";
+    if (latInput) {
+        targets.push({
+            input: latInput, kind: "coord", value: dr ? dr.lat : undefined,
+            source: `dead reckoning from track point ${i}`, missing: drMissing,
+        });
+    }
+    if (lonInput) {
+        targets.push({
+            input: lonInput, kind: "coord", value: dr ? dr.lon : undefined,
+            source: `dead reckoning from track point ${i}`, missing: drMissing,
+        });
+    }
+
+    return targets;
+}
+
+function showRowSummary(row, outcome) {
+    const el = row.querySelector(".calc-summary");
+    if (!el) return;
+    const parts = [outcome.filled === 1 ? "filled 1 field" : `filled ${outcome.filled} fields`];
+    if (outcome.flagged) {
+        parts.push(outcome.flagged === 1 ? "1 disagreement flagged" : `${outcome.flagged} disagreements flagged`);
+    }
+    const needs = Array.from(new Set(outcome.missing));
+    if (needs.length) parts.push(`still needs ${needs.join("; ")}`);
+    el.textContent = parts.join(" · ");
+    el.hidden = false;
+    el.classList.toggle("warn", outcome.flagged > 0 || needs.length > 0);
+}
+
+// Two passes, because the second depends on what the first wrote: the leg fills the
+// position, and the variation lookup reads it. (Position text needs no pass of its
+// own — recomputePositions derives it from lat/lon the moment they change.)
+function calcRow(i) {
+    const row = document.querySelectorAll("#trkList .row")[i];
+    if (!row) return;
+    const first = applyTargets(legTargets(i, row));
+    const second = applyTargets(courseTargets(i, row));
+    showRowSummary(row, {
+        filled:  first.filled + second.filled,
+        flagged: first.flagged + second.flagged,
+        missing: [...first.missing, ...second.missing],
+    });
+    recomputeTrack();   // the distance feeds the derived logs, the DR position the text
+}
+
+document.body.addEventListener("click", e => {
+    if (!e.target.classList.contains("calc-btn")) return;
+    const rows = Array.from(document.querySelectorAll("#trkList .row"));
+    const i = rows.indexOf(e.target.closest(".row"));
+    if (i >= 0) calcRow(i);
+});
+
+// A log the teacher types is hers: it stops being derived from the distances and
+// becomes a distance source for the calculator instead. Any distance edit (or the
+// start point's log) re-derives the cumulative logs; a coordinate edit re-derives
+// that row's position text.
 document.body.addEventListener("input", e => {
-    if (/^trk\.\d+\.(distance_nm|log_nm)$/.test(e.target.name || "")) recomputeLogs();
+    const name = e.target.name || "";
+    if (/^trk\.\d+\.log_nm$/.test(name)) e.target.dataset.manual = "1";
+    if (/^trk\.\d+\.(distance_nm|log_nm)$/.test(name)) recomputeLogs();
+    if (/^trk\.\d+\.position\.(lat|lon)$/.test(name)) recomputePositions();
 });
 
 // initial seed: leeway (fixed 4) + one row each for required arrays
@@ -384,7 +684,7 @@ addRow("mv");
 });
 addRow("poi");
 addRow("trk");
-recomputeLogs();
+recomputeTrack();
 
 // ---------- Build JSON from form ----------
 function val(name, { number = false } = {}) {
@@ -400,6 +700,72 @@ function localToIso(local, offset) {
     if (!local) return undefined;
     const withSeconds = local.length === 16 ? local + ":00" : local;
     return `${withSeconds}${offset || "Z"}`;
+}
+
+// ---------- Form → plain data (shared by the JSON export and the calculator) ----------
+function readCard() {
+    return CD_HEADINGS
+        .map((heading, i) => ({
+            heading_deg:   heading,
+            deviation_deg: val(`cd.${i}.deviation_deg`, { number: true }),
+        }))
+        .filter(cell => cell.deviation_deg !== undefined);
+}
+
+// Annual change is entered in minutes and stored in degrees; converting here is
+// what keeps that conversion in one place, since buildJSON calls this too.
+function readMvList() {
+    const rows = document.querySelectorAll("#mvList .row");
+    return Array.from(rows).map((_, i) => {
+        const annualChangeMin = val(`mv.${i}.annual_change_min`, { number: true });
+        return {
+            base_deg:          val(`mv.${i}.base_deg`,  { number: true }),
+            base_year:         val(`mv.${i}.base_year`, { number: true }),
+            annual_change_deg: annualChangeMin === undefined
+                ? undefined
+                : nm4(minutesToDegrees(annualChangeMin)),
+            lat:               val(`mv.${i}.lat`,       { number: true }),
+            lon:               val(`mv.${i}.lon`,       { number: true }),
+            range_nm:          val(`mv.${i}.range_nm`,  { number: true }),
+        };
+    });
+}
+
+function readLeewayTable() {
+    const table = {};
+    POINTS_OF_SAIL.forEach(p => {
+        table[p.key] = {
+            range: {
+                min_deg: val(`lw.${p.key}.min_deg`, { number: true }),
+                max_deg: val(`lw.${p.key}.max_deg`, { number: true }),
+            },
+            value_deg: val(`lw.${p.key}.value_deg`, { number: true }),
+        };
+    });
+    return table;
+}
+
+function positionOf(i) {
+    const lat = val(`trk.${i}.position.lat`, { number: true });
+    const lon = val(`trk.${i}.position.lon`, { number: true });
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+}
+
+// Everything the course chain needs to work on one track row.
+function rowCtx(i) {
+    const wind = val(`trk.${i}.wind_true_deg`, { number: true });
+    const time = val(`trk.${i}.time`);
+    const pos = positionOf(i);
+    return {
+        card:        readCard(),
+        mvList:      readMvList(),
+        leewayTable: readLeewayTable(),
+        windTrueDeg: wind === undefined ? NaN : wind,
+        lat:         pos ? pos.lat : NaN,
+        lon:         pos ? pos.lon : NaN,
+        year:        time ? Number(time.slice(0, 4)) : NaN,
+    };
 }
 
 const CHART_FIELDS = [
@@ -429,34 +795,9 @@ function buildJSON() {
     const tzOffset = val("tz.offset");
     const tzName = document.getElementById("tzSelect")?.selectedOptions[0]?.dataset.name;
 
-    const mvRows = document.querySelectorAll("#mvList .row");
-    const magnetic_variation_list = Array.from(mvRows).map((_, i) => ({
-        base_deg:          val(`mv.${i}.base_deg`,          { number: true }),
-        base_year:         val(`mv.${i}.base_year`,         { number: true }),
-        annual_change_deg: val(`mv.${i}.annual_change_deg`, { number: true }),
-        lat:               val(`mv.${i}.lat`,               { number: true }),
-        lon:               val(`mv.${i}.lon`,               { number: true }),
-        range_nm:          val(`mv.${i}.range_nm`,          { number: true }),
-    }));
-
-    // Fixed 10° headings; keep only the cells where a deviation was entered.
-    const compass_deviation_table = CD_HEADINGS
-        .map((heading, i) => ({
-            heading_deg:   heading,
-            deviation_deg: val(`cd.${i}.deviation_deg`, { number: true }),
-        }))
-        .filter(entry => entry.deviation_deg !== undefined);
-
-    const leeway = {};
-    POINTS_OF_SAIL.forEach(p => {
-        leeway[p.key] = {
-            range: {
-                min_deg: val(`lw.${p.key}.min_deg`, { number: true }),
-                max_deg: val(`lw.${p.key}.max_deg`, { number: true }),
-            },
-            value_deg: val(`lw.${p.key}.value_deg`, { number: true }),
-        };
-    });
+    const magnetic_variation_list = readMvList();
+    const compass_deviation_table = readCard();
+    const leeway = readLeewayTable();
 
     const poiRows = document.querySelectorAll("#poiList .row");
     const poi = Array.from(poiRows).map((_, i) => ({
@@ -538,7 +879,9 @@ function showStatus(html, kind) {
 }
 
 function downloadJSON(obj, filename) {
-    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    // DokumentacjaJSON_v1.docx section 3: 4 decimal places, fractions padded,
+    // integers bare — JSON.stringify cannot express that.
+    const blob = new Blob([TaskJSON.formatTaskJSON(obj)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = filename;
