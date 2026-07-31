@@ -245,10 +245,15 @@ function trkRowHTML(idx) {
     const inner = `
         <div class="grid">
             <div class="field">
+                <label>Date (local) <span class="req">*</span></label>
+                <input type="date" name="trk.${idx}.date" required
+                       min="1900-01-01" max="2100-12-31">
+                <span class="hint">Carried over when you add the next point.</span>
+            </div>
+            <div class="field">
                 <label>Time (local) <span class="req">*</span></label>
-                <input type="datetime-local" step="1" name="trk.${idx}.time" required
-                       min="1900-01-01T00:00:00" max="2100-12-31T23:59:59">
-                <span class="hint">Combined with timezone offset on export.</span>
+                <input type="time" step="1" name="trk.${idx}.time" required>
+                <span class="hint">Combined with the date and timezone offset on export.</span>
             </div>
             ${num(`trk.${idx}.position.lat`, "Latitude (°)",  { min: -90,  max: 90,  hint: true })}
             ${num(`trk.${idx}.position.lon`, "Longitude (°)", { min: -180, max: 180, hint: true })}
@@ -318,6 +323,14 @@ function addRow(key) {
     const el = document.getElementById(cfg.container);
     const idx = el.querySelectorAll(".row").length;
     el.insertAdjacentHTML("beforeend", cfg.build(idx));
+    // A passage usually runs through one day, so a new point inherits the
+    // previous point's date. The time is deliberately left blank: a guessed
+    // time would look filled in and quietly skew every elapsed-time leg.
+    if (key === "trk" && idx > 0) {
+        const previous = val(`trk.${idx - 1}.date`);
+        const input = el.querySelector(`[name="trk.${idx}.date"]`);
+        if (previous && input) input.value = previous;
+    }
 }
 
 document.querySelectorAll("button[data-add]").forEach(btn => {
@@ -573,7 +586,7 @@ function legTargets(i, row) {
         logPrev:   logPrev,
         logThis:   manualLog(i),
         speedPrev: val(`trk.${i - 1}.speed_kn`, { number: true }),
-        hours:     CourseChain.hoursBetween(val(`trk.${i - 1}.time`), val(`trk.${i}.time`)),
+        hours:     CourseChain.hoursBetween(localTimeOf(i - 1), localTimeOf(i)),
         posPrev:   positionOf(i - 1),
         posThis:   positionOf(i),
     });
@@ -700,11 +713,11 @@ function val(name, { number = false } = {}) {
     return number ? Number(v) : v;
 }
 
+// composeLocal() already guarantees seconds, so this only bolts the task's
+// UTC offset onto the wall-clock string.
 function localToIso(local, offset) {
-    // local: "2026-05-12T14:30" or "2026-05-12T14:30:00"
     if (!local) return undefined;
-    const withSeconds = local.length === 16 ? local + ":00" : local;
-    return `${withSeconds}${offset || "Z"}`;
+    return `${local}${offset || "Z"}`;
 }
 
 // ---------- Form → plain data (shared by the JSON export and the calculator) ----------
@@ -757,10 +770,16 @@ function positionOf(i) {
     return { lat, lon };
 }
 
+// The date and time are separate controls; composeLocal() is the only place
+// they are joined, and it yields undefined until both are filled in.
+function localTimeOf(i) {
+    return composeLocal(val(`trk.${i}.date`), val(`trk.${i}.time`));
+}
+
 // Everything the course chain needs to work on one track row.
 function rowCtx(i) {
     const wind = val(`trk.${i}.wind_true_deg`, { number: true });
-    const time = val(`trk.${i}.time`);
+    const date = val(`trk.${i}.date`);
     const pos = positionOf(i);
     return {
         card:        readCard(),
@@ -769,7 +788,7 @@ function rowCtx(i) {
         windTrueDeg: wind === undefined ? NaN : wind,
         lat:         pos ? pos.lat : NaN,
         lon:         pos ? pos.lon : NaN,
-        year:        time ? Number(time.slice(0, 4)) : NaN,
+        year:        date ? Number(date.slice(0, 4)) : NaN,
     };
 }
 
@@ -817,7 +836,7 @@ function buildJSON() {
     const trkRows = document.querySelectorAll("#trkList .row");
     const trk = Array.from(trkRows).map((_, i) => ({
         id:   `trk-${i + 1}`,
-        time: localToIso(val(`trk.${i}.time`), tzOffset),
+        time: localToIso(localTimeOf(i), tzOffset),
         position: {
             lat:          val(`trk.${i}.position.lat`, { number: true }),
             lon:          val(`trk.${i}.position.lon`, { number: true }),

@@ -606,6 +606,7 @@
 {{ schema|json_script:"ntSchema" }}
 <!-- Classic script: runs before the deferred module below, which uses its globals. -->
 <script src="{% static 'maps/js/navigation/angle_units.js' %}"></script>
+<script src="{% static 'maps/js/navigation/local_datetime.js' %}"></script>
 <script type="module" src="{% static 'maps/js/navigation/navigation_task_form.js' %}"></script>
 
 <!-- ============ CALCULATOR SIDEBAR (independent helper tools, not task data) ============ -->
