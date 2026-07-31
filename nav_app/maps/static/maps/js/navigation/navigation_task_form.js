@@ -92,12 +92,13 @@ function hintSpan(hint) {
 }
 
 function num(name, label, opts = {}) {
-    const { step = "0.0001", min, max, required = true, hint = false, value } = opts;
+    const { step = "0.1", min, max, required = true, hint = false, value, list } = opts;
     const attrs = [
         `type="number"`, `step="${step}"`, `name="${name}"`,
         min !== undefined ? `min="${min}"` : "",
         max !== undefined ? `max="${max}"` : "",
         value !== undefined ? `value="${value}"` : "",
+        list ? `list="${list}"` : "",
         required ? "required" : "",
     ].filter(Boolean).join(" ");
     return `
@@ -163,12 +164,10 @@ function cdCell(idx) {
         </div>`;
 }
 
+// Cells are emitted in heading order so Tab walks 0° → 10° → 20°…; .dev-card
+// fills by column, which still lays them out as 0…170 left, 180…350 right.
 function cdCardHTML() {
-    const half = CD_HEADINGS.length / 2; // 18 rows, two heading/deviation pairs each
-    let cells = "";
-    for (let r = 0; r < half; r++) {
-        cells += cdCell(r) + cdCell(r + half); // left col 0…170, right col 180…350
-    }
+    const cells = CD_HEADINGS.map((_, i) => cdCell(i)).join("");
     return `<div class="dev-card">${cells}</div>`;
 }
 
@@ -201,9 +200,10 @@ function poiRowHTML(idx) {
     return rowWrap("POI", idx, inner);
 }
 
-// ---- wind true: hardcoded 16-point compass dropdown ----
-// Each option shows "ABBR - deg°" (e.g. "NE - 45°"); the option value is the
-// bare degree, so only the number is stored in the exported JSON.
+// ---- wind true: 16-point compass suggestions ----
+// The field is a plain number input backed by a datalist, so the teacher can
+// pick one of the 16 points or type any other bearing. Only the number is
+// stored in the exported JSON either way.
 const WIND_DIRECTIONS = [
     { name: "N",   deg: 0 },
     { name: "NNE", deg: 22.5 },
@@ -223,18 +223,21 @@ const WIND_DIRECTIONS = [
     { name: "NNW", deg: 337.5 },
 ];
 
-function windField(name, label) {
+const WIND_LIST_ID = "windDirections";
+
+// One datalist shared by every track row; injected once, below.
+function windDatalistHTML() {
     const options = WIND_DIRECTIONS
-        .map(w => `<option value="${w.deg}">${w.name} - ${w.deg}°</option>`)
+        .map(w => `<option value="${w.deg}">${w.name}</option>`)
         .join("");
-    return `
-        <div class="field">
-            <label>${label} <span class="req">*</span></label>
-            <select name="${name}" required>
-                <option value="" selected disabled>— Select direction —</option>
-                ${options}
-            </select>
-        </div>`;
+    return `<datalist id="${WIND_LIST_ID}">${options}</datalist>`;
+}
+
+function windField(name, label) {
+    return num(name, label, {
+        min: 0, max: 359.9999, list: WIND_LIST_ID,
+        hint: "Pick a compass point or type any bearing.",
+    });
 }
 
 // ---- track ----
@@ -674,6 +677,7 @@ document.body.addEventListener("input", e => {
 });
 
 // initial seed: leeway (fixed 4) + one row each for required arrays
+document.body.insertAdjacentHTML("beforeend", windDatalistHTML());
 document.getElementById("leewayList").innerHTML = leewayHTML();
 document.getElementById("cdList").innerHTML = cdCardHTML();
 addRow("mv");

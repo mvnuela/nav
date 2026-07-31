@@ -165,9 +165,13 @@
         .add-btn:hover { background: #1d4ed8; }
 
         /* Compass deviation card: fixed 10° headings, compact 4-column table */
+        /* Column flow: the cells arrive in heading order (0…350) for a sensible
+           Tab sequence, and grid stacks the first 18 down the left column. */
         .dev-card {
             display: grid;
             grid-template-columns: repeat(2, minmax(160px, 1fr));
+            grid-template-rows: repeat(18, auto);
+            grid-auto-flow: column;
             gap: 6px 16px;
             max-width: 560px;
         }
@@ -186,7 +190,13 @@
             outline: none; border-color: #2563eb;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
-        @media (max-width: 480px) { .dev-card { grid-template-columns: 1fr; } }
+        @media (max-width: 480px) {
+            .dev-card {
+                grid-template-columns: 1fr;
+                grid-template-rows: none;
+                grid-auto-flow: row;
+            }
+        }
 
         .subgroup {
             border-left: 3px solid #c7d2fe;
