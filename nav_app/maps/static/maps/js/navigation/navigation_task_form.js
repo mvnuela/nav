@@ -10,17 +10,16 @@ const schema = JSON.parse(document.getElementById("ntSchema").textContent);
 const ajv = new Ajv2020({ allErrors: true, strict: false, multipleOfPrecision: 6 });
 const validate = ajv.compile(schema);
 
+// min/max prefill the angle-range inputs
 const POINTS_OF_SAIL = [
-    { key: "close_hauled", label: "Close hauled" },
-    { key: "beam_reach",   label: "Beam reach" },
-    { key: "broad_reach",  label: "Broad reach" },
-    { key: "running",      label: "Running" },
+    { key: "close_hauled", label: "Close hauled", min_deg: 23,  max_deg: 67.9 },
+    { key: "beam_reach",   label: "Beam reach",   min_deg: 68,  max_deg: 112.9 },
+    { key: "broad_reach",  label: "Broad reach",  min_deg: 113, max_deg: 157.9 },
+    { key: "running",      label: "Running",      min_deg: 158, max_deg: 180 },
 ];
 
 // Hardcoded timezone list feeding the #tzSelect dropdown. Selecting an entry
-// auto-fills the #tzOffset field with `offset`. Zones that observe DST appear
-// twice (winter/summer) so the teacher can pick the offset matching the task
-// dates; the offset field stays editable for any manual correction.
+// auto-fills the #tzOffset field with `offset`.
 const TIMEZONES = [
     { group: "Universal",      name: "UTC",                 offset: "+00:00", label: "UTC (UTC+00:00)" },
 
@@ -93,11 +92,12 @@ function hintSpan(hint) {
 }
 
 function num(name, label, opts = {}) {
-    const { step = "0.0001", min, max, required = true, hint = false } = opts;
+    const { step = "0.0001", min, max, required = true, hint = false, value } = opts;
     const attrs = [
         `type="number"`, `step="${step}"`, `name="${name}"`,
         min !== undefined ? `min="${min}"` : "",
         max !== undefined ? `max="${max}"` : "",
+        value !== undefined ? `value="${value}"` : "",
         required ? "required" : "",
     ].filter(Boolean).join(" ");
     return `
@@ -132,7 +132,7 @@ function rowWrap(title, idx, inner, extraButtons = "") {
         </div>`;
 }
 
-// ---- magnetic variation ----
+// ---- magnetic variation ----/
 function mvRowHTML(idx) {
     const inner = `
         <div class="grid">
@@ -158,7 +158,7 @@ function cdCell(idx) {
     return `
         <div class="dev-cell">
             <span class="hdg">${heading}°</span>
-            <input type="number" step="0.0001" name="cd.${idx}.deviation_deg"
+            <input type="number" step="0.5" name="cd.${idx}.deviation_deg"
                    placeholder="dev" aria-label="Deviation at ${heading}°">
         </div>`;
 }
@@ -178,9 +178,9 @@ function leewayHTML() {
         <div class="row" data-pos="${p.key}">
             <div class="row-title"><span>${p.label}</span></div>
             <div class="grid">
-                ${num(`lw.${p.key}.min_deg`,   "Min angle (°)",  { min: 0, max: 359.9999 })}
-                ${num(`lw.${p.key}.max_deg`,   "Max angle (°)",  { min: 0, max: 359.9999 })}
-                ${num(`lw.${p.key}.value_deg`, "Leeway value (°)")}
+                ${num(`lw.${p.key}.min_deg`,   "Min angle (°)",  { min: 0, max: 359.9, step: "0.1", value: p.min_deg })}
+                ${num(`lw.${p.key}.max_deg`,   "Max angle (°)",  { min: 0, max: 359.9, step: "0.1", value: p.max_deg })}
+                ${num(`lw.${p.key}.value_deg`, "Leeway value (°)", { step: "0.5" })}
             </div>
         </div>`).join("");
 }
