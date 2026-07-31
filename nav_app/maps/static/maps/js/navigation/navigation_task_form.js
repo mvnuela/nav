@@ -246,7 +246,8 @@ function trkRowHTML(idx) {
         <div class="grid">
             <div class="field">
                 <label>Time (local) <span class="req">*</span></label>
-                <input type="datetime-local" step="1" name="trk.${idx}.time" required>
+                <input type="datetime-local" step="1" name="trk.${idx}.time" required
+                       min="1900-01-01T00:00:00" max="2100-12-31T23:59:59">
                 <span class="hint">Combined with timezone offset on export.</span>
             </div>
             ${num(`trk.${idx}.position.lat`, "Latitude (°)",  { min: -90,  max: 90,  hint: true })}
