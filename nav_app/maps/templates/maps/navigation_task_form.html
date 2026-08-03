@@ -153,6 +153,8 @@
         .row .calc-btn:hover { background: #bfdbfe; }
         .field .hint.filled { color: #15803d; }
         .field .hint.warn { color: #b45309; }
+        .field input.invalid { border-color: #dc2626; }
+        .field .hint.err { color: #dc2626; }
         .row .calc-summary { margin-top: 8px; font-size: 0.8em; color: #4b5563; }
         .row .calc-summary.warn { color: #b45309; }
 
@@ -453,16 +455,20 @@
                 </div>
 
                 <div class="subgroup">
-                    <div class="subgroup-title">Bounds (decimal degrees)</div>
+                    <div class="subgroup-title">Bounds</div>
                     <div class="grid">
                         <div class="field"><label>North lat</label>
-                            <input type="number" step="0.0001" min="-90" max="90" name="chart.bounds.north_lat_deg"></div>
+                            <input type="text" data-coord="lat" placeholder="54.375 or 54°22.5'N" name="chart.bounds.north_lat_deg">
+                            <span class="hint"></span></div>
                         <div class="field"><label>South lat</label>
-                            <input type="number" step="0.0001" min="-90" max="90" name="chart.bounds.south_lat_deg"></div>
+                            <input type="text" data-coord="lat" placeholder="54.375 or 54°22.5'N" name="chart.bounds.south_lat_deg">
+                            <span class="hint"></span></div>
                         <div class="field"><label>West lon</label>
-                            <input type="number" step="0.0001" min="-180" max="180" name="chart.bounds.west_lon_deg"></div>
+                            <input type="text" data-coord="lon" placeholder="18.5 or 018°34.2'E" name="chart.bounds.west_lon_deg">
+                            <span class="hint"></span></div>
                         <div class="field"><label>East lon</label>
-                            <input type="number" step="0.0001" min="-180" max="180" name="chart.bounds.east_lon_deg"></div>
+                            <input type="text" data-coord="lon" placeholder="18.5 or 018°34.2'E" name="chart.bounds.east_lon_deg">
+                            <span class="hint"></span></div>
                     </div>
                 </div>
 
@@ -843,6 +849,7 @@
 
 <!-- Shared coordinate helpers (nauticalToDecimal, formatCoordinatePair) -->
 <script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
+<script src="{% static 'maps/js/navigation/coordinate_field.js' %}"></script>
 <!-- Navigation maths for the track-row calculator button; needs calculateDistance above. -->
 <script src="{% static 'maps/js/navigation/course_chain.js' %}"></script>
 <!-- 4-decimal download serialiser (DokumentacjaJSON_v1.docx section 3). -->

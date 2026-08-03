@@ -118,6 +118,22 @@ function text(name, label, { required = true, placeholder = "", readOnly = false
         </div>`;
 }
 
+// A latitude/longitude field. Text, not number: it accepts nautical notation
+// ("54°22.5'N", comma decimals) and is normalised to decimal degrees on blur
+// by the data-coord focusout listener. The hint span is where that listener
+// puts its rejection message, so every coordinate field has one.
+const COORD_PLACEHOLDER = { lat: "54.375 or 54°22.5'N", lon: "18.5 or 018°34.2'E" };
+
+function coord(name, label, axis) {
+    return `
+        <div class="field">
+            <label>${label} <span class="req">*</span></label>
+            <input type="text" name="${name}" data-coord="${axis}"
+                   placeholder="${COORD_PLACEHOLDER[axis]}" required>
+            <span class="hint"></span>
+        </div>`;
+}
+
 function rowWrap(title, idx, inner, extraButtons = "") {
     return `
         <div class="row" data-idx="${idx}">
@@ -140,8 +156,8 @@ function mvRowHTML(idx) {
             ${num(`mv.${idx}.base_deg`,         "Base variation (°)")}
             ${num(`mv.${idx}.base_year`,        "Base year", { step: "1", min: 1900, max: 2100 })}
             ${num(`mv.${idx}.annual_change_min`,"Annual change (′/yr)", { step: "0.1" })}
-            ${num(`mv.${idx}.lat`,              "Latitude (°)",  { min: -90,  max: 90 })}
-            ${num(`mv.${idx}.lon`,              "Longitude (°)", { min: -180, max: 180 })}
+            ${coord(`mv.${idx}.lat`, "Latitude (°)", "lat")}
+            ${coord(`mv.${idx}.lon`, "Longitude (°)", "lon")}
             ${num(`mv.${idx}.range_nm`,         "Range (nm)",    { min: 0 })}
         </div>`;
     return rowWrap("Variation", idx, inner);
@@ -190,8 +206,8 @@ function poiRowHTML(idx) {
         <div class="grid">
             ${text(`poi.${idx}.name`, "Name")}
             ${text(`poi.${idx}.type`, "Type", { placeholder: "buoy / lighthouse / ..." })}
-            ${num(`poi.${idx}.lat`, "Latitude (°)",  { min: -90,  max: 90 })}
-            ${num(`poi.${idx}.lon`, "Longitude (°)", { min: -180, max: 180 })}
+            ${coord(`poi.${idx}.lat`, "Latitude (°)", "lat")}
+            ${coord(`poi.${idx}.lon`, "Longitude (°)", "lon")}
         </div>
         <div class="field" style="margin-top:8px">
             <label>Description</label>
@@ -255,8 +271,8 @@ function trkRowHTML(idx) {
                 <input type="time" step="1" name="trk.${idx}.time" required>
                 <span class="hint">Combined with the date and timezone offset on export.</span>
             </div>
-            ${num(`trk.${idx}.position.lat`, "Latitude (°)",  { min: -90,  max: 90,  hint: true })}
-            ${num(`trk.${idx}.position.lon`, "Longitude (°)", { min: -180, max: 180, hint: true })}
+            ${coord(`trk.${idx}.position.lat`, "Latitude (°)", "lat")}
+            ${coord(`trk.${idx}.position.lon`, "Longitude (°)", "lon")}
             ${text(`trk.${idx}.position.position_txt`, "Position text", {
                 readOnly: true,
                 hint: "Derived from the latitude and longitude.",
@@ -435,8 +451,8 @@ function recomputePositions() {
     document.querySelectorAll("#trkList .row").forEach((row, i) => {
         const txt = row.querySelector(`[name="trk.${i}.position.position_txt"]`);
         if (!txt) return;
-        const lat = parseFloat(row.querySelector(`[name="trk.${i}.position.lat"]`)?.value);
-        const lon = parseFloat(row.querySelector(`[name="trk.${i}.position.lon"]`)?.value);
+        const lat = coordValue(row.querySelector(`[name="trk.${i}.position.lat"]`));
+        const lon = coordValue(row.querySelector(`[name="trk.${i}.position.lon"]`));
         txt.value = formatPositionText(lat, lon);
     });
 }
@@ -466,6 +482,7 @@ function setHint(hint, text, kind) {
     hint.textContent = text;
     hint.classList.toggle("filled", kind === "filled");
     hint.classList.toggle("warn", kind === "warn");
+    hint.classList.remove("err"); // a calculator message must replace a stale coordinate error, not sit under it
 }
 
 function disagrees(currentText, target) {
@@ -690,6 +707,43 @@ document.body.addEventListener("input", e => {
     if (/^trk\.\d+\.position\.(lat|lon)$/.test(name)) recomputePositions();
 });
 
+// ---------- Coordinate fields: normalise on blur ----------
+// Valid text is rewritten as canonical decimal (what the JSON stores); invalid
+// text stays exactly as typed — a rejected value the teacher can still see is
+// one she can fix — with the reason on the field's hint line. Only hints this
+// path wrote (.err) are cleared on success, so the calculator's "from …"
+// provenance notes survive a mere blur.
+function normalizeCoordInput(input) {
+    const hint = hintOf(input);
+    const res = parseLatLon(input.value, input.dataset.coord);
+    if (res.ok) {
+        if (res.value !== undefined) input.value = String(res.value);
+        else if (input.value !== "") input.value = ""; // whitespace-only normalises to truly empty
+        input.classList.remove("invalid");
+        if (hint && hint.classList.contains("err")) {
+            hint.textContent = "";
+            hint.classList.remove("err");
+        }
+        return true;
+    }
+    input.classList.add("invalid");
+    if (hint) {
+        hint.textContent = res.error;
+        hint.classList.remove("filled", "warn");
+        hint.classList.add("err");
+    }
+    return false;
+}
+
+document.body.addEventListener("focusout", e => {
+    const input = e.target;
+    if (!(input instanceof HTMLInputElement) || !input.dataset.coord) return;
+    normalizeCoordInput(input);
+    // Rewriting the value programmatically fires no input event, so the
+    // derived position text is refreshed here.
+    if (/^trk\./.test(input.name || "")) recomputePositions();
+});
+
 // initial seed: leeway (fixed 4) + one row each for required arrays
 document.body.insertAdjacentHTML("beforeend", windDatalistHTML());
 document.getElementById("leewayList").innerHTML = leewayHTML();
@@ -763,9 +817,16 @@ function readLeewayTable() {
     return table;
 }
 
+/** A coordinate input's current value, or NaN while blank/invalid/mid-edit. */
+function coordValue(input) {
+    if (!input) return NaN;
+    const res = parseLatLon(input.value, input.dataset.coord);
+    return res.ok && res.value !== undefined ? res.value : NaN;
+}
+
 function positionOf(i) {
-    const lat = val(`trk.${i}.position.lat`, { number: true });
-    const lon = val(`trk.${i}.position.lon`, { number: true });
+    const lat = coordValue(document.querySelector(`[name="trk.${i}.position.lat"]`));
+    const lon = coordValue(document.querySelector(`[name="trk.${i}.position.lon"]`));
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     return { lat, lon };
 }
@@ -940,6 +1001,11 @@ async function copyToClipboard(text, btn) {
 const COORD_PATTERN = /(?<![\d.])([+-]?\d+(?:\.\d+)?)\s*°?\s*(\d+(?:\.\d+)?)\s*['′](?:\s*(\d+(?:\.\d+)?)\s*(?:"|″|''))?\s*([NSEWnsew])?/g;
 
 function parseCoordinates(input) {
+    // A decimal comma ("54°7,071'N") is only a decimal when digits follow it up
+    // to a minute/second mark; a comma separating a pair ("…'N,18°…") is not.
+    // Without this, the pattern matched the fragment after the comma and
+    // produced a silently wrong number, not a rejection.
+    input = input.replace(/(?<=\d),(?=\d+\s*['′"″])/g, ".");
     const matches = [...input.matchAll(COORD_PATTERN)].filter(m => m[0].trim() !== "");
     if (matches.length === 0) {
         if (/\d/.test(input)) {
@@ -1036,6 +1102,19 @@ document.getElementById("ccCopyBtn")?.addEventListener("click", e => {
 });
 
 document.getElementById("validateBtn").addEventListener("click", () => {
+    // Normalise every coordinate field first: the teacher may click Validate
+    // without ever leaving the field she just typed in, and focusout order is
+    // not something an export should depend on.
+    const bad = [];
+    document.querySelectorAll("input[data-coord]").forEach(input => {
+        if (!normalizeCoordInput(input)) bad.push(input.name);
+    });
+    recomputeTrack();
+    if (bad.length) {
+        const items = bad.map(n => `<li><code class="path">${n}</code></li>`).join("");
+        showStatus(`<strong>${bad.length} coordinate field(s) need fixing before export:</strong><ul>${items}</ul>`, "err");
+        return;
+    }
     const data = buildJSON();
     const ok = validate(data);
     if (ok) {

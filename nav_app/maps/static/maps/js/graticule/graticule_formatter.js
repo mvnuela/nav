@@ -55,6 +55,7 @@ function nauticalToDecimal(nautical) {
         .replace(/[º˚]/g, '°')          // masculine ordinal, ring above
         .replace(/[′’]/g, "'")          // prime, curly apostrophe
         .replace(/[″”]/g, '"')          // double prime, curly quote
+        .replace(/,/g, ".")             // comma decimal separator: 54°22,5' == 54°22.5'
         .trim()
         .toUpperCase();
     if (s === '') return NaN;
