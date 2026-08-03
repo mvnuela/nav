@@ -57,10 +57,10 @@
         if (typeof input !== 'string') return NaN;
         const s = input.trim();
         if (s === '') return NaN;
-        if (s.includes('°') || s.includes("'")) {
-            return typeof nauticalToDecimal === 'function' ? nauticalToDecimal(s) : NaN;
-        }
-        return parseFloat(s);
+        // No symbol-sniffing branch: nauticalToDecimal also parses plain
+        // decimals, with comma or dot — "54,375" through parseFloat came out
+        // as a silently truncated 54.
+        return typeof nauticalToDecimal === 'function' ? nauticalToDecimal(s) : parseFloat(s);
     };
 
     /**
