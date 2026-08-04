@@ -399,47 +399,24 @@ function populateTimezones() {
 }
 populateTimezones();
 
-// ---------- Track log auto-fill ----------
-// The "log" is the running cumulative distance sailed. The first track point
-// has distance 0 (nothing travelled yet) and its log is the editable starting
-// reading. Every later point's log is derived as previous log + its distance,
-// and shown read-only. Recompute cascades so editing any earlier distance
-// updates all following logs.
+// Shared 4-decimal rounding for everything the form derives.
 function nm4(x) {
     return roundTo(x, 4); // keep to the schema's 0.0001 precision
 }
 
-function recomputeLogs() {
-    const rows = document.querySelectorAll("#trkList .row");
-    let prevLog = 0;
-    rows.forEach((row, i) => {
-        const dist = row.querySelector(`[name="trk.${i}.distance_nm"]`);
-        const log  = row.querySelector(`[name="trk.${i}.log_nm"]`);
-        if (!dist || !log) return;
-
-        if (i === 0) {
-            // start point: distance fixed at 0; log is the base reading
-            dist.value = "0";
-            dist.readOnly = true;
-            const base = parseFloat(log.value);
-            prevLog = Number.isFinite(base) ? base : 0;
-            return;
-        }
-        if (log.dataset.manual === "1") {
-            // The teacher has a real log reading for this row; hers wins, and the
-            // calculator uses it as a distance source.
-            const typed = parseFloat(log.value);
-            if (Number.isFinite(typed)) prevLog = typed;
-            return;
-        }
-        const d = parseFloat(dist.value);
-        if (Number.isFinite(d)) {
-            prevLog = nm4(prevLog + d);
-            log.value = String(prevLog);
-        } else {
-            log.value = ""; // distance not entered yet → leave the log blank
-        }
-    });
+// ---------- Track start row ----------
+// The first track point has no incoming leg: its distance is pinned to 0 and
+// read-only. Its log is the editable starting reading. Every later point's
+// log is the previous log plus the arriving leg's distance — but it is
+// written only by that row's own Calculate button, never live while typing
+// and never by another row's button.
+function enforceStartRow() {
+    const row = document.querySelector("#trkList .row");
+    if (!row) return;
+    const dist = row.querySelector('[name="trk.0.distance_nm"]');
+    if (!dist) return;
+    dist.value = "0";
+    dist.readOnly = true;
 }
 
 // ---------- Track position text auto-fill ----------
@@ -458,9 +435,10 @@ function recomputePositions() {
 }
 
 // Every derived field of the track, refreshed together. Rows are added, removed
-// and re-indexed from several places; they all go through here.
+// and re-indexed from several places; they all go through here. Logs are not
+// derived here: a log is written only by its own row's Calculate button.
 function recomputeTrack() {
-    recomputeLogs();
+    enforceStartRow();
     recomputePositions();
 }
 
@@ -588,6 +566,20 @@ function manualLog(i) {
     return Number.isFinite(v) ? v : undefined;
 }
 
+/**
+ * The previous log for the cumulative fill: any finite value counts, typed
+ * or button-filled — a button-filled log is itself anchored in a typed one
+ * upstream. Only the distance-from-log-difference source (manualLog) must
+ * stay typed-only, or a distance could derive from a log that itself came
+ * from a distance.
+ */
+function anyLog(i) {
+    const el = document.querySelector(`[name="trk.${i}.log_nm"]`);
+    if (!el) return undefined;
+    const v = parseFloat(el.value);
+    return Number.isFinite(v) ? v : undefined;
+}
+
 // Row i's distance is the leg arriving at it, sailed at row i-1's speed along
 // row i-1's COG. Row 0 has no incoming leg.
 function legTargets(i, row) {
@@ -598,9 +590,9 @@ function legTargets(i, row) {
     const lonInput  = row.querySelector(`[name="trk.${i}.position.lon"]`);
     if (!distInput || !logInput) return [];
 
-    const logPrev = manualLog(i - 1);
+    const logPrevTyped = manualLog(i - 1);
     const options = CourseChain.legDistances({
-        logPrev:   logPrev,
+        logPrev:   logPrevTyped,
         logThis:   manualLog(i),
         speedPrev: val(`trk.${i - 1}.speed_kn`, { number: true }),
         hours:     CourseChain.hoursBetween(localTimeOf(i - 1), localTimeOf(i)),
@@ -626,21 +618,30 @@ function legTargets(i, row) {
             : undefined,
     });
 
-    targets.push(Number.isFinite(logPrev) && winner
+    // The leg length feeding the log: the distance field's value wins (typed,
+    // filled by an earlier click, or kept over a disagreeing source); the
+    // best derived source stands in only while the field is blank.
+    const typedDist = parseFloat(distInput.value);
+    const legNm = Number.isFinite(typedDist) ? typedDist
+                : winner                     ? winner.nm
+                :                              undefined;
+
+    const logBase = anyLog(i - 1);
+    targets.push(Number.isFinite(logBase) && Number.isFinite(legNm)
         ? {
             input: logInput, kind: "distance",
-            value: CourseChain.round4(logPrev + winner.nm),
-            source: `the previous log plus ${winner.nm} nm`,
+            value: CourseChain.round4(logBase + legNm),
+            source: `the previous log plus ${legNm} nm`,
         }
         : {
             input: logInput, kind: "distance", value: undefined,
-            missing: "a typed log on the previous point and this leg's distance",
+            missing: "the previous point's log and this leg's distance",
         });
 
     const prevPos = positionOf(i - 1);
     const prevCog = val(`trk.${i - 1}.course_over_ground_deg`, { number: true });
-    const dr = (prevPos && Number.isFinite(prevCog) && winner)
-        ? CourseChain.positionFrom(prevPos.lat, prevPos.lon, prevCog, winner.nm)
+    const dr = (prevPos && Number.isFinite(prevCog) && Number.isFinite(legNm))
+        ? CourseChain.positionFrom(prevPos.lat, prevPos.lon, prevCog, legNm)
         : null;
     const drMissing = "the previous position, its course over ground, and this leg's distance";
     if (latInput) {
@@ -686,7 +687,7 @@ function calcRow(i) {
         flagged: first.flagged + second.flagged,
         missing: [...first.missing, ...second.missing],
     });
-    recomputeTrack();   // the distance feeds the derived logs, the DR position the text
+    recomputeTrack();   // the DR fill wrote lat/lon; refresh position text (and re-pin the start row)
 }
 
 document.body.addEventListener("click", e => {
@@ -696,14 +697,12 @@ document.body.addEventListener("click", e => {
     if (i >= 0) calcRow(i);
 });
 
-// A log the teacher types is hers: it stops being derived from the distances and
-// becomes a distance source for the calculator instead. Any distance edit (or the
-// start point's log) re-derives the cumulative logs; a coordinate edit re-derives
-// that row's position text.
+// A log the teacher types is hers: it becomes a distance source for the
+// calculator. Typing recomputes nothing except the position text that
+// restates lat/lon — logs change only via a row's Calculate button.
 document.body.addEventListener("input", e => {
     const name = e.target.name || "";
     if (/^trk\.\d+\.log_nm$/.test(name)) e.target.dataset.manual = "1";
-    if (/^trk\.\d+\.(distance_nm|log_nm)$/.test(name)) recomputeLogs();
     if (/^trk\.\d+\.position\.(lat|lon)$/.test(name)) recomputePositions();
 });
 
