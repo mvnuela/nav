@@ -25,7 +25,7 @@
         "navigation": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["timezone", "magnetic_variation_list", "compass_deviation_table", "leeway"],
+          "required": ["timezone", "magnetic_variation_main", "compass_deviation_table", "leeway"],
           "properties": {
             "timezone": {
               "type": "object",
@@ -39,9 +39,18 @@
                 }
               }
             },
+            "magnetic_variation_main": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["base_deg", "base_year", "annual_change_deg"],
+              "properties": {
+                "base_deg": { "$ref": "#/$defs/decimal4" },
+                "base_year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+                "annual_change_deg": { "$ref": "#/$defs/decimal4" }
+              }
+            },
             "magnetic_variation_list": {
               "type": "array",
-              "minItems": 1,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
@@ -145,7 +154,7 @@
             "required": [
               "id", "time", "position", "distance_nm", "log_nm",
               "course_compass_deg", "course_true_deg", "course_over_ground_deg",
-              "wind_true_deg", "wind_app_deg", "speed_kn"
+              "wind_true_deg", "speed_kn"
             ],
             "properties": {
               "id": { "type": "string", "pattern": "^trk-\\d+$" },
@@ -166,7 +175,9 @@
               "course_true_deg": { "$ref": "#/$defs/angle360" },
               "course_over_ground_deg": { "$ref": "#/$defs/angle360" },
               "wind_true_deg": { "$ref": "#/$defs/angle360" },
+              "wind_true_speed": { "$ref": "#/$defs/decimal4_nonneg" },
               "wind_app_deg": { "$ref": "#/$defs/angle360" },
+              "wind_app_speed": { "$ref": "#/$defs/decimal4_nonneg" },
               "speed_kn": { "$ref": "#/$defs/decimal4_nonneg" }
             }
           }

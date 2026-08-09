@@ -419,7 +419,19 @@
                 </div>
 
                 <div class="subgroup">
-                    <div class="subgroup-title">Magnetic variation list</div>
+                    <div class="subgroup-title">Main magnetic variation</div>
+                    <div class="hint" style="margin-bottom:8px">
+                        Applies to the whole chart. Required.
+                    </div>
+                    <div id="mvMain"></div>
+                </div>
+
+                <div class="subgroup">
+                    <div class="subgroup-title">Extra magnetic variation entries</div>
+                    <div class="hint" style="margin-bottom:8px">
+                        Optional. Each entry overrides the main variation inside its own
+                        circle (centre plus range); the nearest covering circle wins.
+                    </div>
                     <div id="mvList"></div>
                     <button type="button" class="add-btn" data-add="mv">+ Add variation entry</button>
                 </div>

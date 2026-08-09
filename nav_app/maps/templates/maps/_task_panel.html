@@ -209,13 +209,21 @@
     if (nav.timezone) {
         parts.push(`<div><strong>Timezone:</strong> ${escapeHtml(nav.timezone.name)} (${escapeHtml(nav.timezone.offset)})</div>`);
     }
-    if (Array.isArray(nav.magnetic_variation_list) && nav.magnetic_variation_list.length) {
+    // Stored in degrees, shown in minutes — the unit it was entered in.
+    const annualChangeMin = v => roundTo(degreesToMinutes(v.annual_change_deg), 1);
+
+    const mvMain = nav.magnetic_variation_main;
+    if (mvMain) {
         parts.push('<div style="margin-top:6px"><strong>Magnetic variation:</strong></div>');
+        parts.push('<table><thead><tr><th>Base °</th><th>Year</th><th>Δ′/yr</th></tr></thead><tbody>');
+        parts.push(`<tr><td>${mvMain.base_deg}</td><td>${mvMain.base_year}</td><td>${annualChangeMin(mvMain)}</td></tr>`);
+        parts.push('</tbody></table>');
+    }
+    if (Array.isArray(nav.magnetic_variation_list) && nav.magnetic_variation_list.length) {
+        parts.push('<div style="margin-top:6px"><strong>Extra variation entries:</strong></div>');
         parts.push('<table><thead><tr><th>Base °</th><th>Year</th><th>Δ′/yr</th><th>Lat</th><th>Lon</th><th>Range nm</th></tr></thead><tbody>');
         nav.magnetic_variation_list.forEach(v => {
-            // Stored in degrees, shown in minutes — the unit it was entered in.
-            const annualChangeMin = roundTo(degreesToMinutes(v.annual_change_deg), 1);
-            parts.push(`<tr><td>${v.base_deg}</td><td>${v.base_year}</td><td>${annualChangeMin}</td><td>${v.lat}</td><td>${v.lon}</td><td>${v.range_nm}</td></tr>`);
+            parts.push(`<tr><td>${v.base_deg}</td><td>${v.base_year}</td><td>${annualChangeMin(v)}</td><td>${v.lat}</td><td>${v.lon}</td><td>${v.range_nm}</td></tr>`);
         });
         parts.push('</tbody></table>');
     }
@@ -270,9 +278,13 @@
         panel.hidden = false;
 
         const trk = Array.isArray(solution.trk) ? solution.trk : [];
+        // The wind speeds and the apparent direction are optional in the task
+        // JSON, so a missing one is shown as a dash rather than "undefined".
+        const cell = v => (v === undefined || v === null ? '—' : v);
         const trkHtml = ['<table><thead><tr>',
             '<th>ID</th><th>Time</th><th>Position</th><th>Dist nm</th><th>Log nm</th>',
-            '<th>Comp °</th><th>True °</th><th>COG °</th><th>Wind T °</th><th>Wind A °</th><th>Speed kn</th>',
+            '<th>Comp °</th><th>True °</th><th>COG °</th>',
+            '<th>Wind T °</th><th>Wind T kn</th><th>Wind A °</th><th>Wind A kn</th><th>Speed kn</th>',
             '</tr></thead><tbody>'];
         trk.forEach(p => {
             const pos = p.position || {};
@@ -286,7 +298,9 @@
                 <td>${p.course_true_deg}</td>
                 <td>${p.course_over_ground_deg}</td>
                 <td>${p.wind_true_deg}</td>
-                <td>${p.wind_app_deg}</td>
+                <td>${cell(p.wind_true_speed)}</td>
+                <td>${cell(p.wind_app_deg)}</td>
+                <td>${cell(p.wind_app_speed)}</td>
                 <td>${p.speed_kn}</td>
             </tr>`);
         });

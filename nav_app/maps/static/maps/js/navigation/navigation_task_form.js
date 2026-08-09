@@ -150,6 +150,17 @@ function rowWrap(title, idx, inner, extraButtons = "") {
 }
 
 // ---- magnetic variation ----/
+// The main variation is the chart-wide one the task always carries, so it is a
+// plain fieldset rather than a list row: no position, nothing to add or remove.
+function mvMainHTML() {
+    return `
+        <div class="grid">
+            ${num("mvm.base_deg",          "Base variation (°)")}
+            ${num("mvm.base_year",         "Base year", { step: "1", min: 1900, max: 2100 })}
+            ${num("mvm.annual_change_min", "Annual change (′/yr)", { step: "0.1" })}
+        </div>`;
+}
+
 function mvRowHTML(idx) {
     const inner = `
         <div class="grid">
@@ -283,7 +294,9 @@ function trkRowHTML(idx) {
             ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999, hint: true })}
             ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999, hint: true })}
             ${windField(`trk.${idx}.wind_true_deg`, "Wind true (°)")}
-            ${num(`trk.${idx}.wind_app_deg`,  "Wind apparent (°)",  { min: 0, max: 359.9999 })}
+            ${num(`trk.${idx}.wind_true_speed`, "Wind true speed (kn)", { min: 0, required: false })}
+            ${num(`trk.${idx}.wind_app_deg`,    "Wind apparent (°)",    { min: 0, max: 359.9999, required: false })}
+            ${num(`trk.${idx}.wind_app_speed`,  "Wind apparent speed (kn)", { min: 0, required: false })}
             ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0 })}
         </div>`;
     return rowWrap("Track point", idx, inner,
@@ -747,12 +760,9 @@ document.body.addEventListener("focusout", e => {
 document.body.insertAdjacentHTML("beforeend", windDatalistHTML());
 document.getElementById("leewayList").innerHTML = leewayHTML();
 document.getElementById("cdList").innerHTML = cdCardHTML();
-addRow("mv");
-// first magnetic-variation entry is the base entry: default lat/lon/range to 0
-["lat", "lon", "range_nm"].forEach(f => {
-    const el = document.querySelector(`[name="mv.0.${f}"]`);
-    if (el) el.value = "0";
-});
+// The main variation always exists; the positioned entries start empty because
+// magnetic_variation_list is optional.
+document.getElementById("mvMain").innerHTML = mvMainHTML();
 addRow("poi");
 addRow("trk");
 recomputeTrack();
@@ -785,6 +795,17 @@ function readCard() {
 
 // Annual change is entered in minutes and stored in degrees; converting here is
 // what keeps that conversion in one place, since buildJSON calls this too.
+function readMvMain() {
+    const annualChangeMin = val("mvm.annual_change_min", { number: true });
+    return {
+        base_deg:          val("mvm.base_deg",  { number: true }),
+        base_year:         val("mvm.base_year", { number: true }),
+        annual_change_deg: annualChangeMin === undefined
+            ? undefined
+            : nm4(minutesToDegrees(annualChangeMin)),
+    };
+}
+
 function readMvList() {
     const rows = document.querySelectorAll("#mvList .row");
     return Array.from(rows).map((_, i) => {
@@ -843,7 +864,7 @@ function rowCtx(i) {
     const pos = positionOf(i);
     return {
         card:        readCard(),
-        mvList:      readMvList(),
+        mvList:      CourseChain.mvEntries(readMvMain(), readMvList()),
         leewayTable: readLeewayTable(),
         windTrueDeg: wind === undefined ? NaN : wind,
         lat:         pos ? pos.lat : NaN,
@@ -879,6 +900,7 @@ function buildJSON() {
     const tzOffset = val("tz.offset");
     const tzName = document.getElementById("tzSelect")?.selectedOptions[0]?.dataset.name;
 
+    const magnetic_variation_main = readMvMain();
     const magnetic_variation_list = readMvList();
     const compass_deviation_table = readCard();
     const leeway = readLeewayTable();
@@ -908,7 +930,11 @@ function buildJSON() {
         course_true_deg:        val(`trk.${i}.course_true_deg`,        { number: true }),
         course_over_ground_deg: val(`trk.${i}.course_over_ground_deg`, { number: true }),
         wind_true_deg:          val(`trk.${i}.wind_true_deg`,          { number: true }),
+        // The wind speeds and the apparent direction are optional: val() yields
+        // undefined for an empty field and the serialiser drops those keys.
+        wind_true_speed:        val(`trk.${i}.wind_true_speed`,        { number: true }),
         wind_app_deg:           val(`trk.${i}.wind_app_deg`,           { number: true }),
+        wind_app_speed:         val(`trk.${i}.wind_app_speed`,         { number: true }),
         speed_kn:               val(`trk.${i}.speed_kn`,               { number: true }),
     }));
 
@@ -924,7 +950,10 @@ function buildJSON() {
         },
         navigation: {
             timezone: { name: tzName, offset: tzOffset },
-            magnetic_variation_list,
+            magnetic_variation_main,
+            // The extra entries are optional, so an untouched list stays out of
+            // the JSON rather than going out as an empty array.
+            ...(magnetic_variation_list.length ? { magnetic_variation_list } : {}),
             compass_deviation_table,
             leeway,
         },

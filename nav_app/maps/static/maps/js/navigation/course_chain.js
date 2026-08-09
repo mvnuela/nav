@@ -91,6 +91,19 @@
     }
 
     /**
+     * The variation list variationAt() reads, built from the two fields the task
+     * JSON carries: the required magnetic_variation_main and the optional
+     * magnetic_variation_list. Main becomes entry 0, the positioned extras follow.
+     *
+     * Without a main variation there is no chart-wide default to fall back on, so
+     * the extras cannot stand in for it and the result is empty.
+     */
+    function mvEntries(main, list) {
+        if (!main || typeof main !== 'object') return [];
+        return Array.isArray(list) ? [main].concat(list) : [main];
+    }
+
+    /**
      * Magnetic variation at a track point.
      *
      * Entry 0 is the chart-wide default — navigation_task_form.js seeds it with
@@ -472,6 +485,7 @@
         angularDelta: angularDelta,
         round4: round4,
         deviationAt: deviationAt,
+        mvEntries: mvEntries,
         variationAt: variationAt,
         leewayFor: leewayFor,
         forward: forward,
