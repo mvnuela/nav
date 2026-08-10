@@ -302,7 +302,7 @@ function trkRowHTML(idx) {
             ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999, star: false, hint: true })}
             ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999, star: false, hint: true })}
             ${windField(`trk.${idx}.wind_true_deg`, "Wind true (°)")}
-            ${num(`trk.${idx}.wind_true_speed`, "Wind true speed (kn)", { min: 0, required: false })}
+            ${num(`trk.${idx}.wind_true_speed`, "Wind true speed (kn)", { min: 0, required: false, hint: true })}
             ${num(`trk.${idx}.wind_app_deg`,    "Wind apparent (°)",    { min: 0, max: 359.9999, required: false, hint: true })}
             ${num(`trk.${idx}.wind_app_speed`,  "Wind apparent speed (kn)", { min: 0, required: false, hint: true })}
             ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0, star: false })}
@@ -573,42 +573,74 @@ function courseTargets(i, row) {
     }));
 }
 
-// Apparent wind — the one derivation that needs speeds as well as directions.
-// It runs after the course targets so it can use a course over ground the chain
-// has just filled in, and it reads the boat's track rather than its heading:
-// the app models no current, so COG is the boat's motion through the air.
+// Wind — the one derivation that needs speeds as well as directions, and the one
+// that solves in whichever direction the row is short of. It runs after the course
+// targets so it can use a course over ground the chain has just filled in, and it
+// reads the boat's track rather than its heading: the app models no current, so
+// COG is the boat's motion through the air.
+//
+// The true wind is the task's own datum, so it stays the preferred input: with
+// both of its halves filled the row derives the apparent wind, exactly as before.
+// Only when the true wind is incomplete does the inverse run, working it back out
+// of the apparent wind. Which means a row never fights itself over which pair is
+// the source, and a row holding both complete pairs is left alone save for the
+// cross-check the apparent side already performs.
 function windTargets(i, row) {
-    const degInput   = row.querySelector(`[name="trk.${i}.wind_app_deg"]`);
-    const speedInput = row.querySelector(`[name="trk.${i}.wind_app_speed"]`);
-    if (!degInput || !speedInput) return [];
+    const appDegInput    = row.querySelector(`[name="trk.${i}.wind_app_deg"]`);
+    const appSpeedInput  = row.querySelector(`[name="trk.${i}.wind_app_speed"]`);
+    const trueDegInput   = row.querySelector(`[name="trk.${i}.wind_true_deg"]`);
+    const trueSpeedInput = row.querySelector(`[name="trk.${i}.wind_true_speed"]`);
+    if (!appDegInput || !appSpeedInput || !trueDegInput || !trueSpeedInput) return [];
 
     const windDeg   = val(`trk.${i}.wind_true_deg`,          { number: true });
     const windSpeed = val(`trk.${i}.wind_true_speed`,        { number: true });
+    const appDeg    = val(`trk.${i}.wind_app_deg`,           { number: true });
+    const appSpeed  = val(`trk.${i}.wind_app_speed`,         { number: true });
     const cog       = val(`trk.${i}.course_over_ground_deg`, { number: true });
     const boatSpeed = val(`trk.${i}.speed_kn`,               { number: true });
 
-    const needs = [];
-    if (windDeg   === undefined) needs.push("the true wind direction");
-    if (windSpeed === undefined) needs.push("the true wind speed");
-    if (cog       === undefined) needs.push("a course over ground");
-    if (boatSpeed === undefined) needs.push("the boat speed");
+    const motion = [];
+    if (cog       === undefined) motion.push("a course over ground");
+    if (boatSpeed === undefined) motion.push("the boat speed");
 
-    const aw = needs.length ? null
-        : CourseChain.apparentWind(windDeg, windSpeed, cog, boatSpeed);
-    const missing = needs.length ? needs.join(", ")
-        : (aw ? "" : "a true wind or a boat that is moving");
+    const haveTrue = windDeg !== undefined && windSpeed !== undefined;
+    const haveApp  = appDeg  !== undefined && appSpeed  !== undefined;
 
-    const title = aw
-        ? `true wind ${nm4(windSpeed)} kn from ${nm4(windDeg)}°, boat ${nm4(boatSpeed)} kn on ${nm4(cog)}°\n` +
-          `apparent ${nm4(aw.speed)} kn from ${nm4(aw.deg)}° ` +
-          `(${nm4(Math.abs(aw.angle))}° off the bow, wind on ${aw.tack})`
-        : "";
+    const boat = () => `boat ${nm4(boatSpeed)} kn on ${nm4(cog)}°`;
+    const describe = (w) => `${nm4(w.speed)} kn from ${nm4(w.deg)}° ` +
+        `(${nm4(Math.abs(w.angle))}° off the bow, wind on ${w.tack})`;
 
+    if (!motion.length && haveTrue) {
+        const aw = CourseChain.apparentWind(windDeg, windSpeed, cog, boatSpeed);
+        const title = aw ? `true wind ${nm4(windSpeed)} kn from ${nm4(windDeg)}°, ${boat()}\n` +
+                           `apparent ${describe(aw)}` : "";
+        const missing = aw ? "" : "a true wind or a boat that is moving";
+        return [
+            { input: appDegInput,   kind: "angle", value: aw ? aw.deg : undefined,
+              source: "the apparent wind", title: title, missing: missing },
+            { input: appSpeedInput, kind: "speed", value: aw ? aw.speed : undefined,
+              source: "the apparent wind", title: title, missing: missing },
+        ];
+    }
+
+    if (!motion.length && haveApp) {
+        const tw = CourseChain.trueWind(appDeg, appSpeed, cog, boatSpeed);
+        const title = tw ? `apparent wind ${nm4(appSpeed)} kn from ${nm4(appDeg)}°, ${boat()}\n` +
+                           `true ${describe(tw)}` : "";
+        const missing = tw ? "" : "an apparent wind that is more than the boat's own";
+        return [
+            { input: trueDegInput,   kind: "angle", value: tw ? tw.deg : undefined,
+              source: "the true wind", title: title, missing: missing },
+            { input: trueSpeedInput, kind: "speed", value: tw ? tw.speed : undefined,
+              source: "the true wind", title: title, missing: missing },
+        ];
+    }
+
+    // Neither pair is complete: say what a wind of either kind would take.
+    const needs = motion.concat("a true wind or an apparent wind, both direction and speed");
     return [
-        { input: degInput,   kind: "angle", value: aw ? aw.deg : undefined,
-          source: "the apparent wind", title: title, missing: missing },
-        { input: speedInput, kind: "speed", value: aw ? aw.speed : undefined,
-          source: "the apparent wind", title: title, missing: missing },
+        { input: appDegInput,   kind: "angle", value: undefined, missing: needs.join(", ") },
+        { input: appSpeedInput, kind: "speed", value: undefined, missing: needs.join(", ") },
     ];
 }
 
@@ -720,6 +752,43 @@ function legTargets(i, row) {
     return targets;
 }
 
+// The clock, which the distance already solves in the other direction: with both
+// times filled, legTargets turns the gap into a distance. This is that same
+// triangle read the other way — the previous point's time plus how long this leg
+// took at the previous point's speed. It runs after the leg targets because the
+// distance it divides may be one they have only just filled in.
+function timeTargets(i, row) {
+    if (i === 0) return [];   // nothing before it to count from
+    const dateInput = row.querySelector(`[name="trk.${i}.date"]`);
+    const timeInput = row.querySelector(`[name="trk.${i}.time"]`);
+    if (!dateInput || !timeInput) return [];
+
+    const prevLocal = localTimeOf(i - 1);
+    const speedPrev = val(`trk.${i - 1}.speed_kn`, { number: true });
+    const legNm = val(`trk.${i}.distance_nm`, { number: true });
+
+    const needs = [];
+    if (!prevLocal) needs.push(`track point ${i}'s date and time`);
+    if (!Number.isFinite(speedPrev) || speedPrev <= 0) needs.push(`track point ${i}'s speed`);
+    if (!Number.isFinite(legNm)) needs.push("this leg's distance");
+
+    const hours = needs.length ? NaN : legNm / speedPrev;
+    const local = needs.length ? null : CourseChain.shiftLocal(prevLocal, hours);
+    const missing = needs.join(", ");
+    const title = local
+        ? `${prevLocal} + ${nm4(legNm)} nm at ${nm4(speedPrev)} kn ` +
+          `(${nm4(hours * 60)} min) → ${local}`
+        : "";
+    const [date, time] = local ? local.split("T") : [undefined, undefined];
+
+    return [
+        { input: dateInput, kind: "text", value: date,
+          source: `track point ${i}'s time plus this leg`, title: title, missing: missing },
+        { input: timeInput, kind: "text", value: time,
+          source: `track point ${i}'s time plus this leg`, title: title, missing: missing },
+    ];
+}
+
 function showRowSummary(row, outcome) {
     const el = row.querySelector(".calc-summary");
     if (!el) return;
@@ -734,21 +803,24 @@ function showRowSummary(row, outcome) {
     el.classList.toggle("warn", outcome.flagged > 0 || needs.length > 0);
 }
 
-// Three passes, because each depends on what the one before wrote: the leg fills the
+// Four passes, because each depends on what the ones before wrote: the leg fills the
 // position, and the variation lookup reads it. (Position text needs no pass of its
 // own — recomputePositions derives it from lat/lon the moment they change.)
 function calcRow(i) {
     const row = document.querySelectorAll("#trkList .row")[i];
     if (!row) return;
     const first = applyTargets(legTargets(i, row));
-    const second = applyTargets(courseTargets(i, row));
-    // Third, not second: the apparent wind reads the course over ground, which
-    // the course targets may have only just written into the row.
-    const third = applyTargets(windTargets(i, row));
+    // The clock divides the leg distance, which the leg pass may have just written.
+    const second = applyTargets(timeTargets(i, row));
+    const third = applyTargets(courseTargets(i, row));
+    // Last: the apparent wind reads the course over ground, which the course
+    // targets may have only just written into the row.
+    const fourth = applyTargets(windTargets(i, row));
+    const passes = [first, second, third, fourth];
     showRowSummary(row, {
-        filled:  first.filled + second.filled + third.filled,
-        flagged: first.flagged + second.flagged + third.flagged,
-        missing: [...first.missing, ...second.missing, ...third.missing],
+        filled:  passes.reduce((n, p) => n + p.filled, 0),
+        flagged: passes.reduce((n, p) => n + p.flagged, 0),
+        missing: passes.flatMap(p => p.missing),
     });
     recomputeTrack();   // the DR fill wrote lat/lon; refresh position text (and re-pin the start row)
 }
