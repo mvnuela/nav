@@ -636,6 +636,14 @@
     }
 
     window.GeometryLeaflet = {
+        /**
+         * Place a geometry point of geometry's own at given coordinates — what a
+         * map click does, but from typed input. Not the same as
+         * registerExternalPoint, which only records a point another tool draws.
+         */
+        addPointAt: function(lat, lng) {
+            return addPoint(lat, lng);
+        },
         registerExternalPoint: function(lat, lng) {
             const pt = store.addPoint(lat, lng);
             updateElementList();

@@ -68,6 +68,9 @@
         if (typeof initObservedPosition === 'function') {
             initObservedPosition(map);
         }
+        if (typeof initDeadReckoningPosition === 'function') {
+            initDeadReckoningPosition(map);
+        }
         if (typeof initGeometry === 'function') {
             initGeometry(map);
         }
@@ -390,9 +393,19 @@
                         <option value="11">Zoom: 11 (Close)</option>
                         <option value="12">Zoom: 12 (Very Close)</option>
                     </select>
-                    <button id="goButton" style="width: 100%; padding: 6px; background: #0078A8; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 12px;">
-                        Navigate
-                    </button>
+                    <select id="markKind" style="width: 100%; padding: 5px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px;">
+                        <option value="dr">Mark as: Dead reckoning</option>
+                        <option value="observed">Mark as: Observed position</option>
+                        <option value="plain">Mark as: Plain point</option>
+                    </select>
+                    <div style="display: flex; gap: 4px;">
+                        <button id="goButton" style="flex: 1; padding: 6px; background: #0078A8; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                            Navigate
+                        </button>
+                        <button id="markButton" style="flex: 1; padding: 6px; background: #2E7D32; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                            Mark
+                        </button>
+                    </div>
                         <div id="inputError" style="color: red; font-size: 10px; margin-top: 5px; display: none;"></div>
                     </div>
                 `;
@@ -423,68 +436,76 @@
                 };
             }
             
+            /**
+             * One parser for both buttons: parseLatLon accepts decimals, comma
+             * decimals and nautical notation, and rejects a latitude typed into
+             * the longitude box — the control's own ad-hoc parsing did none of
+             * that.
+             */
+            function readTypedPosition() {
+                const errorDiv = document.getElementById('inputError');
+                const lat = parseLatLon(document.getElementById('latInput').value, 'lat');
+                const lon = parseLatLon(document.getElementById('lonInput').value, 'lon');
+                const fail = !lat.ok ? lat.error
+                    : !lon.ok ? lon.error
+                    : lat.value === undefined ? 'enter a latitude'
+                    : lon.value === undefined ? 'enter a longitude'
+                    : null;
+                if (fail) {
+                    errorDiv.style.display = 'block';
+                    errorDiv.style.color = 'red';
+                    errorDiv.textContent = 'Error: ' + fail;
+                    return null;
+                }
+                return { lat: lat.value, lon: lon.value };
+            }
+
+            function report(message) {
+                const errorDiv = document.getElementById('inputError');
+                errorDiv.style.display = 'block';
+                errorDiv.style.color = 'green';
+                errorDiv.textContent = message;
+                setTimeout(() => { errorDiv.style.display = 'none'; }, 3000);
+            }
+
             const goButton = document.getElementById('goButton');
             if (goButton) {
                 goButton.addEventListener('click', function() {
-                const latInput = document.getElementById('latInput').value.trim();
-                const lonInput = document.getElementById('lonInput').value.trim();
-                const zoom = parseInt(document.getElementById('zoomLevel').value);
-                const errorDiv = document.getElementById('inputError');
+                    const pos = readTypedPosition();
+                    if (!pos) return;
+                    const zoom = parseInt(document.getElementById('zoomLevel').value);
+                    map.setView([pos.lat, pos.lon], zoom);
+                    report(`Navigated to ${formatCoordinatePair(pos.lat, pos.lon)}`);
+                });
+            }
 
-                try {
-                    let lat, lon;
+            const markButton = document.getElementById('markButton');
+            if (markButton) {
+                markButton.addEventListener('click', function() {
+                    const pos = readTypedPosition();
+                    if (!pos) return;
+                    const kind = document.getElementById('markKind').value;
 
-                    // Try to parse latitude - accept both decimal and nautical
-                    if (latInput.includes('°') || latInput.includes('\'')) {
-                        // Nautical format
-                        lat = nauticalToDecimal(latInput);
+                    // Deliberately does NOT move the view: marking a point out of
+                    // shot should not throw away what you are looking at. Nor does
+                    // it touch the interaction machine — this is typed input, not
+                    // a map interaction, so an active placing mode stays active.
+                    if (kind === 'plain') {
+                        if (!window.GeometryLeaflet) {
+                            report('Geometry tool is not on this page');
+                            return;
+                        }
+                        window.GeometryLeaflet.addPointAt(pos.lat, pos.lon);
                     } else {
-                        // Decimal format
-                        lat = parseFloat(latInput);
+                        const tool = kind === 'observed' ? window.ObservedPosition
+                                                         : window.DeadReckoningPosition;
+                        if (!tool) {
+                            report('That tool is not on this page');
+                            return;
+                        }
+                        tool.add(pos.lat, pos.lon);
                     }
-
-                    // Try to parse longitude - accept both decimal and nautical
-                    if (lonInput.includes('°') || lonInput.includes('\'')) {
-                        // Nautical format
-                        lon = nauticalToDecimal(lonInput);
-                    } else {
-                        // Decimal format
-                        lon = parseFloat(lonInput);
-                    }
-
-                    // Validate coordinates
-                    if (isNaN(lat) || isNaN(lon)) {
-                        throw new Error('Invalid coordinate format');
-                    }
-
-                    if (lat < -90 || lat > 90) {
-                        throw new Error('Latitude must be between -90 and 90');
-                    }
-
-                    if (lon < -180 || lon > 180) {
-                        throw new Error('Longitude must be between -180 and 180');
-                    }
-
-                    // Navigate to position
-                    map.setView([lat, lon], zoom);
-
-                    // Show success message
-                    errorDiv.style.display = 'block';
-                    errorDiv.style.color = 'green';
-                    errorDiv.textContent = `Navigated to ${formatCoordinatePair(lat, lon)}`;
-
-                    setTimeout(() => {
-                        errorDiv.style.display = 'none';
-                    }, 3000);
-
-                    console.log(`Navigated to: ${formatCoordinatePair(lat, lon)} at zoom ${zoom}`);
-
-                } catch (error) {
-                    errorDiv.style.display = 'block';
-                    errorDiv.style.color = 'red';
-                    errorDiv.textContent = 'Error: ' + error.message;
-                    console.error('Navigation error:', error);
-                }
+                    report(`Marked at ${formatCoordinatePair(pos.lat, pos.lon)}`);
                 });
             }
 
