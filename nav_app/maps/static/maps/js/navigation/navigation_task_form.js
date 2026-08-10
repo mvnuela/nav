@@ -91,8 +91,15 @@ function hintSpan(hint) {
     return hint ? `<span class="hint">${hint}</span>` : "";
 }
 
+// `star` is the red asterisk, and it defaults to `required` because for most of
+// the form the two say the same thing. A track point is the exception: every one
+// of its fields is derivable by the row's Calculate button, so marking them all
+// as must-fill reads as "type everything before you may press it" — which is the
+// opposite of how the row works. There the star is dropped and the schema does
+// the enforcing, at export, where it can name what is actually missing.
 function num(name, label, opts = {}) {
-    const { step = "0.1", min, max, required = true, hint = false, value, list } = opts;
+    const { step = "0.1", min, max, required = true, star = required,
+            hint = false, value, list } = opts;
     const attrs = [
         `type="number"`, `step="${step}"`, `name="${name}"`,
         min !== undefined ? `min="${min}"` : "",
@@ -103,16 +110,16 @@ function num(name, label, opts = {}) {
     ].filter(Boolean).join(" ");
     return `
         <div class="field">
-            <label>${label}${required ? ' <span class="req">*</span>' : ""}</label>
+            <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
             <input ${attrs}>
             ${hintSpan(hint)}
         </div>`;
 }
 
-function text(name, label, { required = true, placeholder = "", readOnly = false, hint = "" } = {}) {
+function text(name, label, { required = true, star = required, placeholder = "", readOnly = false, hint = "" } = {}) {
     return `
         <div class="field">
-            <label>${label}${required ? ' <span class="req">*</span>' : ""}</label>
+            <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
             <input type="text" name="${name}"${required ? " required" : ""}${readOnly ? " readonly" : ""}${placeholder ? ` placeholder="${placeholder}"` : ""}>
             ${hintSpan(hint)}
         </div>`;
@@ -124,10 +131,10 @@ function text(name, label, { required = true, placeholder = "", readOnly = false
 // puts its rejection message, so every coordinate field has one.
 const COORD_PLACEHOLDER = { lat: "54.375 or 54°22.5'N", lon: "18.5 or 018°34.2'E" };
 
-function coord(name, label, axis) {
+function coord(name, label, axis, { star = true } = {}) {
     return `
         <div class="field">
-            <label>${label} <span class="req">*</span></label>
+            <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
             <input type="text" name="${name}" data-coord="${axis}"
                    placeholder="${COORD_PLACEHOLDER[axis]}" required>
             <span class="hint"></span>
@@ -150,6 +157,17 @@ function rowWrap(title, idx, inner, extraButtons = "") {
 }
 
 // ---- magnetic variation ----/
+// The main variation is the chart-wide one the task always carries, so it is a
+// plain fieldset rather than a list row: no position, nothing to add or remove.
+function mvMainHTML() {
+    return `
+        <div class="grid">
+            ${num("mvm.base_deg",          "Base variation (°)")}
+            ${num("mvm.base_year",         "Base year", { step: "1", min: 1900, max: 2100 })}
+            ${num("mvm.annual_change_min", "Annual change (′/yr)", { step: "0.1" })}
+        </div>`;
+}
+
 function mvRowHTML(idx) {
     const inner = `
         <div class="grid">
@@ -249,9 +267,10 @@ function windDatalistHTML() {
     return `<datalist id="${WIND_LIST_ID}">${options}</datalist>`;
 }
 
+// Only ever used inside a track point, hence no star (see num()).
 function windField(name, label) {
     return num(name, label, {
-        min: 0, max: 359.9999, list: WIND_LIST_ID,
+        min: 0, max: 359.9999, list: WIND_LIST_ID, star: false,
         hint: "Pick a compass point or type any bearing.",
     });
 }
@@ -261,30 +280,32 @@ function trkRowHTML(idx) {
     const inner = `
         <div class="grid">
             <div class="field">
-                <label>Date (local) <span class="req">*</span></label>
+                <label>Date (local)</label>
                 <input type="date" name="trk.${idx}.date" required
                        min="1900-01-01" max="2100-12-31">
                 <span class="hint">Carried over when you add the next point.</span>
             </div>
             <div class="field">
-                <label>Time (local) <span class="req">*</span></label>
+                <label>Time (local)</label>
                 <input type="time" step="1" name="trk.${idx}.time" required>
                 <span class="hint">Combined with the date and timezone offset on export.</span>
             </div>
-            ${coord(`trk.${idx}.position.lat`, "Latitude (°)", "lat")}
-            ${coord(`trk.${idx}.position.lon`, "Longitude (°)", "lon")}
+            ${coord(`trk.${idx}.position.lat`, "Latitude (°)", "lat", { star: false })}
+            ${coord(`trk.${idx}.position.lon`, "Longitude (°)", "lon", { star: false })}
             ${text(`trk.${idx}.position.position_txt`, "Position text", {
-                readOnly: true,
+                readOnly: true, star: false,
                 hint: "Derived from the latitude and longitude.",
             })}
-            ${num(`trk.${idx}.distance_nm`, "Distance (nm)", { min: 0, hint: true })}
-            ${num(`trk.${idx}.log_nm`,      "Log (nm)",      { min: 0, hint: true })}
-            ${num(`trk.${idx}.course_compass_deg`,        "Course compass (°)",        { min: 0, max: 359.9999, hint: true })}
-            ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999, hint: true })}
-            ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999, hint: true })}
+            ${num(`trk.${idx}.distance_nm`, "Distance (nm)", { min: 0, star: false, hint: true })}
+            ${num(`trk.${idx}.log_nm`,      "Log (nm)",      { min: 0, star: false, hint: true })}
+            ${num(`trk.${idx}.course_compass_deg`,        "Course compass (°)",        { min: 0, max: 359.9999, star: false, hint: true })}
+            ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999, star: false, hint: true })}
+            ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999, star: false, hint: true })}
             ${windField(`trk.${idx}.wind_true_deg`, "Wind true (°)")}
-            ${num(`trk.${idx}.wind_app_deg`,  "Wind apparent (°)",  { min: 0, max: 359.9999 })}
-            ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0 })}
+            ${num(`trk.${idx}.wind_true_speed`, "Wind true speed (kn)", { min: 0, required: false, hint: true })}
+            ${num(`trk.${idx}.wind_app_deg`,    "Wind apparent (°)",    { min: 0, max: 359.9999, required: false, hint: true })}
+            ${num(`trk.${idx}.wind_app_speed`,  "Wind apparent speed (kn)", { min: 0, required: false, hint: true })}
+            ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0, star: false })}
         </div>`;
     return rowWrap("Track point", idx, inner,
         '<button type="button" class="calc-btn" title="Fill in the fields this row is missing">🧮 Calculate</button>');
@@ -446,7 +467,7 @@ function recomputeTrack() {
 // Whatever is filled is input, whatever is blank is output. A field that already
 // has a value is never overwritten; if the computed value disagrees beyond
 // tolerance the row says so and keeps the teacher's number.
-const TOLERANCE = { angle: 0.05, distance: 0.05, coord: 0.0002, text: 0 };
+const TOLERANCE = { angle: 0.05, distance: 0.05, coord: 0.0002, speed: 0.05, text: 0 };
 const COURSE_FIELDS = { compass: "course_compass_deg", true: "course_true_deg", cog: "course_over_ground_deg" };
 const COURSE_ORDER = ["compass", "true", "cog"];
 
@@ -550,6 +571,77 @@ function courseTargets(i, row) {
         source: "the course chain", title: title,
         missing: missing || "more input",
     }));
+}
+
+// Wind — the one derivation that needs speeds as well as directions, and the one
+// that solves in whichever direction the row is short of. It runs after the course
+// targets so it can use a course over ground the chain has just filled in, and it
+// reads the boat's track rather than its heading: the app models no current, so
+// COG is the boat's motion through the air.
+//
+// The true wind is the task's own datum, so it stays the preferred input: with
+// both of its halves filled the row derives the apparent wind, exactly as before.
+// Only when the true wind is incomplete does the inverse run, working it back out
+// of the apparent wind. Which means a row never fights itself over which pair is
+// the source, and a row holding both complete pairs is left alone save for the
+// cross-check the apparent side already performs.
+function windTargets(i, row) {
+    const appDegInput    = row.querySelector(`[name="trk.${i}.wind_app_deg"]`);
+    const appSpeedInput  = row.querySelector(`[name="trk.${i}.wind_app_speed"]`);
+    const trueDegInput   = row.querySelector(`[name="trk.${i}.wind_true_deg"]`);
+    const trueSpeedInput = row.querySelector(`[name="trk.${i}.wind_true_speed"]`);
+    if (!appDegInput || !appSpeedInput || !trueDegInput || !trueSpeedInput) return [];
+
+    const windDeg   = val(`trk.${i}.wind_true_deg`,          { number: true });
+    const windSpeed = val(`trk.${i}.wind_true_speed`,        { number: true });
+    const appDeg    = val(`trk.${i}.wind_app_deg`,           { number: true });
+    const appSpeed  = val(`trk.${i}.wind_app_speed`,         { number: true });
+    const cog       = val(`trk.${i}.course_over_ground_deg`, { number: true });
+    const boatSpeed = val(`trk.${i}.speed_kn`,               { number: true });
+
+    const motion = [];
+    if (cog       === undefined) motion.push("a course over ground");
+    if (boatSpeed === undefined) motion.push("the boat speed");
+
+    const haveTrue = windDeg !== undefined && windSpeed !== undefined;
+    const haveApp  = appDeg  !== undefined && appSpeed  !== undefined;
+
+    const boat = () => `boat ${nm4(boatSpeed)} kn on ${nm4(cog)}°`;
+    const describe = (w) => `${nm4(w.speed)} kn from ${nm4(w.deg)}° ` +
+        `(${nm4(Math.abs(w.angle))}° off the bow, wind on ${w.tack})`;
+
+    if (!motion.length && haveTrue) {
+        const aw = CourseChain.apparentWind(windDeg, windSpeed, cog, boatSpeed);
+        const title = aw ? `true wind ${nm4(windSpeed)} kn from ${nm4(windDeg)}°, ${boat()}\n` +
+                           `apparent ${describe(aw)}` : "";
+        const missing = aw ? "" : "a true wind or a boat that is moving";
+        return [
+            { input: appDegInput,   kind: "angle", value: aw ? aw.deg : undefined,
+              source: "the apparent wind", title: title, missing: missing },
+            { input: appSpeedInput, kind: "speed", value: aw ? aw.speed : undefined,
+              source: "the apparent wind", title: title, missing: missing },
+        ];
+    }
+
+    if (!motion.length && haveApp) {
+        const tw = CourseChain.trueWind(appDeg, appSpeed, cog, boatSpeed);
+        const title = tw ? `apparent wind ${nm4(appSpeed)} kn from ${nm4(appDeg)}°, ${boat()}\n` +
+                           `true ${describe(tw)}` : "";
+        const missing = tw ? "" : "an apparent wind that is more than the boat's own";
+        return [
+            { input: trueDegInput,   kind: "angle", value: tw ? tw.deg : undefined,
+              source: "the true wind", title: title, missing: missing },
+            { input: trueSpeedInput, kind: "speed", value: tw ? tw.speed : undefined,
+              source: "the true wind", title: title, missing: missing },
+        ];
+    }
+
+    // Neither pair is complete: say what a wind of either kind would take.
+    const needs = motion.concat("a true wind or an apparent wind, both direction and speed");
+    return [
+        { input: appDegInput,   kind: "angle", value: undefined, missing: needs.join(", ") },
+        { input: appSpeedInput, kind: "speed", value: undefined, missing: needs.join(", ") },
+    ];
 }
 
 const DISTANCE_SOURCE = {
@@ -660,6 +752,43 @@ function legTargets(i, row) {
     return targets;
 }
 
+// The clock, which the distance already solves in the other direction: with both
+// times filled, legTargets turns the gap into a distance. This is that same
+// triangle read the other way — the previous point's time plus how long this leg
+// took at the previous point's speed. It runs after the leg targets because the
+// distance it divides may be one they have only just filled in.
+function timeTargets(i, row) {
+    if (i === 0) return [];   // nothing before it to count from
+    const dateInput = row.querySelector(`[name="trk.${i}.date"]`);
+    const timeInput = row.querySelector(`[name="trk.${i}.time"]`);
+    if (!dateInput || !timeInput) return [];
+
+    const prevLocal = localTimeOf(i - 1);
+    const speedPrev = val(`trk.${i - 1}.speed_kn`, { number: true });
+    const legNm = val(`trk.${i}.distance_nm`, { number: true });
+
+    const needs = [];
+    if (!prevLocal) needs.push(`track point ${i}'s date and time`);
+    if (!Number.isFinite(speedPrev) || speedPrev <= 0) needs.push(`track point ${i}'s speed`);
+    if (!Number.isFinite(legNm)) needs.push("this leg's distance");
+
+    const hours = needs.length ? NaN : legNm / speedPrev;
+    const local = needs.length ? null : CourseChain.shiftLocal(prevLocal, hours);
+    const missing = needs.join(", ");
+    const title = local
+        ? `${prevLocal} + ${nm4(legNm)} nm at ${nm4(speedPrev)} kn ` +
+          `(${nm4(hours * 60)} min) → ${local}`
+        : "";
+    const [date, time] = local ? local.split("T") : [undefined, undefined];
+
+    return [
+        { input: dateInput, kind: "text", value: date,
+          source: `track point ${i}'s time plus this leg`, title: title, missing: missing },
+        { input: timeInput, kind: "text", value: time,
+          source: `track point ${i}'s time plus this leg`, title: title, missing: missing },
+    ];
+}
+
 function showRowSummary(row, outcome) {
     const el = row.querySelector(".calc-summary");
     if (!el) return;
@@ -674,18 +803,24 @@ function showRowSummary(row, outcome) {
     el.classList.toggle("warn", outcome.flagged > 0 || needs.length > 0);
 }
 
-// Two passes, because the second depends on what the first wrote: the leg fills the
+// Four passes, because each depends on what the ones before wrote: the leg fills the
 // position, and the variation lookup reads it. (Position text needs no pass of its
 // own — recomputePositions derives it from lat/lon the moment they change.)
 function calcRow(i) {
     const row = document.querySelectorAll("#trkList .row")[i];
     if (!row) return;
     const first = applyTargets(legTargets(i, row));
-    const second = applyTargets(courseTargets(i, row));
+    // The clock divides the leg distance, which the leg pass may have just written.
+    const second = applyTargets(timeTargets(i, row));
+    const third = applyTargets(courseTargets(i, row));
+    // Last: the apparent wind reads the course over ground, which the course
+    // targets may have only just written into the row.
+    const fourth = applyTargets(windTargets(i, row));
+    const passes = [first, second, third, fourth];
     showRowSummary(row, {
-        filled:  first.filled + second.filled,
-        flagged: first.flagged + second.flagged,
-        missing: [...first.missing, ...second.missing],
+        filled:  passes.reduce((n, p) => n + p.filled, 0),
+        flagged: passes.reduce((n, p) => n + p.flagged, 0),
+        missing: passes.flatMap(p => p.missing),
     });
     recomputeTrack();   // the DR fill wrote lat/lon; refresh position text (and re-pin the start row)
 }
@@ -747,12 +882,9 @@ document.body.addEventListener("focusout", e => {
 document.body.insertAdjacentHTML("beforeend", windDatalistHTML());
 document.getElementById("leewayList").innerHTML = leewayHTML();
 document.getElementById("cdList").innerHTML = cdCardHTML();
-addRow("mv");
-// first magnetic-variation entry is the base entry: default lat/lon/range to 0
-["lat", "lon", "range_nm"].forEach(f => {
-    const el = document.querySelector(`[name="mv.0.${f}"]`);
-    if (el) el.value = "0";
-});
+// The main variation always exists; the positioned entries start empty because
+// magnetic_variation_list is optional.
+document.getElementById("mvMain").innerHTML = mvMainHTML();
 addRow("poi");
 addRow("trk");
 recomputeTrack();
@@ -785,6 +917,17 @@ function readCard() {
 
 // Annual change is entered in minutes and stored in degrees; converting here is
 // what keeps that conversion in one place, since buildJSON calls this too.
+function readMvMain() {
+    const annualChangeMin = val("mvm.annual_change_min", { number: true });
+    return {
+        base_deg:          val("mvm.base_deg",  { number: true }),
+        base_year:         val("mvm.base_year", { number: true }),
+        annual_change_deg: annualChangeMin === undefined
+            ? undefined
+            : nm4(minutesToDegrees(annualChangeMin)),
+    };
+}
+
 function readMvList() {
     const rows = document.querySelectorAll("#mvList .row");
     return Array.from(rows).map((_, i) => {
@@ -843,7 +986,7 @@ function rowCtx(i) {
     const pos = positionOf(i);
     return {
         card:        readCard(),
-        mvList:      readMvList(),
+        mvList:      CourseChain.mvEntries(readMvMain(), readMvList()),
         leewayTable: readLeewayTable(),
         windTrueDeg: wind === undefined ? NaN : wind,
         lat:         pos ? pos.lat : NaN,
@@ -879,6 +1022,7 @@ function buildJSON() {
     const tzOffset = val("tz.offset");
     const tzName = document.getElementById("tzSelect")?.selectedOptions[0]?.dataset.name;
 
+    const magnetic_variation_main = readMvMain();
     const magnetic_variation_list = readMvList();
     const compass_deviation_table = readCard();
     const leeway = readLeewayTable();
@@ -908,7 +1052,11 @@ function buildJSON() {
         course_true_deg:        val(`trk.${i}.course_true_deg`,        { number: true }),
         course_over_ground_deg: val(`trk.${i}.course_over_ground_deg`, { number: true }),
         wind_true_deg:          val(`trk.${i}.wind_true_deg`,          { number: true }),
+        // The wind speeds and the apparent direction are optional: val() yields
+        // undefined for an empty field and the serialiser drops those keys.
+        wind_true_speed:        val(`trk.${i}.wind_true_speed`,        { number: true }),
         wind_app_deg:           val(`trk.${i}.wind_app_deg`,           { number: true }),
+        wind_app_speed:         val(`trk.${i}.wind_app_speed`,         { number: true }),
         speed_kn:               val(`trk.${i}.speed_kn`,               { number: true }),
     }));
 
@@ -924,7 +1072,10 @@ function buildJSON() {
         },
         navigation: {
             timezone: { name: tzName, offset: tzOffset },
-            magnetic_variation_list,
+            magnetic_variation_main,
+            // The extra entries are optional, so an untouched list stays out of
+            // the JSON rather than going out as an empty array.
+            ...(magnetic_variation_list.length ? { magnetic_variation_list } : {}),
             compass_deviation_table,
             leeway,
         },

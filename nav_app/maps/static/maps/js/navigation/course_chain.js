@@ -91,6 +91,19 @@
     }
 
     /**
+     * The variation list variationAt() reads, built from the two fields the task
+     * JSON carries: the required magnetic_variation_main and the optional
+     * magnetic_variation_list. Main becomes entry 0, the positioned extras follow.
+     *
+     * Without a main variation there is no chart-wide default to fall back on, so
+     * the extras cannot stand in for it and the result is empty.
+     */
+    function mvEntries(main, list) {
+        if (!main || typeof main !== 'object') return [];
+        return Array.isArray(list) ? [main].concat(list) : [main];
+    }
+
+    /**
      * Magnetic variation at a track point.
      *
      * Entry 0 is the chart-wide default — navigation_task_form.js seeds it with
@@ -133,6 +146,85 @@
         }
         const deg = entry.base_deg + entry.annual_change_deg * (year - entry.base_year);
         return { deg: round4(deg), entryIndex: bestIndex };
+    }
+
+    /**
+     * Apparent wind at a track point: the wind actually felt on board, which is
+     * the true wind combined with the headwind the boat makes by moving. It is
+     * what the sails and the masthead vane see, and what the task JSON stores as
+     * wind_app_deg / wind_app_speed.
+     *
+     * Bearings are the direction the wind blows FROM, matching wind_true_deg.
+     * The work is done relative to the boat: beta is the true wind angle off the
+     * bow (0 dead upwind, 180 dead run), positive to starboard — the same
+     * convention and 0/180 tie-break as leewayFor().
+     *
+     *   x = W·cos(beta) + S   along the boat's track
+     *   y = W·sin(beta)       across it
+     *
+     * The apparent wind always shifts forward of the true wind and never crosses
+     * the bow to the other side, so it keeps the true wind's tack. With no true
+     * wind it comes from dead ahead at the boat's own speed; with the boat
+     * stopped it is the true wind. Becalmed *and* stopped there is no direction
+     * to report, so that returns null rather than an invented bearing.
+     *
+     * @returns {{deg:number, speed:number, angle:number, tack:string}|null}
+     */
+    function apparentWind(windTrueDeg, windTrueSpeed, courseDeg, boatSpeed) {
+        if (!Number.isFinite(windTrueDeg) || !Number.isFinite(windTrueSpeed) ||
+            !Number.isFinite(courseDeg)   || !Number.isFinite(boatSpeed)) return null;
+        if (windTrueSpeed < 0 || boatSpeed < 0) return null;
+        if (windTrueSpeed === 0 && boatSpeed === 0) return null;
+
+        const beta = normalize180(windTrueDeg - courseDeg);
+        const rad = beta * Math.PI / 180;
+        const x = windTrueSpeed * Math.cos(rad) + boatSpeed;
+        const y = windTrueSpeed * Math.sin(rad);
+        const angle = Math.atan2(y, x) * 180 / Math.PI;
+
+        return {
+            deg:   round4(normalize360(courseDeg + angle)),
+            speed: round4(Math.hypot(x, y)),
+            angle: round4(angle),
+            tack:  beta >= 0 ? 'starboard' : 'port',
+        };
+    }
+
+    /**
+     * True wind from the apparent wind: the same triangle as apparentWind() with
+     * the boat's own headwind taken back out.
+     *
+     *   x = A·cos(beta_app) − S   along the boat's track
+     *   y = A·sin(beta_app)       across it
+     *
+     * where beta_app is the apparent wind angle off the bow. What is left is the
+     * true wind vector, so speed = hypot(x, y) and the angle off the bow is
+     * atan2(y, x) — the exact inverse of the forward calculation, tack and all.
+     *
+     * The one case with no answer is an apparent wind that IS the boat's own
+     * headwind: dead ahead at exactly the boat's speed leaves a zero vector, and
+     * a calm has no direction. That returns null rather than an invented bearing.
+     *
+     * @returns {{deg:number, speed:number, angle:number, tack:string}|null}
+     */
+    function trueWind(windAppDeg, windAppSpeed, courseDeg, boatSpeed) {
+        if (!Number.isFinite(windAppDeg) || !Number.isFinite(windAppSpeed) ||
+            !Number.isFinite(courseDeg)   || !Number.isFinite(boatSpeed)) return null;
+        if (windAppSpeed < 0 || boatSpeed < 0) return null;
+
+        const betaApp = normalize180(windAppDeg - courseDeg);
+        const rad = betaApp * Math.PI / 180;
+        const x = windAppSpeed * Math.cos(rad) - boatSpeed;
+        const y = windAppSpeed * Math.sin(rad);
+        if (Math.hypot(x, y) < 1e-9) return null;
+
+        const angle = Math.atan2(y, x) * 180 / Math.PI;
+        return {
+            deg:   round4(normalize360(courseDeg + angle)),
+            speed: round4(Math.hypot(x, y)),
+            angle: round4(angle),
+            tack:  angle >= 0 ? 'starboard' : 'port',
+        };
     }
 
     /**
@@ -404,6 +496,30 @@
     }
 
     /**
+     * The other direction: a wall clock moved on by a number of hours.
+     *
+     * Same Date.UTC reasoning as hoursBetween — the arithmetic is on wall-clock
+     * time, and no browser timezone or DST step may shift it. The date comes
+     * back with it because a leg that ends after midnight lands on the next day.
+     *
+     * Seconds are kept rather than rounded away: a leg is rarely a whole number
+     * of minutes, and a clock time that quietly drifts by half a minute per point
+     * is worse than one that admits the twelve seconds.
+     *
+     * @param {string} local "YYYY-MM-DDTHH:MM" or with seconds.
+     * @param {number} hours may be negative.
+     * @returns {string|null} "YYYY-MM-DDTHH:MM:SS", or null if either input is unusable.
+     */
+    function shiftLocal(local, hours) {
+        const base = parseLocal(local);
+        if (base === null || !Number.isFinite(hours)) return null;
+        const d = new Date(base + Math.round(hours * 3600000));
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}` +
+               `T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+    }
+
+    /**
      * Every distance the leg into a track point can be worked out from, in the
      * priority order the teacher chose: the log difference first, then the
      * previous point's speed over the elapsed time, then the two plotted
@@ -472,12 +588,16 @@
         angularDelta: angularDelta,
         round4: round4,
         deviationAt: deviationAt,
+        mvEntries: mvEntries,
         variationAt: variationAt,
         leewayFor: leewayFor,
+        apparentWind: apparentWind,
+        trueWind: trueWind,
         forward: forward,
         solveFromTrue: solveFromTrue,
         solveFromCOG: solveFromCOG,
         hoursBetween: hoursBetween,
+        shiftLocal: shiftLocal,
         legDistances: legDistances,
         positionFrom: positionFrom,
     };

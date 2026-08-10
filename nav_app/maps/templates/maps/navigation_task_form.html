@@ -329,8 +329,23 @@
             background: #f9fafb; border: 1px solid #e5e7eb;
             border-radius: 8px; margin: 12px; padding: 14px;
         }
+        /* Each calculator collapses on its own, so the sidebar opens as a list of
+           what is available. Same disclosure idiom as details.section above: the
+           native marker is suppressed and replaced with one that rotates. */
+        #calcSidebar details.panel > summary {
+            cursor: pointer; list-style: none; padding-left: 18px; position: relative;
+        }
+        #calcSidebar details.panel > summary::-webkit-details-marker { display: none; }
+        #calcSidebar details.panel > summary::before {
+            content: "▸"; position: absolute; left: 0; top: 0;
+            color: #1e3a8a; transition: transform 0.15s;
+        }
+        #calcSidebar details.panel[open] > summary::before { transform: rotate(90deg); }
+        #calcSidebar details.panel[open] > summary { margin-bottom: 10px; }
         #calcSidebar .panel h3 { margin: 0 0 4px; font-size: 1em; color: #1e3a8a; }
-        #calcSidebar .panel .hint { font-size: 0.78em; color: #6b7280; margin: 0 0 10px; }
+        #calcSidebar .panel .hint {
+            display: block; font-size: 0.78em; color: #6b7280; margin: 0;
+        }
         #calcSidebar .form-group { margin-bottom: 8px; }
         #calcSidebar .form-group > label {
             display: block; font-size: 0.8em; color: #374151;
@@ -419,7 +434,19 @@
                 </div>
 
                 <div class="subgroup">
-                    <div class="subgroup-title">Magnetic variation list</div>
+                    <div class="subgroup-title">Main magnetic variation</div>
+                    <div class="hint" style="margin-bottom:8px">
+                        Applies to the whole chart. Required.
+                    </div>
+                    <div id="mvMain"></div>
+                </div>
+
+                <div class="subgroup">
+                    <div class="subgroup-title">Extra magnetic variation entries</div>
+                    <div class="hint" style="margin-bottom:8px">
+                        Optional. Each entry overrides the main variation inside its own
+                        circle (centre plus range); the nearest covering circle wins.
+                    </div>
                     <div id="mvList"></div>
                     <button type="button" class="add-btn" data-add="mv">+ Add variation entry</button>
                 </div>
@@ -501,6 +528,10 @@
         <details class="section">
             <summary>5. Solution — Track</summary>
             <div class="body">
+                <div class="hint" style="margin-bottom:10px">
+                    Fill in what you know — the row's Calculate button works out the rest.
+                    Anything still missing is listed when you validate the task for export.
+                </div>
                 <div id="trkList"></div>
                 <button type="button" class="add-btn" data-add="trk">+ Add track point</button>
                 <div class="field" style="margin-top:14px">
@@ -624,9 +655,11 @@
     </div>
     <p class="calc-intro">Standalone helper tools. results are not saved into the task JSON.Coordinates accept decimal (<code>54.5</code>) or nautical (<code>54°22.5'N</code>).</p>
 
-    <div class="panel" id="courseCalculatorPanel">
-        <h3>⚓ Dead Reckoning Calculator</h3>
-        <p class="hint">Compute new position from course, speed, time, and current</p>
+    <details class="panel" id="courseCalculatorPanel">
+        <summary>
+            <h3>⚓ Dead Reckoning Calculator</h3>
+            <span class="hint">Compute new position from course, speed, time, and current</span>
+        </summary>
 
         <div class="form-group">
             <label>Start Latitude:</label>
@@ -685,11 +718,13 @@
         <button id="drCalcBtn" class="btn btn-primary">Calculate Position</button>
         <button id="drClearBtn" class="btn btn-secondary">Clear</button>
         <div id="drOut" class="info-box" style="display:none;"></div>
-    </div>
+    </details>
 
-    <div class="panel" id="fixCalculatorPanel">
-        <h3>📍 Two-Bearing Fix</h3>
-        <p class="hint">Observed position from two simultaneous bearings on two charted objects</p>
+    <details class="panel" id="fixCalculatorPanel">
+        <summary>
+            <h3>📍 Two-Bearing Fix</h3>
+            <span class="hint">Observed position from two simultaneous bearings on two charted objects</span>
+        </summary>
 
         <div class="form-group">
             <label>Object A Latitude:</label>
@@ -729,11 +764,13 @@
         <button id="fixCalcBtn" class="btn btn-primary">Calculate Fix</button>
         <button id="fixClearBtn" class="btn btn-secondary">Clear</button>
         <div id="fixOut" class="info-box" style="display:none;"></div>
-    </div>
+    </details>
 
-    <div class="panel" id="runfixCalculatorPanel">
-        <h3>🧭 Running Fix</h3>
-        <p class="hint">Observed position from two bearings on the same object, with the vessel running between them</p>
+    <details class="panel" id="runfixCalculatorPanel">
+        <summary>
+            <h3>🧭 Running Fix</h3>
+            <span class="hint">Observed position from two bearings on the same object, with the vessel running between them</span>
+        </summary>
 
         <div class="form-group">
             <label>Object Latitude:</label>
@@ -809,11 +846,13 @@
         <button id="runfixCalcBtn" class="btn btn-primary">Calculate Fix</button>
         <button id="runfixClearBtn" class="btn btn-secondary">Clear</button>
         <div id="runfixOut" class="info-box" style="display:none;"></div>
-    </div>
+    </details>
 
-    <div class="panel" id="travpoiCalculatorPanel">
-        <h3>🎯 Travers POI</h3>
-        <p class="hint">Point on the current course where a POI (lighthouse, buoy, waypoint, island…) comes exactly abeam — 90° to the ship's axis</p>
+    <details class="panel" id="travpoiCalculatorPanel">
+        <summary>
+            <h3>🎯 Travers POI</h3>
+            <span class="hint">Point on the current course where a POI (lighthouse, buoy, waypoint, island…) comes exactly abeam — 90° to the ship's axis</span>
+        </summary>
 
         <div class="form-group">
             <label>Vessel Latitude:</label>
@@ -844,7 +883,76 @@
         <button id="travpoiCalcBtn" class="btn btn-primary">Calculate Traverse</button>
         <button id="travpoiClearBtn" class="btn btn-secondary">Clear</button>
         <div id="travpoiOut" class="info-box" style="display:none;"></div>
-    </div>
+    </details>
+
+    <details class="panel" id="backtrackCalculatorPanel">
+        <summary>
+            <h3>⏪ Backtrack a Point</h3>
+            <span class="hint">Work the earlier point out of a later one: position, date and time, log</span>
+        </summary>
+
+        <div class="form-group">
+            <label>Known Latitude:</label>
+            <input type="text" id="btEndLat" placeholder="54.5 or 54°22.5'N">
+        </div>
+        <div class="form-group">
+            <label>Known Longitude:</label>
+            <input type="text" id="btEndLon" placeholder="18.5 or 018°34.2'E">
+        </div>
+        <div class="form-group">
+            <label>Course Over Ground (°):</label>
+            <input type="number" id="btCog" min="0" max="360" step="0.1" placeholder="090">
+            <small>Filled in, this wins and the three corrections below are ignored</small>
+        </div>
+        <div class="form-group">
+            <label>Compass Course (°):</label>
+            <input type="number" id="btCompass" min="0" max="360" step="0.1" placeholder="090">
+        </div>
+        <div class="form-group">
+            <label>Compass Deviation (°):</label>
+            <input type="number" id="btDeviation" step="0.1" placeholder="0.0" value="0">
+            <small>+East / −West</small>
+        </div>
+        <div class="form-group">
+            <label>Magnetic Variation (°):</label>
+            <input type="number" id="btVariation" step="0.1" placeholder="0.0" value="0">
+            <small>+East / −West</small>
+        </div>
+        <div class="form-group">
+            <label>Leeway (°):</label>
+            <input type="number" id="btLeeway" step="0.1" placeholder="0.0" value="0">
+            <small>+ to starboard / − to port</small>
+        </div>
+        <div class="form-group">
+            <label>Distance (NM):</label>
+            <input type="number" id="btDistance" min="0" step="0.1" placeholder="2.0">
+            <small>Measured on the chart — wins over speed × time</small>
+        </div>
+        <div class="form-group">
+            <label>Speed (kn):</label>
+            <input type="number" id="btSpeed" min="0" step="0.1" placeholder="5">
+        </div>
+        <div class="form-group">
+            <label>Time (min):</label>
+            <input type="number" id="btTime" min="0" step="1" placeholder="24">
+        </div>
+        <div class="form-group">
+            <label>Known Date:</label>
+            <input type="date" id="btEndDate">
+        </div>
+        <div class="form-group">
+            <label>Known Time:</label>
+            <input type="time" id="btEndTime">
+        </div>
+        <div class="form-group">
+            <label>Known Log (NM):</label>
+            <input type="number" id="btEndLog" min="0" step="0.1" placeholder="12.4">
+        </div>
+
+        <button id="btCalcBtn" class="btn btn-primary">Backtrack</button>
+        <button id="btClearBtn" class="btn btn-secondary">Clear</button>
+        <div id="btOut" class="info-box" style="display:none;"></div>
+    </details>
 </aside>
 
 <!-- Shared coordinate helpers (nauticalToDecimal, formatCoordinatePair) -->
@@ -864,6 +972,10 @@
 <script src="{% url 'maps:calculator_js' 'runfix/runfix_enhanced.js' %}"></script>
 <script src="{% url 'maps:calculator_js' 'travpoi/travpoi_core.js' %}"></script>
 <script src="{% url 'maps:calculator_js' 'travpoi/travpoi_enhanced.js' %}"></script>
+<!-- Backtrack needs course_chain.js above for the maths and clipboard.js for its copy buttons. -->
+<script src="{% static 'maps/js/core/clipboard.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'backtrack/backtrack_core.js' %}"></script>
+<script src="{% url 'maps:calculator_js' 'backtrack/backtrack_enhanced.js' %}"></script>
 <script>
     (function () {
         const sidebar = document.getElementById('calcSidebar');
