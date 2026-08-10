@@ -295,8 +295,8 @@ function trkRowHTML(idx) {
             ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999, hint: true })}
             ${windField(`trk.${idx}.wind_true_deg`, "Wind true (°)")}
             ${num(`trk.${idx}.wind_true_speed`, "Wind true speed (kn)", { min: 0, required: false })}
-            ${num(`trk.${idx}.wind_app_deg`,    "Wind apparent (°)",    { min: 0, max: 359.9999, required: false })}
-            ${num(`trk.${idx}.wind_app_speed`,  "Wind apparent speed (kn)", { min: 0, required: false })}
+            ${num(`trk.${idx}.wind_app_deg`,    "Wind apparent (°)",    { min: 0, max: 359.9999, required: false, hint: true })}
+            ${num(`trk.${idx}.wind_app_speed`,  "Wind apparent speed (kn)", { min: 0, required: false, hint: true })}
             ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0 })}
         </div>`;
     return rowWrap("Track point", idx, inner,
@@ -459,7 +459,7 @@ function recomputeTrack() {
 // Whatever is filled is input, whatever is blank is output. A field that already
 // has a value is never overwritten; if the computed value disagrees beyond
 // tolerance the row says so and keeps the teacher's number.
-const TOLERANCE = { angle: 0.05, distance: 0.05, coord: 0.0002, text: 0 };
+const TOLERANCE = { angle: 0.05, distance: 0.05, coord: 0.0002, speed: 0.05, text: 0 };
 const COURSE_FIELDS = { compass: "course_compass_deg", true: "course_true_deg", cog: "course_over_ground_deg" };
 const COURSE_ORDER = ["compass", "true", "cog"];
 
@@ -563,6 +563,45 @@ function courseTargets(i, row) {
         source: "the course chain", title: title,
         missing: missing || "more input",
     }));
+}
+
+// Apparent wind — the one derivation that needs speeds as well as directions.
+// It runs after the course targets so it can use a course over ground the chain
+// has just filled in, and it reads the boat's track rather than its heading:
+// the app models no current, so COG is the boat's motion through the air.
+function windTargets(i, row) {
+    const degInput   = row.querySelector(`[name="trk.${i}.wind_app_deg"]`);
+    const speedInput = row.querySelector(`[name="trk.${i}.wind_app_speed"]`);
+    if (!degInput || !speedInput) return [];
+
+    const windDeg   = val(`trk.${i}.wind_true_deg`,          { number: true });
+    const windSpeed = val(`trk.${i}.wind_true_speed`,        { number: true });
+    const cog       = val(`trk.${i}.course_over_ground_deg`, { number: true });
+    const boatSpeed = val(`trk.${i}.speed_kn`,               { number: true });
+
+    const needs = [];
+    if (windDeg   === undefined) needs.push("the true wind direction");
+    if (windSpeed === undefined) needs.push("the true wind speed");
+    if (cog       === undefined) needs.push("a course over ground");
+    if (boatSpeed === undefined) needs.push("the boat speed");
+
+    const aw = needs.length ? null
+        : CourseChain.apparentWind(windDeg, windSpeed, cog, boatSpeed);
+    const missing = needs.length ? needs.join(", ")
+        : (aw ? "" : "a true wind or a boat that is moving");
+
+    const title = aw
+        ? `true wind ${nm4(windSpeed)} kn from ${nm4(windDeg)}°, boat ${nm4(boatSpeed)} kn on ${nm4(cog)}°\n` +
+          `apparent ${nm4(aw.speed)} kn from ${nm4(aw.deg)}° ` +
+          `(${nm4(Math.abs(aw.angle))}° off the bow, wind on ${aw.tack})`
+        : "";
+
+    return [
+        { input: degInput,   kind: "angle", value: aw ? aw.deg : undefined,
+          source: "the apparent wind", title: title, missing: missing },
+        { input: speedInput, kind: "speed", value: aw ? aw.speed : undefined,
+          source: "the apparent wind", title: title, missing: missing },
+    ];
 }
 
 const DISTANCE_SOURCE = {
@@ -687,7 +726,7 @@ function showRowSummary(row, outcome) {
     el.classList.toggle("warn", outcome.flagged > 0 || needs.length > 0);
 }
 
-// Two passes, because the second depends on what the first wrote: the leg fills the
+// Three passes, because each depends on what the one before wrote: the leg fills the
 // position, and the variation lookup reads it. (Position text needs no pass of its
 // own — recomputePositions derives it from lat/lon the moment they change.)
 function calcRow(i) {
@@ -695,10 +734,13 @@ function calcRow(i) {
     if (!row) return;
     const first = applyTargets(legTargets(i, row));
     const second = applyTargets(courseTargets(i, row));
+    // Third, not second: the apparent wind reads the course over ground, which
+    // the course targets may have only just written into the row.
+    const third = applyTargets(windTargets(i, row));
     showRowSummary(row, {
-        filled:  first.filled + second.filled,
-        flagged: first.flagged + second.flagged,
-        missing: [...first.missing, ...second.missing],
+        filled:  first.filled + second.filled + third.filled,
+        flagged: first.flagged + second.flagged + third.flagged,
+        missing: [...first.missing, ...second.missing, ...third.missing],
     });
     recomputeTrack();   // the DR fill wrote lat/lon; refresh position text (and re-pin the start row)
 }
