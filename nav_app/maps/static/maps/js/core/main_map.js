@@ -80,18 +80,6 @@
         if (typeof initMagneticDeclination === 'function') {
             initMagneticDeclination(map);
         }
-        if (typeof initDeadReckoning === 'function') {
-            initDeadReckoning(map);
-        }
-        if (typeof initFix === 'function') {
-            initFix(map);
-        }
-        if (typeof initRunFix === 'function') {
-            initRunFix(map);
-        }
-        if (typeof initTravPOI === 'function') {
-            initTravPOI(map);
-        }
 
         // Started last so every tool has registered its states and target
         // validation sees the complete graph. Guarded for the same reason as
