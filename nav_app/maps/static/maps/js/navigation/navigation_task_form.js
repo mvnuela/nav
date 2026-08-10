@@ -91,8 +91,15 @@ function hintSpan(hint) {
     return hint ? `<span class="hint">${hint}</span>` : "";
 }
 
+// `star` is the red asterisk, and it defaults to `required` because for most of
+// the form the two say the same thing. A track point is the exception: every one
+// of its fields is derivable by the row's Calculate button, so marking them all
+// as must-fill reads as "type everything before you may press it" — which is the
+// opposite of how the row works. There the star is dropped and the schema does
+// the enforcing, at export, where it can name what is actually missing.
 function num(name, label, opts = {}) {
-    const { step = "0.1", min, max, required = true, hint = false, value, list } = opts;
+    const { step = "0.1", min, max, required = true, star = required,
+            hint = false, value, list } = opts;
     const attrs = [
         `type="number"`, `step="${step}"`, `name="${name}"`,
         min !== undefined ? `min="${min}"` : "",
@@ -103,16 +110,16 @@ function num(name, label, opts = {}) {
     ].filter(Boolean).join(" ");
     return `
         <div class="field">
-            <label>${label}${required ? ' <span class="req">*</span>' : ""}</label>
+            <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
             <input ${attrs}>
             ${hintSpan(hint)}
         </div>`;
 }
 
-function text(name, label, { required = true, placeholder = "", readOnly = false, hint = "" } = {}) {
+function text(name, label, { required = true, star = required, placeholder = "", readOnly = false, hint = "" } = {}) {
     return `
         <div class="field">
-            <label>${label}${required ? ' <span class="req">*</span>' : ""}</label>
+            <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
             <input type="text" name="${name}"${required ? " required" : ""}${readOnly ? " readonly" : ""}${placeholder ? ` placeholder="${placeholder}"` : ""}>
             ${hintSpan(hint)}
         </div>`;
@@ -124,10 +131,10 @@ function text(name, label, { required = true, placeholder = "", readOnly = false
 // puts its rejection message, so every coordinate field has one.
 const COORD_PLACEHOLDER = { lat: "54.375 or 54°22.5'N", lon: "18.5 or 018°34.2'E" };
 
-function coord(name, label, axis) {
+function coord(name, label, axis, { star = true } = {}) {
     return `
         <div class="field">
-            <label>${label} <span class="req">*</span></label>
+            <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
             <input type="text" name="${name}" data-coord="${axis}"
                    placeholder="${COORD_PLACEHOLDER[axis]}" required>
             <span class="hint"></span>
@@ -260,9 +267,10 @@ function windDatalistHTML() {
     return `<datalist id="${WIND_LIST_ID}">${options}</datalist>`;
 }
 
+// Only ever used inside a track point, hence no star (see num()).
 function windField(name, label) {
     return num(name, label, {
-        min: 0, max: 359.9999, list: WIND_LIST_ID,
+        min: 0, max: 359.9999, list: WIND_LIST_ID, star: false,
         hint: "Pick a compass point or type any bearing.",
     });
 }
@@ -272,32 +280,32 @@ function trkRowHTML(idx) {
     const inner = `
         <div class="grid">
             <div class="field">
-                <label>Date (local) <span class="req">*</span></label>
+                <label>Date (local)</label>
                 <input type="date" name="trk.${idx}.date" required
                        min="1900-01-01" max="2100-12-31">
                 <span class="hint">Carried over when you add the next point.</span>
             </div>
             <div class="field">
-                <label>Time (local) <span class="req">*</span></label>
+                <label>Time (local)</label>
                 <input type="time" step="1" name="trk.${idx}.time" required>
                 <span class="hint">Combined with the date and timezone offset on export.</span>
             </div>
-            ${coord(`trk.${idx}.position.lat`, "Latitude (°)", "lat")}
-            ${coord(`trk.${idx}.position.lon`, "Longitude (°)", "lon")}
+            ${coord(`trk.${idx}.position.lat`, "Latitude (°)", "lat", { star: false })}
+            ${coord(`trk.${idx}.position.lon`, "Longitude (°)", "lon", { star: false })}
             ${text(`trk.${idx}.position.position_txt`, "Position text", {
-                readOnly: true,
+                readOnly: true, star: false,
                 hint: "Derived from the latitude and longitude.",
             })}
-            ${num(`trk.${idx}.distance_nm`, "Distance (nm)", { min: 0, hint: true })}
-            ${num(`trk.${idx}.log_nm`,      "Log (nm)",      { min: 0, hint: true })}
-            ${num(`trk.${idx}.course_compass_deg`,        "Course compass (°)",        { min: 0, max: 359.9999, hint: true })}
-            ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999, hint: true })}
-            ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999, hint: true })}
+            ${num(`trk.${idx}.distance_nm`, "Distance (nm)", { min: 0, star: false, hint: true })}
+            ${num(`trk.${idx}.log_nm`,      "Log (nm)",      { min: 0, star: false, hint: true })}
+            ${num(`trk.${idx}.course_compass_deg`,        "Course compass (°)",        { min: 0, max: 359.9999, star: false, hint: true })}
+            ${num(`trk.${idx}.course_true_deg`,           "Course true (°)",           { min: 0, max: 359.9999, star: false, hint: true })}
+            ${num(`trk.${idx}.course_over_ground_deg`,    "Course over ground (°)",    { min: 0, max: 359.9999, star: false, hint: true })}
             ${windField(`trk.${idx}.wind_true_deg`, "Wind true (°)")}
             ${num(`trk.${idx}.wind_true_speed`, "Wind true speed (kn)", { min: 0, required: false })}
             ${num(`trk.${idx}.wind_app_deg`,    "Wind apparent (°)",    { min: 0, max: 359.9999, required: false, hint: true })}
             ${num(`trk.${idx}.wind_app_speed`,  "Wind apparent speed (kn)", { min: 0, required: false, hint: true })}
-            ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0 })}
+            ${num(`trk.${idx}.speed_kn`,      "Speed (kn)",         { min: 0, star: false })}
         </div>`;
     return rowWrap("Track point", idx, inner,
         '<button type="button" class="calc-btn" title="Fill in the fields this row is missing">🧮 Calculate</button>');
