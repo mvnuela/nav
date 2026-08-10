@@ -149,6 +149,48 @@
     }
 
     /**
+     * Apparent wind at a track point: the wind actually felt on board, which is
+     * the true wind combined with the headwind the boat makes by moving. It is
+     * what the sails and the masthead vane see, and what the task JSON stores as
+     * wind_app_deg / wind_app_speed.
+     *
+     * Bearings are the direction the wind blows FROM, matching wind_true_deg.
+     * The work is done relative to the boat: beta is the true wind angle off the
+     * bow (0 dead upwind, 180 dead run), positive to starboard — the same
+     * convention and 0/180 tie-break as leewayFor().
+     *
+     *   x = W·cos(beta) + S   along the boat's track
+     *   y = W·sin(beta)       across it
+     *
+     * The apparent wind always shifts forward of the true wind and never crosses
+     * the bow to the other side, so it keeps the true wind's tack. With no true
+     * wind it comes from dead ahead at the boat's own speed; with the boat
+     * stopped it is the true wind. Becalmed *and* stopped there is no direction
+     * to report, so that returns null rather than an invented bearing.
+     *
+     * @returns {{deg:number, speed:number, angle:number, tack:string}|null}
+     */
+    function apparentWind(windTrueDeg, windTrueSpeed, courseDeg, boatSpeed) {
+        if (!Number.isFinite(windTrueDeg) || !Number.isFinite(windTrueSpeed) ||
+            !Number.isFinite(courseDeg)   || !Number.isFinite(boatSpeed)) return null;
+        if (windTrueSpeed < 0 || boatSpeed < 0) return null;
+        if (windTrueSpeed === 0 && boatSpeed === 0) return null;
+
+        const beta = normalize180(windTrueDeg - courseDeg);
+        const rad = beta * Math.PI / 180;
+        const x = windTrueSpeed * Math.cos(rad) + boatSpeed;
+        const y = windTrueSpeed * Math.sin(rad);
+        const angle = Math.atan2(y, x) * 180 / Math.PI;
+
+        return {
+            deg:   round4(normalize360(courseDeg + angle)),
+            speed: round4(Math.hypot(x, y)),
+            angle: round4(angle),
+            tack:  beta >= 0 ? 'starboard' : 'port',
+        };
+    }
+
+    /**
      * Which leeway band an absolute wind angle falls in.
      *
      * Bands are half-open (min <= |rel| < max) so overlapping ranges cannot both
@@ -488,6 +530,7 @@
         mvEntries: mvEntries,
         variationAt: variationAt,
         leewayFor: leewayFor,
+        apparentWind: apparentWind,
         forward: forward,
         solveFromTrue: solveFromTrue,
         solveFromCOG: solveFromCOG,
