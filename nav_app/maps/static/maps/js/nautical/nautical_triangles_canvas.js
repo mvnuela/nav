@@ -179,8 +179,9 @@ class CanvasPlottingTriangle {
         ctx.lineTo(halfHyp, -height);
         ctx.closePath();
         ctx.strokeStyle = this.isHighlighted ? this.colors.highlight : this.colors.stroke;
-        // Thin outline at all zooms; highlight slightly thicker but still light
-        ctx.lineWidth = this.isHighlighted ? this.cfg.strokeWidth * 2.5 : this.cfg.strokeWidth;
+        // Thin outline at all zooms; the highlight changes colour only, so the
+        // triangle keeps its size while dragged.
+        ctx.lineWidth = this.cfg.strokeWidth;
         ctx.stroke();
 
         // Arc positioning
