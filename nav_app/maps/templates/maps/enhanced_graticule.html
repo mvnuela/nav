@@ -334,6 +334,77 @@
                 </div>
             </div>
 
+            <div class="panel" id="deadReckoningPanel" style="display:none;">
+                <h3>⊙ Dead Reckoning</h3>
+                <p class="hint">Mark worked-out (DR) positions on the chart</p>
+
+                <button id="toggleDeadReckoningBtn" class="btn btn-primary">
+                    Show DR Markers
+                </button>
+
+                <div id="deadReckoningControls" style="display:none; margin-top:10px;">
+                    <button id="addDeadReckoningBtn" class="btn btn-success">
+                        ➕ Mark DR Position
+                    </button>
+
+                    <button id="deleteDeadReckoningBtn" class="btn btn-secondary" style="display:none;">
+                        🗑️ Delete Selected
+                    </button>
+
+                    <button id="clearDeadReckoningBtn" class="btn btn-secondary" style="display:none;">
+                        Clear All Positions
+                    </button>
+                </div>
+
+                <div id="deadReckoningInfo" style="display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:10px; margin-top:10px; font-size:0.9em;">
+                    <strong>Instructions:</strong>
+                    <ul style="margin:8px 0 0 20px; padding:0;">
+                        <li>Click "Mark DR Position" then click on map</li>
+                        <li>Drag markers to adjust position</li>
+                        <li>Click marker to select/view details</li>
+                        <li>Icon: ⊙ (circle with dot) = dead reckoning</li>
+                    </ul>
+                </div>
+
+                <div id="deadReckoningList" style="display:none; margin-top:10px; max-height:200px; overflow-y:auto;">
+                    <div style="font-weight:bold; font-size:0.9em; margin-bottom:8px;">Marked Positions:</div>
+                    <div id="deadReckoningListContent">
+                        <p style="color:#999; font-size:0.85em; text-align:center;">No positions marked</p>
+                    </div>
+                </div>
+
+                <div id="selectedDeadReckoningInfo" style="display:none; background:#e3f2fd; border:1px solid #0078A8; border-radius:4px; padding:10px; margin-top:10px; font-family:monospace; font-size:0.9em;">
+                    <strong>Selected Position:</strong>
+                    <div id="deadReckoningCoords" style="margin-top:5px;">--</div>
+                    <div id="deadReckoningTime" style="margin-top:5px;">Time: --</div>
+                </div>
+            </div>
+
+            <div class="panel" id="markCoordsPanel" style="display:none;">
+                <h3>🧭 Mark from Coordinates</h3>
+                <p class="hint">Place a point of a chosen kind at typed coordinates — the view does not move</p>
+
+                <div class="form-group">
+                    <label>Latitude:</label>
+                    <input type="text" id="markCoordsLat" placeholder="54.5 or 54°30.0'N">
+                </div>
+                <div class="form-group">
+                    <label>Longitude:</label>
+                    <input type="text" id="markCoordsLon" placeholder="18.5 or 018°30.0'E">
+                </div>
+                <div class="form-group">
+                    <label>Mark as:</label>
+                    <select id="markCoordsKind">
+                        <option value="dr">Dead reckoning</option>
+                        <option value="observed">Observed position</option>
+                        <option value="plain">Plain point</option>
+                    </select>
+                </div>
+
+                <button id="markCoordsBtn" class="btn btn-success">📍 Mark</button>
+                <div id="markCoordsError" style="font-size:0.8em; margin-top:6px; display:none;"></div>
+            </div>
+
             <div class="panel" id="geometryPanel" style="display:none;">
                 <h3>📐 Geometry Tools</h3>
                 <p class="hint">Place points, draw connections and rays</p>
@@ -485,8 +556,12 @@
     <script src="{% static 'maps/js/gpx/gpx_route_canvas.js' %}"></script>
     <!-- Load nautical triangles component (canvas version for this system) -->
     <script src="{% static 'maps/js/nautical/nautical_triangles_canvas.js' %}"></script>
-    <!-- Load observed position canvas manager -->
+    {# parseLatLon for the Mark from Coordinates panel; needs nauticalToDecimal above #}
+    <script src="{% static 'maps/js/navigation/coordinate_field.js' %}"></script>
+    <!-- Load the shared canvas marker base, then the two kinds built on it -->
+    <script src="{% static 'maps/js/core/canvas_marker_manager.js' %}"></script>
     <script src="{% static 'maps/js/observed_position/observed_position_canvas.js' %}"></script>
+    <script src="{% static 'maps/js/dead_reckoning_position/dead_reckoning_position_canvas.js' %}"></script>
     <!-- Load geometry tools (model + canvas manager) -->
     <script src="{% static 'maps/js/geometry/geometry_model.js' %}"></script>
     <script src="{% static 'maps/js/geometry/geometry_canvas.js' %}"></script>
@@ -521,10 +596,15 @@
             document.getElementById('loadGPXFileBtn').addEventListener('click', loadGPXFile);
             document.getElementById('fitAllGPXBtn').addEventListener('click', fitAllGPXRoutes);
             document.getElementById('clearAllGPXBtn').addEventListener('click', clearAllGPXRoutes);
-            document.getElementById('toggleObservedPositionBtn').addEventListener('click', toggleObservedPosition);
-            document.getElementById('addObservedPositionBtn').addEventListener('click', addObservedPosition);
-            document.getElementById('deleteObservedPositionBtn').addEventListener('click', deleteSelectedObservedPosition);
-            document.getElementById('clearObservedPositionsBtn').addEventListener('click', clearAllObservedPositions);
+            document.getElementById('toggleObservedPositionBtn').addEventListener('click', () => toggleMarkerTool('observed'));
+            document.getElementById('addObservedPositionBtn').addEventListener('click', () => addMarker('observed'));
+            document.getElementById('deleteObservedPositionBtn').addEventListener('click', () => deleteSelectedMarker('observed'));
+            document.getElementById('clearObservedPositionsBtn').addEventListener('click', () => clearAllMarkers('observed'));
+            document.getElementById('toggleDeadReckoningBtn').addEventListener('click', () => toggleMarkerTool('dr'));
+            document.getElementById('addDeadReckoningBtn').addEventListener('click', () => addMarker('dr'));
+            document.getElementById('deleteDeadReckoningBtn').addEventListener('click', () => deleteSelectedMarker('dr'));
+            document.getElementById('clearDeadReckoningBtn').addEventListener('click', () => clearAllMarkers('dr'));
+            document.getElementById('markCoordsBtn').addEventListener('click', markFromCoordinates);
             document.getElementById('toggleGeometryBtn').addEventListener('click', toggleGeometry);
             document.getElementById('geometryPlacePointBtn').addEventListener('click', () => setGeometryMode('place_point'));
             document.getElementById('geometryConnectBtn').addEventListener('click', () => setGeometryMode('connect'));
@@ -738,6 +818,8 @@
             document.getElementById('trianglesPanel').style.display = 'none';
             document.getElementById('dividerPanel').style.display = 'none';
             document.getElementById('observedPositionPanel').style.display = 'none';
+            document.getElementById('deadReckoningPanel').style.display = 'none';
+            document.getElementById('markCoordsPanel').style.display = 'none';
             document.getElementById('geometryPanel').style.display = 'none';
 
             // The setup steps (1. Upload, 2. Define Map Region, 3. Geographic Bounds
@@ -770,6 +852,8 @@
                     document.getElementById('trianglesPanel').style.display = 'block';
                     document.getElementById('dividerPanel').style.display = 'block';
                     document.getElementById('observedPositionPanel').style.display = 'block';
+                    document.getElementById('deadReckoningPanel').style.display = 'block';
+                    document.getElementById('markCoordsPanel').style.display = 'block';
                     document.getElementById('geometryPanel').style.display = 'block';
                     document.getElementById('gpxPanel').style.display = 'block';
                 }
@@ -783,7 +867,10 @@
                     updateGPXUI();
                 }
                 if (graticuleSystem.observedPositionVisible) {
-                    updateObservedPositionUI();
+                    updateMarkerUI('observed');
+                }
+                if (graticuleSystem.drPositionVisible) {
+                    updateMarkerUI('dr');
                 }
             }
             
@@ -1187,56 +1274,134 @@
         }
 
 
-        // Observed Position Functions
-        function toggleObservedPosition() {
-            const isVisible = graticuleSystem.toggleObservedPosition();
-            const btn = document.getElementById('toggleObservedPositionBtn');
-            const controls = document.getElementById('observedPositionControls');
-            const info = document.getElementById('observedPositionInfo');
-            const list = document.getElementById('observedPositionList');
+        // ——— Marker tools (observed positions, dead reckoning positions) ———
+        //
+        // Both panels are the same tool with a different symbol, so the panel
+        // logic is written once and driven by these two descriptors. The
+        // system-side methods are named per tool (see graticule_tools.js), so
+        // each descriptor closes over its own rather than building method names
+        // out of strings.
+        const MARKER_TOOLS = {
+            observed: {
+                key: 'observed',
+                icon: '⊗',
+                inputPrefix: 'obsPos',
+                showLabel: 'Show Position Markers',
+                hideLabel: 'Hide Position Markers',
+                addLabel: '➕ Mark Position',
+                emptyLabel: 'No positions marked',
+                clearPrompt: 'Clear all observed positions?',
+                ids: {
+                    toggleBtn: 'toggleObservedPositionBtn',
+                    controls: 'observedPositionControls',
+                    info: 'observedPositionInfo',
+                    list: 'observedPositionList',
+                    listContent: 'observedPositionListContent',
+                    addBtn: 'addObservedPositionBtn',
+                    deleteBtn: 'deleteObservedPositionBtn',
+                    clearBtn: 'clearObservedPositionsBtn',
+                    selectedInfo: 'selectedObservedPositionInfo',
+                    coords: 'observedPositionCoords',
+                    time: 'observedPositionTime',
+                },
+                isVisible: () => graticuleSystem.observedPositionVisible,
+                hasManager: () => !!graticuleSystem.observedPositionManager,
+                toggle: () => graticuleSystem.toggleObservedPosition(),
+                startPlacement: () => graticuleSystem.startObservedPositionPlacement(),
+                isPlacing: () => graticuleSystem.isObservedPositionPlacementMode(),
+                getPositions: () => graticuleSystem.getObservedPositions(),
+                getSelected: () => graticuleSystem.getSelectedObservedPositionInfo(),
+                deleteSelected: () => graticuleSystem.deleteSelectedObservedPosition(),
+                deleteById: (id) => graticuleSystem.deleteObservedPositionById(id),
+                setDescription: (id, text) => graticuleSystem.setObservedPositionDescription(id, text),
+                clearAll: () => graticuleSystem.clearAllObservedPositions(),
+            },
+            dr: {
+                key: 'dr',
+                icon: '⊙',
+                inputPrefix: 'drPos',
+                showLabel: 'Show DR Markers',
+                hideLabel: 'Hide DR Markers',
+                addLabel: '➕ Mark DR Position',
+                emptyLabel: 'No positions marked',
+                clearPrompt: 'Clear all dead reckoning positions?',
+                ids: {
+                    toggleBtn: 'toggleDeadReckoningBtn',
+                    controls: 'deadReckoningControls',
+                    info: 'deadReckoningInfo',
+                    list: 'deadReckoningList',
+                    listContent: 'deadReckoningListContent',
+                    addBtn: 'addDeadReckoningBtn',
+                    deleteBtn: 'deleteDeadReckoningBtn',
+                    clearBtn: 'clearDeadReckoningBtn',
+                    selectedInfo: 'selectedDeadReckoningInfo',
+                    coords: 'deadReckoningCoords',
+                    time: 'deadReckoningTime',
+                },
+                isVisible: () => graticuleSystem.drPositionVisible,
+                hasManager: () => !!graticuleSystem.drPositionManager,
+                toggle: () => graticuleSystem.toggleDeadReckoning(),
+                startPlacement: () => graticuleSystem.startDeadReckoningPlacement(),
+                isPlacing: () => graticuleSystem.isDeadReckoningPlacementMode(),
+                getPositions: () => graticuleSystem.getDeadReckoningPositions(),
+                getSelected: () => graticuleSystem.getSelectedDeadReckoningInfo(),
+                deleteSelected: () => graticuleSystem.deleteSelectedDeadReckoning(),
+                deleteById: (id) => graticuleSystem.deleteDeadReckoningById(id),
+                setDescription: (id, text) => graticuleSystem.setDeadReckoningDescription(id, text),
+                clearAll: () => graticuleSystem.clearAllDeadReckoning(),
+            },
+        };
+
+        function markerEl(cfg, name) {
+            return document.getElementById(cfg.ids[name]);
+        }
+
+        function toggleMarkerTool(key) {
+            const cfg = MARKER_TOOLS[key];
+            const isVisible = cfg.toggle();
+            const btn = markerEl(cfg, 'toggleBtn');
 
             if (isVisible) {
-                btn.textContent = 'Hide Position Markers';
+                btn.textContent = cfg.hideLabel;
                 btn.classList.remove('btn-primary');
                 btn.classList.add('btn-secondary');
-                controls.style.display = 'block';
-                info.style.display = 'block';
-                list.style.display = 'block';
-                updateObservedPositionUI();
+                markerEl(cfg, 'controls').style.display = 'block';
+                markerEl(cfg, 'info').style.display = 'block';
+                markerEl(cfg, 'list').style.display = 'block';
+                updateMarkerUI(key);
             } else {
-                btn.textContent = 'Show Position Markers';
+                btn.textContent = cfg.showLabel;
                 btn.classList.remove('btn-secondary');
                 btn.classList.add('btn-primary');
-                controls.style.display = 'none';
-                info.style.display = 'none';
-                list.style.display = 'none';
-                document.getElementById('selectedObservedPositionInfo').style.display = 'none';
+                markerEl(cfg, 'controls').style.display = 'none';
+                markerEl(cfg, 'info').style.display = 'none';
+                markerEl(cfg, 'list').style.display = 'none';
+                markerEl(cfg, 'selectedInfo').style.display = 'none';
             }
         }
 
-        function addObservedPosition() {
-            graticuleSystem.startObservedPositionPlacement();
-            updateObservedPositionUI();
+        function addMarker(key) {
+            MARKER_TOOLS[key].startPlacement();
+            updateMarkerUI(key);
         }
 
-        function deleteSelectedObservedPosition() {
-            const deleted = graticuleSystem.deleteSelectedObservedPosition();
-            if (deleted) {
-                updateObservedPositionUI();
+        function deleteSelectedMarker(key) {
+            if (MARKER_TOOLS[key].deleteSelected()) {
+                updateMarkerUI(key);
             }
         }
 
-        function clearAllObservedPositions() {
-            if (confirm('Clear all observed positions?')) {
-                graticuleSystem.clearAllObservedPositions();
-                updateObservedPositionUI();
+        function clearAllMarkers(key) {
+            const cfg = MARKER_TOOLS[key];
+            if (confirm(cfg.clearPrompt)) {
+                cfg.clearAll();
+                updateMarkerUI(key);
             }
         }
 
-        function deleteObservedPositionById(id) {
-            const deleted = graticuleSystem.deleteObservedPositionById(id);
-            if (deleted) {
-                updateObservedPositionUI();
+        function deleteMarkerById(key, id) {
+            if (MARKER_TOOLS[key].deleteById(id)) {
+                updateMarkerUI(key);
             }
         }
 
@@ -1244,37 +1409,39 @@
         // the model — not the DOM — is the source of truth: the 200ms refresh
         // rebuilds these inputs from scratch, so anything living only in the DOM
         // is lost the moment the field loses focus.
-        function commitObservedPositionDescription(id) {
-            const numEl = document.getElementById('obsPosNum-' + id);
-            const denEl = document.getElementById('obsPosDen-' + id);
+        function commitMarkerDescription(key, id) {
+            const cfg = MARKER_TOOLS[key];
+            const numEl = document.getElementById(cfg.inputPrefix + 'Num-' + id);
+            const denEl = document.getElementById(cfg.inputPrefix + 'Den-' + id);
             if (!numEl || !denEl) return;
             const num = (numEl.value || '').trim();
             const den = (denEl.value || '').trim();
             const fraction = (num || den) ? `${num}/${den}` : '';
-            graticuleSystem.setObservedPositionDescription(id, fraction);
+            cfg.setDescription(id, fraction);
         }
 
-        function saveObservedPositionDescription(id) {
-            commitObservedPositionDescription(id);
-            updateObservedPositionUI();
+        function saveMarkerDescription(key, id) {
+            commitMarkerDescription(key, id);
+            updateMarkerUI(key);
         }
 
-        function updateObservedPositionUI() {
-            if (!graticuleSystem.observedPositionManager) return;
+        function updateMarkerUI(key) {
+            const cfg = MARKER_TOOLS[key];
+            if (!cfg.hasManager()) return;
 
-            const positions = graticuleSystem.getObservedPositions();
-            const hasSelected = graticuleSystem.getSelectedObservedPositionInfo() !== null;
+            const positions = cfg.getPositions();
+            const hasSelected = cfg.getSelected() !== null;
             const hasPositions = positions.length > 0;
-            const inPlacement = graticuleSystem.isObservedPositionPlacementMode();
+            const inPlacement = cfg.isPlacing();
 
             // Show/hide buttons
-            document.getElementById('deleteObservedPositionBtn').style.display = hasSelected ? 'block' : 'none';
-            document.getElementById('clearObservedPositionsBtn').style.display = hasPositions ? 'block' : 'none';
+            markerEl(cfg, 'deleteBtn').style.display = hasSelected ? 'block' : 'none';
+            markerEl(cfg, 'clearBtn').style.display = hasPositions ? 'block' : 'none';
 
             // Update selected position info
-            const selectedInfo = document.getElementById('selectedObservedPositionInfo');
+            const selectedInfo = markerEl(cfg, 'selectedInfo');
             if (hasSelected && !inPlacement) {
-                const info = graticuleSystem.getSelectedObservedPositionInfo();
+                const info = cfg.getSelected();
                 if (info) {
                     const latStr = typeof decimalToNautical === 'function'
                         ? decimalToNautical(info.lat, true)
@@ -1287,10 +1454,8 @@
                         minute: '2-digit'
                     });
 
-                    document.getElementById('observedPositionCoords').textContent =
-                        `#${info.id}: ${latStr}, ${lonStr}`;
-                    document.getElementById('observedPositionTime').textContent =
-                        `Time: ${timeStr}`;
+                    markerEl(cfg, 'coords').textContent = `#${info.id}: ${latStr}, ${lonStr}`;
+                    markerEl(cfg, 'time').textContent = `Time: ${timeStr}`;
                     selectedInfo.style.display = 'block';
                 }
             } else {
@@ -1298,24 +1463,25 @@
             }
 
             // Change button text during placement
-            const addBtn = document.getElementById('addObservedPositionBtn');
+            const addBtn = markerEl(cfg, 'addBtn');
             if (inPlacement) {
                 addBtn.textContent = '⏳ Click on map...';
                 addBtn.disabled = true;
             } else {
-                addBtn.textContent = '➕ Mark Position';
+                addBtn.textContent = cfg.addLabel;
                 addBtn.disabled = false;
             }
 
             // Update position list — but don't clobber an input the user is
             // currently typing in (the 200ms refresh would reset their text).
-            const listContent = document.getElementById('observedPositionListContent');
+            const listContent = markerEl(cfg, 'listContent');
             const active = document.activeElement;
-            if (active && active.id && /^obsPos(Num|Den)-/.test(active.id)) {
+            if (active && active.id &&
+                new RegExp('^' + cfg.inputPrefix + '(Num|Den)-').test(active.id)) {
                 return;
             }
             if (positions.length === 0) {
-                listContent.innerHTML = '<p style="color:#999; font-size:0.85em; text-align:center;">No positions marked</p>';
+                listContent.innerHTML = `<p style="color:#999; font-size:0.85em; text-align:center;">${cfg.emptyLabel}</p>`;
             } else {
                 let html = '';
                 for (const pos of positions) {
@@ -1340,10 +1506,10 @@
                     html += `
                         <div style="padding:6px; margin-bottom:4px; background:#f5f5f5; border-radius:4px; font-size:0.85em;">
                             <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-                                <span style="font-weight:bold;">⊗ #${pos.id}</span>
+                                <span style="font-weight:bold;">${cfg.icon} #${pos.id}</span>
                                 <span style="color:#666; flex:1; text-align:right;">${timeStr}</span>
                                 <button type="button" title="Remove this position"
-                                    onclick="deleteObservedPositionById(${pos.id})"
+                                    onclick="deleteMarkerById('${cfg.key}', ${pos.id})"
                                     style="background:#D32F2F; color:white; border:none; padding:2px 6px;
                                     border-radius:3px; cursor:pointer; font-size:12px; line-height:1;">×</button>
                             </div>
@@ -1353,18 +1519,18 @@
                             <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
                                 <span style="color:#555; font-size:0.85em;">Description:</span>
                                 <div style="display:inline-flex; flex-direction:column; align-items:center; font-family:monospace;">
-                                    <input type="text" id="obsPosNum-${pos.id}" value="${numEsc}"
-                                        oninput="commitObservedPositionDescription(${pos.id})"
+                                    <input type="text" id="${cfg.inputPrefix}Num-${pos.id}" value="${numEsc}"
+                                        oninput="commitMarkerDescription('${cfg.key}', ${pos.id})"
                                         style="width:48px; text-align:center; padding:1px 2px; font-size:11px;
                                         border:1px solid #ccc; border-radius:3px;">
                                     <div style="width:48px; border-top:1px solid #333; margin:1px 0;"></div>
-                                    <input type="text" id="obsPosDen-${pos.id}" value="${denEsc}"
-                                        oninput="commitObservedPositionDescription(${pos.id})"
+                                    <input type="text" id="${cfg.inputPrefix}Den-${pos.id}" value="${denEsc}"
+                                        oninput="commitMarkerDescription('${cfg.key}', ${pos.id})"
                                         style="width:48px; text-align:center; padding:1px 2px; font-size:11px;
                                         border:1px solid #ccc; border-radius:3px;">
                                 </div>
                                 <button type="button"
-                                    onclick="saveObservedPositionDescription(${pos.id})"
+                                    onclick="saveMarkerDescription('${cfg.key}', ${pos.id})"
                                     style="background:#1976D2; color:white; border:none; padding:2px 8px;
                                     border-radius:3px; cursor:pointer; font-size:11px;">Save</button>
                             </div>
@@ -1375,12 +1541,74 @@
             }
         }
 
-        // Update observed position UI periodically when visible
+        // Keep both panels in step with the canvas while they are open
         setInterval(() => {
-            if (graticuleSystem && graticuleSystem.observedPositionVisible && graticuleSystem.mode === 'view') {
-                updateObservedPositionUI();
+            if (!graticuleSystem || graticuleSystem.mode !== 'view') return;
+            for (const key of Object.keys(MARKER_TOOLS)) {
+                if (MARKER_TOOLS[key].isVisible()) {
+                    updateMarkerUI(key);
+                }
             }
         }, 200);
+
+        // ——— Mark from typed coordinates ———
+        //
+        // The marking half of the sea map's "Go to Position" box. It never
+        // moves the view: marking a point out of shot should not throw away
+        // what you are looking at.
+        function markFromCoordinates() {
+            const errorDiv = document.getElementById('markCoordsError');
+            const show = (text, color) => {
+                errorDiv.style.display = 'block';
+                errorDiv.style.color = color;
+                errorDiv.textContent = text;
+            };
+
+            const lat = parseLatLon(document.getElementById('markCoordsLat').value, 'lat');
+            const lon = parseLatLon(document.getElementById('markCoordsLon').value, 'lon');
+            const fail = !lat.ok ? lat.error
+                : !lon.ok ? lon.error
+                : lat.value === undefined ? 'enter a latitude'
+                : lon.value === undefined ? 'enter a longitude'
+                : null;
+            if (fail) {
+                show('Error: ' + fail, 'red');
+                return;
+            }
+
+            const kind = document.getElementById('markCoordsKind').value;
+            const result = graticuleSystem.markAtCoordinates(kind, lat.value, lon.value);
+            if (!result.ok) {
+                show('Error: ' + result.error, 'red');
+                return;
+            }
+
+            const latStr = typeof decimalToNautical === 'function'
+                ? decimalToNautical(lat.value, true) : lat.value.toFixed(4);
+            const lonStr = typeof decimalToNautical === 'function'
+                ? decimalToNautical(lon.value, false) : lon.value.toFixed(4);
+            show(`Marked at ${latStr}, ${lonStr}`, 'green');
+            setTimeout(() => { errorDiv.style.display = 'none'; }, 3000);
+
+            // A marker of either kind turns its own panel on, so resync it.
+            if (kind === 'observed' || kind === 'dr') {
+                syncMarkerPanel(kind);
+                updateMarkerUI(kind);
+            }
+        }
+
+        /** Bring a panel's controls in line with a tool that was switched on elsewhere. */
+        function syncMarkerPanel(key) {
+            const cfg = MARKER_TOOLS[key];
+            if (!cfg.isVisible()) return;
+            const btn = markerEl(cfg, 'toggleBtn');
+            btn.textContent = cfg.hideLabel;
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-secondary');
+            markerEl(cfg, 'controls').style.display = 'block';
+            markerEl(cfg, 'info').style.display = 'block';
+            markerEl(cfg, 'list').style.display = 'block';
+        }
 
 
         // Geometry Tools Functions

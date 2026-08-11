@@ -150,6 +150,7 @@ EnhancedGraticuleSystem.prototype.exportSVG = function() {
         if (this.dividerManager) this.dividerManager.drawAll(compositeCtx);
         if (this.gpxManager) this.gpxManager.drawAll(compositeCtx, this.mapper);
         if (this.observedPositionManager) this.observedPositionManager.drawAll(compositeCtx);
+        if (this.drPositionManager) this.drPositionManager.drawAll(compositeCtx);
         if (this.geometryManager) this.geometryManager.drawAll(compositeCtx);
         if (typeof this.drawCourses === 'function') this.drawCourses();
     } finally {
@@ -289,6 +290,9 @@ EnhancedGraticuleSystem.prototype.exportHighResPNG = function(scaleFactor = 2) {
         }
         if (this.observedPositionManager) {
             this.observedPositionManager.drawAll(tempCtx);
+        }
+        if (this.drPositionManager) {
+            this.drPositionManager.drawAll(tempCtx);
         }
         if (this.geometryManager) {
             this.geometryManager.drawAll(tempCtx);

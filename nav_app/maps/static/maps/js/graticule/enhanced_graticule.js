@@ -53,6 +53,10 @@ class EnhancedGraticuleSystem {
         this.observedPositionManager = null;
         this.observedPositionVisible = false;
 
+        // Dead reckoning positions
+        this.drPositionManager = null;
+        this.drPositionVisible = false;
+
         // Geometry (points, connections, rays)
         this.geometryManager = null;
         this.geometryVisible = false;
@@ -518,6 +522,16 @@ class EnhancedGraticuleSystem {
             return;
         }
 
+        // A marker tool armed for placement gets the click before anything
+        // else: the other marker tool's "click elsewhere deselects" branch
+        // reports the click as handled and would otherwise swallow it.
+        const armedMarkerTool = [this.observedPositionManager, this.drPositionManager]
+            .find(manager => manager && manager.placementMode);
+        if (armedMarkerTool && armedMarkerTool.handleMouseDown(x, y)) {
+            this.render();
+            return;
+        }
+
         // Handle geometry interactions when visible
         if (this.geometryVisible && this.geometryManager) {
             const handled = this.geometryManager.handleMouseDown(x, y);
@@ -530,6 +544,15 @@ class EnhancedGraticuleSystem {
         // Handle observed position interactions when visible
         if (this.observedPositionVisible && this.observedPositionManager) {
             const handled = this.observedPositionManager.handleMouseDown(x, y);
+            if (handled) {
+                this.render();
+                return;
+            }
+        }
+
+        // Handle dead reckoning position interactions when visible
+        if (this.drPositionVisible && this.drPositionManager) {
+            const handled = this.drPositionManager.handleMouseDown(x, y);
             if (handled) {
                 this.render();
                 return;
@@ -625,6 +648,19 @@ class EnhancedGraticuleSystem {
             }
         }
 
+        // Handle dead reckoning position interactions when visible
+        if (this.drPositionVisible && this.drPositionManager) {
+            const handled = this.drPositionManager.handleMouseMove(x, y);
+            const cursor = this.drPositionManager.updateCursor(x, y);
+            if (cursor !== 'default') {
+                this.canvas.style.cursor = cursor;
+            }
+            if (handled) {
+                this.render();
+                return;
+            }
+        }
+
         // Handle divider interactions when dividers are visible
         if (this.dividerVisible && this.dividerManager) {
             this.dividerManager.setPreviewMouse(x, y);
@@ -687,6 +723,15 @@ class EnhancedGraticuleSystem {
         // Handle observed position interactions when visible
         if (this.observedPositionVisible && this.observedPositionManager) {
             const handled = this.observedPositionManager.handleMouseUp();
+            if (handled) {
+                this.render();
+                return;
+            }
+        }
+
+        // Handle dead reckoning position interactions when visible
+        if (this.drPositionVisible && this.drPositionManager) {
+            const handled = this.drPositionManager.handleMouseUp();
             if (handled) {
                 this.render();
                 return;
@@ -902,6 +947,11 @@ class EnhancedGraticuleSystem {
             // Draw observed positions (when visible)
             if (this.observedPositionVisible && this.observedPositionManager) {
                 this.observedPositionManager.drawAll(this.ctx);
+            }
+
+            // Draw dead reckoning positions (when visible)
+            if (this.drPositionVisible && this.drPositionManager) {
+                this.drPositionManager.drawAll(this.ctx);
             }
 
             // Draw geometry (points, connections, rays) when visible

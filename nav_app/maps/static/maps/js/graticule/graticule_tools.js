@@ -259,6 +259,11 @@ EnhancedGraticuleSystem.prototype.initObservedPosition = function() {
     if (!this.observedPositionManager && this.mapper) {
         this.observedPositionManager = new ObservedPositionManagerCanvas(this.mapper);
     }
+    // Re-applying geographic bounds builds a new mapper; a manager made before
+    // that would keep projecting through the old one.
+    if (this.observedPositionManager && this.mapper) {
+        this.observedPositionManager.setMapper(this.mapper);
+    }
     // Link to geometry if it's already around so Connect / Ray can target
     // observed positions. The reverse link happens in initGeometry().
     if (this.observedPositionManager && this.geometryManager) {
@@ -365,16 +370,184 @@ EnhancedGraticuleSystem.prototype.isObservedPositionPlacementMode = function() {
     return this.observedPositionManager ? this.observedPositionManager.placementMode : false;
 };
 
+// ——— Dead Reckoning Positions ———
+// The same set of operations as the observed positions above; both tools are
+// the same manager with a different symbol (see core/canvas_marker_manager.js).
+
+EnhancedGraticuleSystem.prototype.initDeadReckoning = function() {
+    if (!this.drPositionManager && this.mapper) {
+        this.drPositionManager = new DeadReckoningPositionManagerCanvas(this.mapper);
+    }
+    if (this.drPositionManager && this.mapper) {
+        this.drPositionManager.setMapper(this.mapper);
+    }
+    if (this.drPositionManager && this.geometryManager) {
+        this.drPositionManager.setGeometryManager(this.geometryManager);
+    }
+    return this.drPositionManager;
+};
+
+EnhancedGraticuleSystem.prototype.toggleDeadReckoning = function() {
+    if (!this.drPositionManager) {
+        this.initDeadReckoning();
+    }
+    this.drPositionVisible = !this.drPositionVisible;
+    this.render();
+    return this.drPositionVisible;
+};
+
+EnhancedGraticuleSystem.prototype.showDeadReckoning = function() {
+    if (!this.drPositionManager) {
+        this.initDeadReckoning();
+    }
+    this.drPositionVisible = true;
+    this.render();
+};
+
+EnhancedGraticuleSystem.prototype.hideDeadReckoning = function() {
+    this.drPositionVisible = false;
+    if (this.drPositionManager) {
+        this.drPositionManager.cancelPlacement();
+    }
+    this.render();
+};
+
+EnhancedGraticuleSystem.prototype.startDeadReckoningPlacement = function() {
+    if (!this.drPositionManager) {
+        this.initDeadReckoning();
+    }
+    if (!this.drPositionVisible) {
+        this.drPositionVisible = true;
+    }
+    this.drPositionManager.startPlacement();
+    this.render();
+};
+
+EnhancedGraticuleSystem.prototype.cancelDeadReckoningPlacement = function() {
+    if (this.drPositionManager) {
+        this.drPositionManager.cancelPlacement();
+    }
+    this.render();
+};
+
+EnhancedGraticuleSystem.prototype.deleteSelectedDeadReckoning = function() {
+    if (this.drPositionManager) {
+        const deleted = this.drPositionManager.deleteSelected();
+        if (deleted) {
+            this.render();
+        }
+        return deleted;
+    }
+    return false;
+};
+
+EnhancedGraticuleSystem.prototype.deleteDeadReckoningById = function(id) {
+    if (this.drPositionManager) {
+        const deleted = this.drPositionManager.deleteById(id);
+        if (deleted) {
+            this.render();
+        }
+        return deleted;
+    }
+    return false;
+};
+
+EnhancedGraticuleSystem.prototype.setDeadReckoningDescription = function(id, description) {
+    if (this.drPositionManager) {
+        const ok = this.drPositionManager.setDescription(id, description);
+        if (ok) {
+            this.render();
+        }
+        return ok;
+    }
+    return false;
+};
+
+EnhancedGraticuleSystem.prototype.clearAllDeadReckoning = function() {
+    if (this.drPositionManager) {
+        this.drPositionManager.clearAll();
+        this.render();
+    }
+};
+
+EnhancedGraticuleSystem.prototype.getDeadReckoningPositions = function() {
+    return this.drPositionManager ? this.drPositionManager.getPositions() : [];
+};
+
+EnhancedGraticuleSystem.prototype.getSelectedDeadReckoningInfo = function() {
+    if (this.drPositionManager) {
+        return this.drPositionManager.getSelectedInfo();
+    }
+    return null;
+};
+
+EnhancedGraticuleSystem.prototype.isDeadReckoningPlacementMode = function() {
+    return this.drPositionManager ? this.drPositionManager.placementMode : false;
+};
+
+// ——— Marking from typed coordinates ———
+
+/**
+ * Mark a point of a chosen kind at typed coordinates, mirroring the sea map's
+ * "Go to Position" box. Deliberately does NOT move or zoom the view.
+ *
+ * @param {'observed'|'dr'|'plain'} kind
+ * @returns {{ok:boolean, error:string|undefined}}
+ */
+EnhancedGraticuleSystem.prototype.markAtCoordinates = function(kind, lat, lon) {
+    if (!this.mapper) {
+        return { ok: false, error: 'apply geographic bounds first' };
+    }
+
+    // The projection extrapolates happily past the fitted region, so a typed
+    // position from outside the chart would be placed somewhere off the image
+    // rather than refused.
+    const b = this.geoBounds;
+    if (b && (lat < b.minLat || lat > b.maxLat || lon < b.minLon || lon > b.maxLon)) {
+        return { ok: false, error: 'that position is outside the chart bounds' };
+    }
+
+    if (kind === 'plain') {
+        const geometry = this.initGeometry();
+        if (!geometry) return { ok: false, error: 'geometry tool is not available' };
+        this.geometryVisible = true;
+        geometry.addPointAt(lat, lon);
+        this.render();
+        return { ok: true };
+    }
+
+    const isObserved = kind === 'observed';
+    const manager = isObserved ? this.initObservedPosition() : this.initDeadReckoning();
+    if (!manager) return { ok: false, error: 'that tool is not available' };
+
+    // A typed point outside the fitted chart would be dropped off the edge of
+    // the image, so say so instead of silently marking nothing.
+    if (!manager.addAtGeographic(lat, lon)) {
+        return { ok: false, error: 'that position is off the chart' };
+    }
+
+    if (isObserved) {
+        this.observedPositionVisible = true;
+    } else {
+        this.drPositionVisible = true;
+    }
+    this.render();
+    return { ok: true };
+};
+
 // ——— Geometry Tools ———
 
 EnhancedGraticuleSystem.prototype.initGeometry = function() {
     if (!this.geometryManager && this.mapper) {
         this.geometryManager = new GeometryManagerCanvas(this.mapper);
     }
-    // If observed positions were placed before the geometry tool was opened,
-    // back-fill them as external geometry points so they become connectable.
+    // If markers were placed before the geometry tool was opened, back-fill
+    // them as external geometry points so they become connectable.
     if (this.geometryManager && this.observedPositionManager) {
         this.observedPositionManager.setGeometryManager(this.geometryManager);
+    }
+    if (this.geometryManager && this.drPositionManager) {
+        this.drPositionManager.setGeometryManager(this.geometryManager);
     }
     return this.geometryManager;
 };

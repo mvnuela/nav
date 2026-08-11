@@ -56,6 +56,16 @@ class GeometryManagerCanvas {
         this.previewMouse.visible = false;
     }
 
+    /**
+     * Place a plain point at typed coordinates. Unlike a click, this does not
+     * arm or disarm any mode — it is typed input, not a canvas interaction.
+     */
+    addPointAt(lat, lon) {
+        const pt = this.store.addPoint(lat, lon);
+        this.onStateChange?.();
+        return pt;
+    }
+
     // ——— Hit Testing ———
 
     _pointScreenPos(pt) {
