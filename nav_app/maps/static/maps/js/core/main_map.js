@@ -77,6 +77,9 @@
         if (typeof initNauticalLatitudeScale === 'function') {
             initNauticalLatitudeScale(map);
         }
+        if (typeof initNauticalLongitudeScale === 'function') {
+            initNauticalLongitudeScale(map);
+        }
         if (typeof initMagneticDeclination === 'function') {
             initMagneticDeclination(map);
         }
@@ -179,21 +182,9 @@
                 });
                 line.addTo(graticuleLayer);
 
-                // Add label on the top edge
-                const labelLat = bounds.getNorth() - (bounds.getNorth() - bounds.getSouth()) * 0.02;
-                const labelLng = lng;
-
-                const label = L.marker([labelLat, labelLng], {
-                    icon: L.divIcon({
-                        // Styled by .graticule-label in sea_map.css (white halo,
-                        // no backing box).
-                        className: 'graticule-label',
-                        html: '<div>' + decimalToNautical(lng, false) + '</div>',
-                        iconSize: [120, 20],
-                        iconAnchor: [60, 20]
-                    })
-                });
-                label.addTo(graticuleLayer);
+                // No longitude label here: the nautical longitude scale along
+                // the top edge already reads out longitude, and these labels sat
+                // on top of it — the same reason the latitude labels went.
             }
         }
 

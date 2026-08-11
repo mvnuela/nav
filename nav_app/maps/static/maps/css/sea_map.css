@@ -14,20 +14,14 @@ body {
     width: 100vw;
 }
 
-/* Custom Graticule Styles */
-/* Matches the class set by the divIcon in main_map.js. These labels are HTML,
-   not SVG, so the halo is a text-shadow ring rather than the paint-order stroke
-   used by the latitude scale — the intended effect is the same. */
-.graticule-label {
-    font-family: Arial, sans-serif;
-    font-size: 11px;
-    font-weight: bold;
-    color: #222;
-    white-space: nowrap;
-    pointer-events: none;
-    text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff,
-                 -1px 1px 0 #fff, 1px 1px 0 #fff,
-                 0 0 3px #fff, 0 0 3px #fff;
+/* The graticule no longer labels its lines at the map edges: the latitude
+   scale on the left and the longitude scale along the top read out the same
+   coordinates, and the old labels sat on top of both. */
+
+/* Keep the top-right control stack clear of the longitude scale, the way the
+   +/- zoom buttons were moved to the bottom-left for the latitude scale. */
+.leaflet-top.leaflet-right {
+    margin-top: 40px;
 }
 
 /* Coordinate Display Control */
