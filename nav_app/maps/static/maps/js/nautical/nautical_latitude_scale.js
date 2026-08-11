@@ -16,7 +16,7 @@
     var svgNS = 'http://www.w3.org/2000/svg';
 
     // Layout constants
-    var SCALE_WIDTH = 52;
+    var SCALE_WIDTH = 60;
     var LEFT_OFFSET = 4;
     // Ticks are anchored to the left border and grow rightward; labels sit to
     // their right, flush against the right edge of the strip.
@@ -73,6 +73,29 @@
         }
     }
 
+    // Smallest vertical gap between two labels that still reads cleanly.
+    var MIN_LABEL_PX = 26;
+    // Label intervals in arc-minutes, finest first.
+    var LABEL_STEPS = [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600, 1800];
+
+    /**
+     * Pick the finest label interval (in arc-minutes) that keeps neighbouring
+     * labels at least MIN_LABEL_PX apart and still lands on drawn ticks.
+     *
+     * Without this the scale labelled only whole degrees and 10' marks, so a
+     * zoomed-in view could show a single number for the entire strip and the
+     * position had to be counted off tick by tick.
+     */
+    function pickLabelStep(pxPerMin, minorMinutes) {
+        for (var i = 0; i < LABEL_STEPS.length; i++) {
+            var step = LABEL_STEPS[i];
+            if (step < minorMinutes) continue;          // must sit on a real tick
+            if (step % minorMinutes !== 0) continue;
+            if (step * pxPerMin >= MIN_LABEL_PX) return step;
+        }
+        return LABEL_STEPS[LABEL_STEPS.length - 1];
+    }
+
     /**
      * Format latitude for label display.
      * minutesTotal: total minutes from equator (can be negative)
@@ -87,6 +110,14 @@
             return deg + '\u00B0' + hemisphere;
         }
         return deg + '\u00B0' + min + '\u2032' + hemisphere;
+    }
+
+    /**
+     * Short form used between the full labels: minutes only, e.g. 37'.
+     */
+    function formatMinuteLabel(minutesTotal) {
+        var absMin = Math.abs(minutesTotal);
+        return (absMin % 60) + '\u2032';
     }
 
     /**
@@ -164,14 +195,22 @@
             drawBands(refLon, startMin, endMin, config, scaleX, mapH);
         }
 
+        // Vertical pixels per arc-minute at mid-screen, used for both the
+        // sub-minor tick spacing and the label interval. Measured over a whole
+        // degree because latLngToContainerPoint rounds to integer pixels, which
+        // would collapse a single-minute probe to 0 px at low zooms.
+        var midLat = ((startMin + endMin) / 2) / 60;
+        var probeLat = midLat + 1 <= 85 ? midLat + 1 : midLat - 1;
+        var pa = map.latLngToContainerPoint([midLat, refLon]);
+        var pb = map.latLngToContainerPoint([probeLat, refLon]);
+        var pxPerMin = Math.abs(pb.y - pa.y) / 60;
+
+        var labelStep = pickLabelStep(pxPerMin, config.minor);
+
         // Pick a sub-minor interval that subdivides each band into arc-minutes,
         // but keep ticks at least ~3 px apart to stay readable.
         var subMinor = null;
         if (config.minor > 1) {
-            var midLat = ((startMin + endMin) / 2) / 60;
-            var pa = map.latLngToContainerPoint([midLat, refLon]);
-            var pb = map.latLngToContainerPoint([midLat + 1 / 60, refLon]);
-            var pxPerMin = Math.abs(pb.y - pa.y);
             var subCandidates = [1, 2, 5, 10, 15];
             for (var si = 0; si < subCandidates.length; si++) {
                 if (subCandidates[si] < config.minor &&
@@ -213,6 +252,19 @@
             }
         }
 
+        // Northernmost labelled minute currently on screen. It always carries
+        // the full degree/minute form, so a view that fits inside one degree
+        // still states which degree it is in.
+        var anchorMin = null;
+        for (var am = endMin; am >= startMin; am -= config.minor) {
+            if (am % labelStep !== 0) continue;
+            var aY = map.latLngToContainerPoint([am / 60, refLon]).y;
+            if (aY >= 8 && aY <= mapH) {
+                anchorMin = am;
+                break;
+            }
+        }
+
         // Draw ticks and labels
         for (var m = startMin; m <= endMin; m += config.minor) {
             var lat = m / 60;
@@ -230,18 +282,19 @@
                 // Major tick (degree boundary)
                 tickLen = MAJOR_TICK_LEN;
                 strokeWidth = 2;
-                showLabel = true;
             } else if (m % config.medium === 0) {
                 // Medium tick
                 tickLen = MEDIUM_TICK_LEN;
                 strokeWidth = 1.5;
-                // Show label for medium ticks at higher zooms
-                if (zoom >= 9) showLabel = true;
             } else {
                 // Minor tick
                 tickLen = MINOR_TICK_LEN;
                 strokeWidth = 0.8;
             }
+
+            // Labels follow the pixel-driven interval, not the tick hierarchy,
+            // so every zoom keeps several readable numbers on the strip.
+            showLabel = (m % labelStep === 0);
 
             // Draw tick mark (from left border rightward)
             var tick = document.createElementNS(svgNS, 'line');
@@ -255,15 +308,21 @@
 
             // Draw label
             if (showLabel) {
+                // Chart convention: the degree is spelled out on the degree
+                // line (and once at the top of the strip); the marks between
+                // carry minutes only.
+                var isDegree = (m % 60 === 0);
+                var isFull = isDegree || (m === anchorMin);
+
                 var label = document.createElementNS(svgNS, 'text');
                 label.setAttribute('x', LABEL_X);
                 label.setAttribute('y', y + 3);
                 label.setAttribute('text-anchor', 'start');
-                label.setAttribute('font-size', m % config.major === 0 ? '10' : '8.5');
+                label.setAttribute('font-size', isDegree ? '10' : (isFull ? '9' : '8.5'));
                 label.setAttribute('font-family', 'Arial, sans-serif');
-                label.setAttribute('font-weight', m % config.major === 0 ? 'bold' : 'normal');
+                label.setAttribute('font-weight', isFull ? 'bold' : 'normal');
                 label.setAttribute('fill', '#222');
-                label.textContent = formatLatLabel(m);
+                label.textContent = isFull ? formatLatLabel(m) : formatMinuteLabel(m);
                 addHalo(label);
                 svgContainer.appendChild(label);
             }

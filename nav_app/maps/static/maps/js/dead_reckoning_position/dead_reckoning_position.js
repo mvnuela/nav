@@ -1,54 +1,49 @@
 /**
- * Observed Position Marker Tool
- * Allows marking observed positions (fixes) on the nautical map
- * Icon: Circle with X inside (classic navigation symbol for a fix)
+ * Dead Reckoning Position Tool
+ * Marks worked-out positions on the nautical map
+ * Icon: Circle with a dot inside (against the observed position's circle with a cross)
  *
  * The marker itself — symbol, popup, description, dragging, the geometry point
- * behind it and the side list — now lives in core/annotatable_marker.js, shared
- * with the dead reckoning tool. What is left here is what belongs to THIS tool:
+ * behind it and the side list — comes from core/annotatable_marker.js, shared
+ * with the observed position tool. What lives here is what belongs to THIS tool:
  * its control panel, its cursor preview and its placement state in the
  * interaction machine.
+ *
+ * Placement goes through the machine's TAP, never through a Leaflet listener of
+ * its own: two tools listening to the same click was a bug once already.
  */
 
 (function() {
     'use strict';
 
-    const KIND = 'observed';
+    const KIND = 'dr';
+    const COLOR = '#1565C0';
 
     let map = null;
-    let observedPositionLayer = null;
-    // Derived from the interaction machine via a subscribe callback below —
-    // no longer owned by this tool. Kept as a plain variable so every
-    // existing reader (marker click routing, etc.) keeps working untouched.
+    let drPositionLayer = null;
+    // Derived from the interaction machine via a subscribe callback below.
     let isPlacingMode = false;
     let previewCircle = null;
 
-    /** Circle with a cross: the chart symbol for an observed position. */
-    function observedIcon(size, color) {
+    /** Circle with a dot: the chart symbol for a dead reckoning position. */
+    function drIcon(size, color) {
         const w = 2;
         return `
             <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - w}"
                     fill="none" stroke="${color}" stroke-width="${w}"/>
-                <line x1="${size * 0.25}" y1="${size * 0.25}" x2="${size * 0.75}" y2="${size * 0.75}"
-                    stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>
-                <line x1="${size * 0.75}" y1="${size * 0.25}" x2="${size * 0.25}" y2="${size * 0.75}"
-                    stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>
+                <circle cx="${size / 2}" cy="${size / 2}" r="${Math.max(1.5, size * 0.12)}"
+                    fill="${color}"/>
             </svg>`;
     }
 
-    window.AnnotatableMarker.defineKind({
-        id: KIND, label: 'Observed Position', badge: '\u2297',
-        color: '#D32F2F', icon: observedIcon,
-    });
-
     /**
-     * Add observed position marker at given coordinates
+     * Add a dead reckoning position at given coordinates
      */
-    function addObservedPosition(lat, lng) {
+    function addDeadReckoningPosition(lat, lng) {
         return window.AnnotatableMarker.create({
             kindId: KIND, lat: lat, lon: lng,
-            map: map, layer: observedPositionLayer,
+            map: map, layer: drPositionLayer,
             onChange: updatePositionList,
         });
     }
@@ -58,50 +53,38 @@
      */
     function updatePositionList() {
         window.AnnotatableMarker.renderList(
-            document.getElementById('observedPositionList'), observedPositionLayer);
+            document.getElementById('drPositionList'), drPositionLayer);
     }
 
-    // Kept as thin shims: the popup buttons this tool used to render are gone,
-    // but these names are the tool's public surface and other code (and the odd
-    // console one-liner) still reaches for them.
-    window.deleteObservedPosition = function(id) {
-        window.AnnotatableMarker.remove(KIND, id);
-    };
-    window.saveObservedPositionDescription = function(id) {
-        window.AnnotatableMarker.savePopup(KIND, id);
-    };
-
     /** Placing a point from typed coordinates (see the Go to Position control). */
-    window.ObservedPosition = { add: addObservedPosition };
+    window.DeadReckoningPosition = { add: addDeadReckoningPosition };
 
     /**
      * Toggle placing mode.
      *
      * Delegates to the interaction machine, which owns the flag, the cursor
-     * and (via the state's onEnter/onExit) the visual side-effects. Kept as
-     * a function because other code paths (control onRemove, header close)
-     * still call it with an explicit boolean.
+     * and (via the state's onEnter/onExit) the visual side-effects.
      */
     function togglePlacingMode(enabled) {
         if (!window.mapInteraction) return;
         window.mapInteraction.transitionTo(
-            enabled ? window.ObservedPositionStates.PLACING : window.InteractionStates.IDLE
+            enabled ? window.DeadReckoningStates.PLACING : window.InteractionStates.IDLE
         );
     }
 
     /**
      * Cursor preview circle: semi-transparent ring that trails the mouse while
-     * placement mode is active, so the user can see exactly where the next fix
-     * will land before clicking.
+     * placement mode is active, so the user can see exactly where the next
+     * position will land before clicking.
      */
     function enableCursorPreview() {
         if (previewCircle || !map) return;
         previewCircle = L.circleMarker(map.getCenter(), {
             radius: 12,
-            color: '#D32F2F',
+            color: COLOR,
             weight: 1.5,
             opacity: 0.65,
-            fillColor: '#D32F2F',
+            fillColor: COLOR,
             fillOpacity: 0.15,
             interactive: false,
             bubblingMouseEvents: false
@@ -147,13 +130,13 @@
      * Create the control panel
      */
     function createControlPanel() {
-        L.Control.ObservedPosition = L.Control.extend({
+        L.Control.DeadReckoningPosition = L.Control.extend({
             options: {
                 position: 'topright'
             },
 
-            onAdd: function(map) {
-                const container = L.DomUtil.create('div', 'leaflet-control-observed-position');
+            onAdd: function() {
+                const container = L.DomUtil.create('div', 'leaflet-control-dr-position');
                 container.style.cssText = `
                     background: white;
                     border-radius: 4px;
@@ -163,31 +146,31 @@
                 `;
 
                 container.innerHTML = `
-                    <div id="observedPositionHeader" style="padding: 8px 10px; background: white; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                        <span style="font-size: 16px;">⊗</span> Observed Position
+                    <div id="drPositionHeader" style="padding: 8px 10px; background: white; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 16px;">⊙</span> Dead Reckoning
                     </div>
-                    <div id="observedPositionPanel" style="display: none; padding: 10px; padding-top: 5px;">
+                    <div id="drPositionPanel" style="display: none; padding: 10px; padding-top: 5px;">
                         <div style="margin-bottom: 10px;">
-                            <button id="observedPositionToggle" style="
+                            <button id="drPositionToggle" style="
                                 width: 100%; padding: 8px; background: #4CAF50; color: white;
                                 border: none; border-radius: 3px; cursor: pointer;
                                 font-weight: bold; font-size: 12px;">
                                 Start Marking
                             </button>
                         </div>
-                        <div id="observedPositionStatus" style="text-align: center; font-size: 11px; color: #666; margin-bottom: 10px;">
+                        <div id="drPositionStatus" style="text-align: center; font-size: 11px; color: #666; margin-bottom: 10px;">
                             Click button to start
                         </div>
                         <div style="border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
                             <div style="font-weight: bold; font-size: 11px; margin-bottom: 5px; color: #333;">
                                 Marked Positions:
                             </div>
-                            <div id="observedPositionList" style="max-height: 150px; overflow-y: auto;">
+                            <div id="drPositionList" style="max-height: 150px; overflow-y: auto;">
                                 <div style="color: #999; font-style: italic; font-size: 11px;">No positions marked</div>
                             </div>
                         </div>
                         <div style="margin-top: 10px;">
-                            <button id="clearAllPositions" style="
+                            <button id="drClearAll" style="
                                 width: 100%; padding: 6px; background: #757575; color: white;
                                 border: none; border-radius: 3px; cursor: pointer;
                                 font-size: 11px;">
@@ -208,14 +191,14 @@
             }
         });
 
-        new L.Control.ObservedPosition().addTo(map);
+        new L.Control.DeadReckoningPosition().addTo(map);
 
         // Setup event handlers after DOM is ready
         setTimeout(() => {
-            const header = document.getElementById('observedPositionHeader');
-            const panel = document.getElementById('observedPositionPanel');
-            const toggleBtn = document.getElementById('observedPositionToggle');
-            const clearBtn = document.getElementById('clearAllPositions');
+            const header = document.getElementById('drPositionHeader');
+            const panel = document.getElementById('drPositionPanel');
+            const toggleBtn = document.getElementById('drPositionToggle');
+            const clearBtn = document.getElementById('drClearAll');
 
             // Toggle panel visibility
             if (header && panel) {
@@ -223,7 +206,7 @@
                     e.stopPropagation();
                     const isVisible = panel.style.display !== 'none';
                     panel.style.display = isVisible ? 'none' : 'block';
-                    header.style.background = isVisible ? 'white' : '#ffebee';
+                    header.style.background = isVisible ? 'white' : '#e3f2fd';
 
                     // Disable placing mode when closing panel
                     if (isVisible && isPlacingMode) {
@@ -238,7 +221,7 @@
                 toggleBtn.onclick = function(e) {
                     e.stopPropagation();
                     if (window.mapInteraction) {
-                        window.mapInteraction.toggle(window.ObservedPositionStates.PLACING);
+                        window.mapInteraction.toggle(window.DeadReckoningStates.PLACING);
                     }
                 };
             }
@@ -247,8 +230,8 @@
             if (clearBtn) {
                 clearBtn.onclick = function(e) {
                     e.stopPropagation();
-                    if (confirm('Clear all observed positions?')) {
-                        window.AnnotatableMarker.clear(KIND, observedPositionLayer);
+                    if (confirm('Clear all dead reckoning positions?')) {
+                        window.AnnotatableMarker.clear(KIND, drPositionLayer);
                         updatePositionList();
                     }
                 };
@@ -259,25 +242,21 @@
     /**
      * Register this tool's placement state with the interaction machine.
      * Called from init, before the machine is started (see interaction_setup.js
-     * / main_map.js), so registration order is safe. Placement now comes from
-     * the machine's TAP event rather than this tool's own additive Leaflet
-     * click listener — that additive listener was the root cause of two
-     * tools' click handlers both firing on a single click.
+     * / main_map.js), so registration order is safe.
      */
     function registerInteractionState() {
         if (!window.mapInteraction) return;
 
         window.mapInteraction.register(window.defineState({
-            id: window.ObservedPositionStates.PLACING,
-            tool: 'observedPosition',
+            id: window.DeadReckoningStates.PLACING,
+            tool: 'deadReckoningPosition',
             cursor: 'crosshair',
             targets: [window.InteractionStates.IDLE],
             on: {
                 TAP: function(event) {
-                    addObservedPosition(event.lat, event.lng);
-                    // One position per "Start Marking": leave placing mode
-                    // after the first tap so a stray click can't drop a
-                    // second marker.
+                    addDeadReckoningPosition(event.lat, event.lng);
+                    // One position per "Start Marking", exactly like the
+                    // observed position tool.
                     return window.InteractionStates.IDLE;
                 },
                 ESCAPE: function() {
@@ -285,8 +264,8 @@
                 }
             },
             onEnter: function() {
-                const btn = document.getElementById('observedPositionToggle');
-                const statusText = document.getElementById('observedPositionStatus');
+                const btn = document.getElementById('drPositionToggle');
+                const statusText = document.getElementById('drPositionStatus');
                 if (btn) {
                     btn.style.background = '#D32F2F';
                     btn.textContent = 'Stop Marking';
@@ -298,8 +277,8 @@
                 enableCursorPreview();
             },
             onExit: function() {
-                const btn = document.getElementById('observedPositionToggle');
-                const statusText = document.getElementById('observedPositionStatus');
+                const btn = document.getElementById('drPositionToggle');
+                const statusText = document.getElementById('drPositionStatus');
                 if (btn) {
                     btn.style.background = '#4CAF50';
                     btn.textContent = 'Start Marking';
@@ -312,24 +291,26 @@
             }
         }));
 
-        // isPlacingMode is derived, not owned: every existing reader keeps
-        // working without further changes.
         window.mapInteraction.subscribe(function() {
-            isPlacingMode = window.mapInteraction.isActive(window.ObservedPositionStates.PLACING);
+            isPlacingMode = window.mapInteraction.isActive(window.DeadReckoningStates.PLACING);
         });
     }
 
     /**
-     * Initialize the Observed Position tool
+     * Initialize the Dead Reckoning Position tool
      */
-    window.initObservedPosition = function(leafletMap) {
+    window.initDeadReckoningPosition = function(leafletMap) {
         map = leafletMap;
-        observedPositionLayer = L.layerGroup().addTo(map);
+        drPositionLayer = L.layerGroup().addTo(map);
+
+        window.AnnotatableMarker.defineKind({
+            id: KIND, label: 'Dead Reckoning', badge: '⊙', color: COLOR, icon: drIcon,
+        });
 
         createControlPanel();
         registerInteractionState();
 
-        console.log('✓ Observed Position tool initialized');
+        console.log('✓ Dead Reckoning Position tool initialized');
     };
 
 })();

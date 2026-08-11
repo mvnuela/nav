@@ -141,6 +141,20 @@ function coord(name, label, axis, { star = true } = {}) {
         </div>`;
 }
 
+// A magnetic variation field. Text for the same reason as coord(): the chart
+// and the map's readout both give variation as "6°45.0'E", and typing that
+// beats converting 45' to 0.75 by hand. Normalised to signed decimal degrees
+// (E positive) on blur by the data-angle focusout listener.
+function variation(name, label, { star = true } = {}) {
+    return `
+        <div class="field">
+            <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
+            <input type="text" name="${name}" data-angle="variation"
+                   placeholder="6°45'E or 6.75" required>
+            <span class="hint"></span>
+        </div>`;
+}
+
 function rowWrap(title, idx, inner, extraButtons = "") {
     return `
         <div class="row" data-idx="${idx}">
@@ -162,7 +176,7 @@ function rowWrap(title, idx, inner, extraButtons = "") {
 function mvMainHTML() {
     return `
         <div class="grid">
-            ${num("mvm.base_deg",          "Base variation (°)")}
+            ${variation("mvm.base_deg",    "Base variation (°)")}
             ${num("mvm.base_year",         "Base year", { step: "1", min: 1900, max: 2100 })}
             ${num("mvm.annual_change_min", "Annual change (′/yr)", { step: "0.1" })}
         </div>`;
@@ -171,7 +185,7 @@ function mvMainHTML() {
 function mvRowHTML(idx) {
     const inner = `
         <div class="grid">
-            ${num(`mv.${idx}.base_deg`,         "Base variation (°)")}
+            ${variation(`mv.${idx}.base_deg`,   "Base variation (°)")}
             ${num(`mv.${idx}.base_year`,        "Base year", { step: "1", min: 1900, max: 2100 })}
             ${num(`mv.${idx}.annual_change_min`,"Annual change (′/yr)", { step: "0.1" })}
             ${coord(`mv.${idx}.lat`, "Latitude (°)", "lat")}
@@ -841,15 +855,27 @@ document.body.addEventListener("input", e => {
     if (/^trk\.\d+\.position\.(lat|lon)$/.test(name)) recomputePositions();
 });
 
-// ---------- Coordinate fields: normalise on blur ----------
+// ---------- Angle fields: normalise on blur ----------
 // Valid text is rewritten as canonical decimal (what the JSON stores); invalid
 // text stays exactly as typed — a rejected value the teacher can still see is
 // one she can fix — with the reason on the field's hint line. Only hints this
 // path wrote (.err) are cleared on success, so the calculator's "from …"
 // provenance notes survive a mere blur.
-function normalizeCoordInput(input) {
+//
+// Coordinates and variations differ only in which parser judges the text, so
+// they share everything below; the selector for "every field this applies to"
+// is ANGLE_FIELD_SELECTOR.
+const ANGLE_FIELD_SELECTOR = "input[data-coord], input[data-angle]";
+
+function parseAngleField(input) {
+    return input.dataset.coord
+        ? parseLatLon(input.value, input.dataset.coord)
+        : parseVariation(input.value);
+}
+
+function normalizeAngleInput(input) {
     const hint = hintOf(input);
-    const res = parseLatLon(input.value, input.dataset.coord);
+    const res = parseAngleField(input);
     if (res.ok) {
         if (res.value !== undefined) input.value = String(res.value);
         else if (input.value !== "") input.value = ""; // whitespace-only normalises to truly empty
@@ -871,11 +897,13 @@ function normalizeCoordInput(input) {
 
 document.body.addEventListener("focusout", e => {
     const input = e.target;
-    if (!(input instanceof HTMLInputElement) || !input.dataset.coord) return;
-    normalizeCoordInput(input);
-    // Rewriting the value programmatically fires no input event, so the
-    // derived position text is refreshed here.
+    if (!(input instanceof HTMLInputElement)) return;
+    if (!input.dataset.coord && !input.dataset.angle) return;
+    normalizeAngleInput(input);
+    // Rewriting the value programmatically fires no input event, so anything
+    // derived from the field is refreshed here.
     if (/^trk\./.test(input.name || "")) recomputePositions();
+    if (/^mvm?\./.test(input.name || "")) recomputeTrack();
 });
 
 // initial seed: leeway (fixed 4) + one row each for required arrays
@@ -1252,17 +1280,17 @@ document.getElementById("ccCopyBtn")?.addEventListener("click", e => {
 });
 
 document.getElementById("validateBtn").addEventListener("click", () => {
-    // Normalise every coordinate field first: the teacher may click Validate
-    // without ever leaving the field she just typed in, and focusout order is
-    // not something an export should depend on.
+    // Normalise every coordinate and variation field first: the teacher may
+    // click Validate without ever leaving the field she just typed in, and
+    // focusout order is not something an export should depend on.
     const bad = [];
-    document.querySelectorAll("input[data-coord]").forEach(input => {
-        if (!normalizeCoordInput(input)) bad.push(input.name);
+    document.querySelectorAll(ANGLE_FIELD_SELECTOR).forEach(input => {
+        if (!normalizeAngleInput(input)) bad.push(input.name);
     });
     recomputeTrack();
     if (bad.length) {
         const items = bad.map(n => `<li><code class="path">${n}</code></li>`).join("");
-        showStatus(`<strong>${bad.length} coordinate field(s) need fixing before export:</strong><ul>${items}</ul>`, "err");
+        showStatus(`<strong>${bad.length} field(s) need fixing before export:</strong><ul>${items}</ul>`, "err");
         return;
     }
     const data = buildJSON();

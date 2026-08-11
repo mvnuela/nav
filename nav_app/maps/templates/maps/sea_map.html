@@ -32,7 +32,10 @@
 
 <!-- Custom JavaScript modules (loaded in dependency order) -->
 <script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
+{# parseLatLon for the Go to Position box; needs nauticalToDecimal above #}
+<script src="{% static 'maps/js/navigation/coordinate_field.js' %}"></script>
 <script src="{% static 'maps/js/core/clipboard.js' %}"></script>
+<script src="{% static 'maps/js/core/annotatable_marker.js' %}"></script>
 <script src="{% static 'maps/js/core/map_controls.js' %}"></script>
 <script src="{% static 'maps/js/core/interaction/interaction_events.js' %}"></script>
 <script src="{% static 'maps/js/core/interaction/interaction_states.js' %}"></script>
@@ -51,22 +54,14 @@
 <script src="{% static 'maps/js/gpx/gpx_route_leaflet.js' %}"></script>
 <script src="{% static 'maps/js/observed_position/observed_position_states.js' %}"></script>
 <script src="{% static 'maps/js/observed_position/observed_position.js' %}"></script>
+<script src="{% static 'maps/js/dead_reckoning_position/dead_reckoning_position_states.js' %}"></script>
+<script src="{% static 'maps/js/dead_reckoning_position/dead_reckoning_position.js' %}"></script>
 <script src="{% static 'maps/js/geometry/geometry_model.js' %}"></script>
 <script src="{% static 'maps/js/geometry/geometry_states.js' %}"></script>
 <script src="{% static 'maps/js/geometry/geometry_leaflet.js' %}"></script>
 <script src="{% static 'maps/js/nautical/nautical_latitude_scale.js' %}"></script>
+<script src="{% static 'maps/js/nautical/nautical_longitude_scale.js' %}"></script>
 <script src="{% static 'maps/js/course/magnetic_declination.js' %}"></script>
-{% if user.is_teacher %}
-{# Navigation calculators are teacher-only — served via the calculator_js view, not the static handler #}
-<script src="{% url 'maps:calculator_js' 'dr/dr_core.js' %}"></script>
-<script src="{% url 'maps:calculator_js' 'dr/dr_leaflet.js' %}"></script>
-<script src="{% url 'maps:calculator_js' 'fix/fix_core.js' %}"></script>
-<script src="{% url 'maps:calculator_js' 'fix/fix_leaflet.js' %}"></script>
-<script src="{% url 'maps:calculator_js' 'runfix/runfix_core.js' %}"></script>
-<script src="{% url 'maps:calculator_js' 'runfix/runfix_leaflet.js' %}"></script>
-<script src="{% url 'maps:calculator_js' 'travpoi/travpoi_core.js' %}"></script>
-<script src="{% url 'maps:calculator_js' 'travpoi/travpoi_leaflet.js' %}"></script>
-{% endif %}
 <script src="{% static 'maps/js/core/main_map.js' %}"></script>
 
 {% if task %}

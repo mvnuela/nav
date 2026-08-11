@@ -1005,13 +1005,10 @@ class PlottingTriangle {
 
         const trianglePath = this.svgElement.querySelector('path');
         if (trianglePath) {
-            if (enabled) {
-                trianglePath.setAttribute('stroke', this.colors.innerScale);
-                trianglePath.setAttribute('stroke-width', this.s(this.config.strokeWidth * 2.5));
-            } else {
-                trianglePath.setAttribute('stroke', this.colors.stroke);
-                trianglePath.setAttribute('stroke-width', this.s(this.config.strokeWidth * 1.5));
-            }
+            // Colour alone marks the highlight; the outline keeps its normal
+            // width so the shape does not swell while being dragged.
+            trianglePath.setAttribute('stroke', enabled ? this.colors.innerScale : this.colors.stroke);
+            trianglePath.setAttribute('stroke-width', this.s(this.config.strokeWidth * 2));
         }
     }
 }
