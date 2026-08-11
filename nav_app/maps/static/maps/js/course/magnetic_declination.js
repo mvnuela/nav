@@ -329,6 +329,21 @@
         return `${deg}°${min}'${dir}`;
     }
 
+    /**
+     * The same declination as a decimal, at the precision the task form's
+     * variation field stores (schema: multipleOf 0.0001) with trailing zeros
+     * dropped. Shown beside the nautical form so the number can be copied into
+     * that field as-is: rounding to one decimal here used to turn 6°45.0'E
+     * into 6.8 and lose 0.05°.
+     *
+     * @param {number} declination - Declination in degrees
+     * @returns {string} e.g. "+6.75"
+     */
+    function decimalDegrees(declination) {
+        const rounded = Math.round(declination * 10000) / 10000;
+        return (rounded >= 0 ? '+' : '') + String(rounded);
+    }
+
     // Internal grid resolution for pre-computation
     const GRID_COLS = 16;
     const GRID_ROWS = 10;
@@ -388,7 +403,7 @@
             for (let i = 0; i < grid.length; i++) {
                 const c = grid[i];
                 if (lat >= c.latMin && lat < c.latMax && lon >= c.lonMin && lon < c.lonMax) {
-                    box.textContent = 'Var: ' + formatDeclination(c.decl) + '  (' + (c.decl >= 0 ? '+' : '') + c.decl.toFixed(1) + '°)';
+                    box.textContent = 'Var: ' + formatDeclination(c.decl) + '  (' + decimalDegrees(c.decl) + '°)';
                     return;
                 }
             }
