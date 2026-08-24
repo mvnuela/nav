@@ -789,7 +789,10 @@
             // Show zoom controls
             document.getElementById('zoomControls').style.display = 'flex';
 
-            // Render again now that canvas is visible
+            // Re-fit now that the canvas is visible: it is sized from the
+            // container, so measuring again once it is on screen is the safe
+            // moment. Idempotent when nothing has changed.
+            graticuleSystem.fitToWindow();
             graticuleSystem.render();
 
             document.getElementById('fitModeBtn').disabled = false;
@@ -1946,10 +1949,14 @@
                 toggle.classList.toggle('collapsed', collapsed);
                 toggle.textContent = collapsed ? '◀' : '▶';
                 toggle.title = collapsed ? 'Show side panel' : 'Hide side panel';
-                // Let the sidebar finish its width transition before repositioning
-                setTimeout(syncToggleOffset, 260);
-                // Let the canvas/map pick up the new viewport size
-                window.dispatchEvent(new Event('resize'));
+                // Let the sidebar finish its 0.25s width transition before
+                // repositioning the toggle AND before telling the map to re-fit
+                // — fired any earlier, the container has not resized yet and the
+                // map would re-fit to the width it is leaving behind.
+                setTimeout(function() {
+                    syncToggleOffset();
+                    window.dispatchEvent(new Event('resize'));
+                }, 260);
             });
 
             window.addEventListener('resize', syncToggleOffset);
