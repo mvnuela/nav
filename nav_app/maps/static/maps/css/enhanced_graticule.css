@@ -232,9 +232,14 @@ body {
     position: relative;
 }
 
+/*
+ * The canvas covers the whole container rather than taking the chart's shape,
+ * so the chart can spread into the full width when zoomed. It is therefore
+ * transparent and unshadowed — a drop shadow here would outline the panel, not
+ * the chart. JS sets the explicit width/height from the container.
+ */
 #mapCanvas {
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    background: white;
+    background: transparent;
     cursor: default;
 }
 

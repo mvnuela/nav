@@ -125,7 +125,17 @@ class MapRegion {
         return null;
     }
 
-    draw(ctx, isActive = false) {
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {boolean} isActive
+     * @param {number} imageWidth   chart width in its own pixels
+     * @param {number} imageHeight  chart height in its own pixels
+     *
+     * The chart's extent is passed in rather than read off ctx.canvas: the
+     * canvas is the panel now, not the chart, so shading to the canvas edge
+     * would dim the empty panel and leave part of the chart lit.
+     */
+    draw(ctx, isActive = false, imageWidth = 0, imageHeight = 0) {
         ctx.save();
 
         // Draw region border
@@ -137,12 +147,12 @@ class MapRegion {
         // Draw semi-transparent overlay outside region
         if (isActive) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-            ctx.fillRect(0, 0, ctx.canvas.width, this.y); // Top
+            ctx.fillRect(0, 0, imageWidth, this.y); // Top
             ctx.fillRect(0, this.y, this.x, this.height); // Left
             ctx.fillRect(this.x + this.width, this.y,
-                        ctx.canvas.width - this.x - this.width, this.height); // Right
+                        imageWidth - this.x - this.width, this.height); // Right
             ctx.fillRect(0, this.y + this.height,
-                        ctx.canvas.width, ctx.canvas.height - this.y - this.height); // Bottom
+                        imageWidth, imageHeight - this.y - this.height); // Bottom
         }
 
         // Draw handles

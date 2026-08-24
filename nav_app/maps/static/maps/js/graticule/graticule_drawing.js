@@ -122,7 +122,7 @@ EnhancedGraticuleSystem.prototype.drawGraticule = function() {
 };
 
 EnhancedGraticuleSystem.prototype.exportSVG = function() {
-    if (!this.mapper || !this.geoBounds) return null;
+    if (!this.mapper || !this.geoBounds || !this.uploadedImage) return null;
 
     // Validate intervals
     if (!this.latInterval || this.latInterval <= 0 || !this.lonInterval || this.lonInterval <= 0) {
@@ -134,14 +134,14 @@ EnhancedGraticuleSystem.prototype.exportSVG = function() {
     // dividers + GPX + observed positions + geometry + courses, excluding
     // nautical triangles) and embed it inside the SVG as an <image> so the
     // SVG export matches the PNG export content.
+    // Sized from the chart, not from this.canvas — the canvas is the on-screen
+    // panel and has nothing to do with how big the chart is.
     const compositeCanvas = document.createElement('canvas');
-    compositeCanvas.width = this.canvas.width;
-    compositeCanvas.height = this.canvas.height;
+    compositeCanvas.width = this.uploadedImage.width;
+    compositeCanvas.height = this.uploadedImage.height;
     const compositeCtx = compositeCanvas.getContext('2d');
 
-    if (this.uploadedImage) {
-        compositeCtx.drawImage(this.uploadedImage, 0, 0);
-    }
+    compositeCtx.drawImage(this.uploadedImage, 0, 0);
 
     const originalCtx = this.ctx;
     this.ctx = compositeCtx;
@@ -163,8 +163,8 @@ EnhancedGraticuleSystem.prototype.exportSVG = function() {
     const height = this.mapRegion.height;
     const imgX = -this.mapRegion.x;
     const imgY = -this.mapRegion.y;
-    const imgW = this.canvas.width;
-    const imgH = this.canvas.height;
+    const imgW = this.uploadedImage.width;
+    const imgH = this.uploadedImage.height;
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -267,8 +267,8 @@ EnhancedGraticuleSystem.prototype.exportHighResPNG = function(scaleFactor = 2) {
     if (!this.uploadedImage) return null;
 
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = this.canvas.width * scaleFactor;
-    tempCanvas.height = this.canvas.height * scaleFactor;
+    tempCanvas.width = this.uploadedImage.width * scaleFactor;
+    tempCanvas.height = this.uploadedImage.height * scaleFactor;
 
     const tempCtx = tempCanvas.getContext('2d');
     tempCtx.scale(scaleFactor, scaleFactor);

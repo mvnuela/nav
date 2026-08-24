@@ -11,11 +11,15 @@ EnhancedGraticuleSystem.prototype.initTriangles = function() {
         this.triangleManager = new NauticalTriangleManager();
         // Larger default so degree scale is legible out of the box, but cap
         // so both triangles still fit side-by-side on small canvases.
-        const baseline = Math.min(this.canvas.width, this.canvas.height) * 0.38;
+        // Sized against the chart, not the canvas: triangles are drawn inside
+        // the render transform, so their coordinates are chart pixels. The
+        // canvas is the panel and is usually smaller.
+        const extent = this.uploadedImage || this.canvas;
+        const baseline = Math.min(extent.width, extent.height) * 0.38;
         const triangleSize = Math.max(500, Math.min(baseline, 1000));
         this.triangleManager.createStandardPair(
-            this.canvas.width,
-            this.canvas.height,
+            extent.width,
+            extent.height,
             triangleSize
         );
         // Redraw canvas whenever arrow keys reposition a triangle
@@ -540,6 +544,12 @@ EnhancedGraticuleSystem.prototype.markAtCoordinates = function(kind, lat, lon) {
 EnhancedGraticuleSystem.prototype.initGeometry = function() {
     if (!this.geometryManager && this.mapper) {
         this.geometryManager = new GeometryManagerCanvas(this.mapper);
+    }
+    // Rays run in chart pixels, so they need the chart's extent to know how far
+    // to reach. Refreshed here as well as on load, because a new PDF page can
+    // arrive while the geometry tool is already open.
+    if (this.geometryManager && this.uploadedImage) {
+        this.geometryManager.setExtent(this.uploadedImage.width, this.uploadedImage.height);
     }
     // If markers were placed before the geometry tool was opened, back-fill
     // them as external geometry points so they become connectable.

@@ -7,6 +7,13 @@
  * Extended by: graticule_drawing.js (drawing/export) and graticule_tools.js (tool integration)
  */
 
+/**
+ * #mapContainer's padding, in CSS pixels. Kept in step with
+ * maps/css/enhanced_graticule.css — the canvas fills the container's content
+ * box, so the two have to agree.
+ */
+const CONTAINER_PADDING = 20;
+
 class EnhancedGraticuleSystem {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -25,7 +32,16 @@ class EnhancedGraticuleSystem {
         this.lonInterval = 0.5; // Meridian (longitude line) spacing - default 30 arcminutes
         this.showMinorGrid = false;
 
-        // Zoom and pan state
+        // Zoom and pan state.
+        //
+        // The canvas fills the panel rather than taking the chart's shape, so
+        // the chart is placed inside it by the render transform: a chart pixel
+        // lands at `imagePixel * baseScale * zoom + pan`. baseScale is the scale
+        // at which the whole chart fits, so zoom 1 is exactly the fit, and
+        // zooming past it lets a portrait chart spread into the width that would
+        // otherwise sit empty beside it.
+        this.baseScale = 1.0;
+        this.pixelRatio = 1;
         this.zoom = 1.0;
         this.minZoom = 1.0;
         this.maxZoom = 10.0;
@@ -85,6 +101,11 @@ class EnhancedGraticuleSystem {
         this.canvas.addEventListener('mouseenter', () => { this.pointerOverCanvas = true; });
         this.canvas.addEventListener('mouseleave', () => { this.pointerOverCanvas = false; });
         document.addEventListener('keydown', (e) => this.handleCopyShortcut(e));
+
+        // The canvas is sized from its container, so every viewport change has
+        // to be followed by a re-fit. Without this, collapsing the sidebar frees
+        // 350px that the map never uses.
+        window.addEventListener('resize', () => this.handleResize());
 
         // Track touch state for pinch zoom
         this.touches = [];
@@ -197,19 +218,32 @@ class EnhancedGraticuleSystem {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
+    /** Chart pixels → canvas backing-store pixels, at the current zoom. */
+    getEffectiveScale() {
+        return this.baseScale * this.zoom;
+    }
+
     constrainPan() {
         if (!this.uploadedImage) return;
 
-        const scaledWidth = this.canvas.width * this.zoom;
-        const scaledHeight = this.canvas.height * this.zoom;
+        const scale = this.getEffectiveScale();
 
-        const margin = 50;
+        this.panX = this.constrainAxis(
+            this.panX, this.uploadedImage.width * scale, this.canvas.width);
+        this.panY = this.constrainAxis(
+            this.panY, this.uploadedImage.height * scale, this.canvas.height);
+    }
 
-        const maxPanX = scaledWidth - this.canvas.width + margin;
-        const maxPanY = scaledHeight - this.canvas.height + margin;
-
-        this.panX = Math.max(-maxPanX, Math.min(margin, this.panX));
-        this.panY = Math.max(-maxPanY, Math.min(margin, this.panY));
+    /**
+     * Centre the chart along one axis while it is smaller than the viewport;
+     * once it is larger, keep it covering the viewport so panning cannot open
+     * a gap at an edge.
+     */
+    constrainAxis(offset, drawnLength, viewportLength) {
+        if (drawnLength <= viewportLength) {
+            return (viewportLength - drawnLength) / 2;
+        }
+        return Math.max(viewportLength - drawnLength, Math.min(0, offset));
     }
 
     zoomIn() {
@@ -230,7 +264,7 @@ class EnhancedGraticuleSystem {
     }
 
     zoomOut() {
-        const newZoom = Math.max(1.0, this.zoom / 1.25);
+        const newZoom = Math.max(this.minZoom, this.zoom / 1.25);
         if (newZoom !== this.zoom) {
             const centerX = this.canvas.width / 2;
             const centerY = this.canvas.height / 2;
@@ -246,10 +280,10 @@ class EnhancedGraticuleSystem {
         }
     }
 
+    /** Back to the fit: the whole chart visible, centred. */
     resetZoom() {
-        this.zoom = 1.0;
-        this.panX = 0;
-        this.panY = 0;
+        this.zoom = this.minZoom;
+        this.constrainPan();
         this.render();
         this.updateZoomDisplay();
     }
@@ -283,16 +317,18 @@ class EnhancedGraticuleSystem {
     }
 
     screenToCanvas(screenX, screenY) {
+        const scale = this.getEffectiveScale();
         return {
-            x: (screenX - this.panX) / this.zoom,
-            y: (screenY - this.panY) / this.zoom
+            x: (screenX - this.panX) / scale,
+            y: (screenY - this.panY) / scale
         };
     }
 
     canvasToScreen(canvasX, canvasY) {
+        const scale = this.getEffectiveScale();
         return {
-            x: canvasX * this.zoom + this.panX,
-            y: canvasY * this.zoom + this.panY
+            x: canvasX * scale + this.panX,
+            y: canvasY * scale + this.panY
         };
     }
 
@@ -303,8 +339,6 @@ class EnhancedGraticuleSystem {
             const img = new Image();
             img.onload = () => {
                 this.uploadedImage = img;
-                this.canvas.width = img.width;
-                this.canvas.height = img.height;
 
                 // Initialize default region (80% of image)
                 const margin = 0.1;
@@ -315,7 +349,12 @@ class EnhancedGraticuleSystem {
                     img.height * (1 - 2 * margin)
                 );
 
-                // Scale canvas to fit viewport
+                // Tools that draw in chart pixels need the new chart's extent
+                if (this.geometryManager) {
+                    this.geometryManager.setExtent(img.width, img.height);
+                }
+
+                // Size the canvas to the panel and frame the whole chart in it
                 this.fitToWindow();
 
                 this.render();
@@ -326,30 +365,73 @@ class EnhancedGraticuleSystem {
         });
     }
 
+    /**
+     * Frame the whole chart inside the panel: zoom back to the fit and centre.
+     *
+     * Note what this deliberately does NOT do — give the canvas the chart's
+     * shape. The canvas takes the panel's shape, and the chart is positioned
+     * inside it by the render transform. Sizing the element to the chart is what
+     * used to trap a portrait chart in a narrow column that zoom could not
+     * escape, because zoom only ever scaled the contents of that column.
+     */
     fitToWindow() {
         if (!this.uploadedImage) return;
 
+        this.syncCanvasToContainer();
+        this.zoom = this.minZoom;
+        this.constrainPan();
+        this.updateZoomDisplay();
+    }
+
+    /**
+     * Match the canvas to its container, in device pixels so the graticule is
+     * drawn at the display's real resolution instead of being downsampled from
+     * a chart-sized buffer.
+     */
+    syncCanvasToContainer() {
         const container = this.canvas.parentElement;
-        const containerWidth = container.clientWidth - 40; // padding
-        const containerHeight = container.clientHeight - 40; // padding
+        if (!container) return;
 
-        const imageWidth = this.uploadedImage.width;
-        const imageHeight = this.uploadedImage.height;
+        const ratio = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+        const cssWidth = Math.max(1, container.clientWidth - CONTAINER_PADDING * 2);
+        const cssHeight = Math.max(1, container.clientHeight - CONTAINER_PADDING * 2);
 
-        // Calculate scale to fit
-        const scaleX = containerWidth / imageWidth;
-        const scaleY = containerHeight / imageHeight;
-        const scale = Math.min(scaleX, scaleY, 1.0); // Don't zoom in beyond 100%
+        this.pixelRatio = ratio;
+        this.canvas.style.width = cssWidth + 'px';
+        this.canvas.style.height = cssHeight + 'px';
+        this.canvas.width = Math.round(cssWidth * ratio);
+        this.canvas.height = Math.round(cssHeight * ratio);
 
-        // Apply CSS scaling
-        const newWidth = imageWidth * scale;
-        const newHeight = imageHeight * scale;
+        this.updateBaseScale();
+    }
 
-        this.canvas.style.width = newWidth + 'px';
-        this.canvas.style.height = newHeight + 'px';
+    /** The scale at which the whole chart fits the canvas — i.e. zoom 1. */
+    updateBaseScale() {
+        if (!this.uploadedImage) return;
 
-        // Store scale factor for coordinate conversion
-        this.displayScale = scale;
+        this.baseScale = Math.min(
+            this.canvas.width / this.uploadedImage.width,
+            this.canvas.height / this.uploadedImage.height
+        );
+    }
+
+    /**
+     * Re-fit after the panel changed size, keeping the zoom level and whatever
+     * the user had in the middle of the viewport.
+     */
+    handleResize() {
+        if (!this.uploadedImage) return;
+
+        const centre = this.screenToCanvas(this.canvas.width / 2, this.canvas.height / 2);
+
+        this.syncCanvasToContainer();
+
+        const scale = this.getEffectiveScale();
+        this.panX = this.canvas.width / 2 - centre.x * scale;
+        this.panY = this.canvas.height / 2 - centre.y * scale;
+
+        this.constrainPan();
+        this.render();
     }
 
     // ——— Geographic Bounds & Grid Configuration ———
@@ -917,16 +999,18 @@ class EnhancedGraticuleSystem {
             // Save context state
             this.ctx.save();
 
-            // Apply zoom and pan transformation
+            // Place the chart inside the panel: fit scale, then user zoom/pan
+            const scale = this.getEffectiveScale();
             this.ctx.translate(this.panX, this.panY);
-            this.ctx.scale(this.zoom, this.zoom);
+            this.ctx.scale(scale, scale);
 
             // Draw image
             this.ctx.drawImage(this.uploadedImage, 0, 0);
 
             // Draw map region (in fit mode)
             if (this.mode === 'fit' && this.mapRegion) {
-                this.mapRegion.draw(this.ctx, true);
+                this.mapRegion.draw(
+                    this.ctx, true, this.uploadedImage.width, this.uploadedImage.height);
             }
 
             // Draw graticule (in view mode with mapper)
@@ -973,16 +1057,20 @@ class EnhancedGraticuleSystem {
     }
 
     drawZoomIndicator() {
-        if (this.zoom === 1.0) return;
+        if (this.zoom === this.minZoom) return;
+
+        // Drawn straight onto the backing store, so it has to be laid out in
+        // device pixels or it comes out half-size on a retina display.
+        const px = this.pixelRatio;
 
         this.ctx.save();
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(10, 10, 80, 30);
+        this.ctx.fillRect(10 * px, 10 * px, 80 * px, 30 * px);
         this.ctx.fillStyle = 'white';
-        this.ctx.font = 'bold 14px Arial';
+        this.ctx.font = `bold ${14 * px}px Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(Math.round(this.zoom * 100) + '%', 50, 25);
+        this.ctx.fillText(Math.round(this.zoom * 100) + '%', 50 * px, 25 * px);
         this.ctx.restore();
     }
 }

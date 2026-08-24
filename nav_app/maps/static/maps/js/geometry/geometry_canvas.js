@@ -429,10 +429,19 @@ class GeometryManagerCanvas {
         }
     }
 
+    /**
+     * How far a ray has to run to leave the chart. Rays are drawn in chart
+     * pixels inside the render transform, so this must be the chart's extent —
+     * the canvas is the on-screen panel and is normally smaller, which would
+     * cut every ray short of the chart edge.
+     */
+    setExtent(width, height) {
+        this.extent = { width, height };
+    }
+
     _drawRays(ctx) {
-        const canvasW = ctx.canvas.width;
-        const canvasH = ctx.canvas.height;
-        const maxDist = Math.sqrt(canvasW * canvasW + canvasH * canvasH);
+        const extent = this.extent || { width: ctx.canvas.width, height: ctx.canvas.height };
+        const maxDist = Math.sqrt(extent.width * extent.width + extent.height * extent.height);
 
         for (const ray of this.store.rays) {
             const origin = this.store.getPoint(ray.originPointId);
