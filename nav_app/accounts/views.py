@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -69,11 +70,24 @@ class InviteAcceptView(CreateView):
         return ctx
 
     def form_valid(self, form):
-        user = form.save(commit=False)
-        user.role = self.invitation.role
-        user.save()
+        # The check in dispatch() ran before the form was filled in, so it is
+        # stale by now: a second request may have redeemed the link in the
+        # meantime. Lock the invitation row, re-check it, and write both the
+        # account and the redemption inside one transaction, so the two
+        # writes can neither interleave nor half-succeed.
+        with transaction.atomic():
+            invitation = (
+                Invitation.objects.select_for_update()
+                .filter(pk=self.invitation.pk)
+                .first()
+            )
+            if invitation is None or not invitation.is_redeemable:
+                raise Http404("This invitation is no longer valid.")
+            user = form.save(commit=False)
+            user.role = invitation.role
+            user.save()
+            invitation.mark_used(user)
         self.object = user
-        self.invitation.mark_used(user)
         login(self.request, user)
         return redirect(self.get_success_url())
 
