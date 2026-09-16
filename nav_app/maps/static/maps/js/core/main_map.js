@@ -11,6 +11,35 @@
         initializeNauticalMap();
     });
 
+    // OSM's tile servers answer a request that carries no Referer header with
+    // their "403 Access blocked" placeholder image instead of the tile. Django's
+    // SecurityMiddleware sends `Referrer-Policy: same-origin` (its default since
+    // Django 3.1), which strips the Referer from exactly these cross-origin tile
+    // requests — so on the deployed site every tile came back as that
+    // placeholder. Leaflet applies this per-tile option to the <img> before
+    // setting `src`, so only the tile images send the origin; every other
+    // request on the page keeps the strict site-wide policy.
+    const TILE_REFERRER_POLICY = 'strict-origin-when-cross-origin';
+
+    /**
+     * Build the two tile layers the sea map is drawn from: the OpenStreetMap
+     * base layer and the OpenSeaMap seamark overlay on top of it.
+     */
+    function createTileLayers() {
+        return [
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                referrerPolicy: TILE_REFERRER_POLICY,
+                attribution: '© OpenStreetMap contributors'
+            }),
+            L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                referrerPolicy: TILE_REFERRER_POLICY,
+                attribution: 'Map data: © <a href="http://www.openseamap.org">OpenSeaMap</a> contributors'
+            })
+        ];
+    }
+
     /**
      * Initialize the complete nautical map with all features
      */
@@ -23,17 +52,9 @@
             7
         );
 
-        // Add OpenStreetMap tile layer (base layer)
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        // Add OpenSeaMap overlay (nautical charts with buoys, lighthouses, etc.)
-        L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: 'Map data: © <a href="http://www.openseamap.org">OpenSeaMap</a> contributors'
-        }).addTo(map);
+        // Add the OpenStreetMap base layer and the OpenSeaMap seamark overlay
+        // (buoys, lighthouses, etc.)
+        createTileLayers().forEach(layer => layer.addTo(map));
 
         // Interaction machine must exist before any tool initializes, so tools
         // can register their states during init. It is started after them.
@@ -500,6 +521,11 @@
                 }
             });
         }, 100);
+    }
+
+    // Exposed for the Node test suite; the browser only ever uses the IIFE.
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { createTileLayers, TILE_REFERRER_POLICY };
     }
 
 })();

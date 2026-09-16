@@ -7,7 +7,7 @@
  * Reference: Chulliat, A., W. Brown, P. Alken, C. Beggan, M. Nair,
  * G. Cox, A. Woods, S. Macmillan, B. Meyer and M. Paniccia, 2024,
  * The US/UK World Magnetic Model for 2025-2030, National Centers for
- * Environmental Information, NOAA, doi:10.25921/jj65-hw14
+ * Environmental Information, NOAA
  */
 
 (function() {
@@ -113,7 +113,6 @@
     // WGS84 constants
     const WGS84_A = 6378.137;       // semi-major axis (km)
     const WGS84_F = 1.0 / 298.257223563;  // flattening
-    const WGS84_B = WGS84_A * (1 - WGS84_F); // semi-minor axis
     const RE = 6371.2;              // Earth reference radius for WMM (km)
 
     const NMAX = 12;  // Maximum degree of spherical harmonic expansion
@@ -128,49 +127,6 @@
         const start = new Date(year, 0, 1);
         const end = new Date(year + 1, 0, 1);
         return year + (date - start) / (end - start);
-    }
-
-    /**
-     * Convert geodetic coordinates to geocentric spherical coordinates
-     */
-    function geodeticToGeocentric(lat, altKm) {
-        const latRad = lat * Math.PI / 180;
-        const sinLat = Math.sin(latRad);
-        const cosLat = Math.cos(latRad);
-
-        // WGS84 ellipsoid
-        const a2 = WGS84_A * WGS84_A;
-        const b2 = WGS84_B * WGS84_B;
-
-        const D = Math.sqrt(a2 * cosLat * cosLat + b2 * sinLat * sinLat);
-
-        const rho = Math.sqrt(
-            altKm * (altKm + 2 * D) +
-            (a2 * a2 * cosLat * cosLat + b2 * b2 * sinLat * sinLat) / (D * D)
-        );
-
-        const geocentricLat = Math.asin(
-            (altKm + D) * sinLat * b2 / (D * rho * RE) +
-            altKm * sinLat / rho
-        );
-
-        // More precise geocentric latitude calculation
-        const sinGeoLat = ((altKm + D) / rho) * sinLat * (b2 / (D * RE)) +
-                          (altKm / rho) * sinLat;
-
-        // Use proper geocentric conversion
-        const Rc = WGS84_A / Math.sqrt(1 - (2 * WGS84_F - WGS84_F * WGS84_F) * sinLat * sinLat);
-        const pxy = (Rc + altKm) * cosLat;
-        const pz = (Rc * (1 - (2 * WGS84_F - WGS84_F * WGS84_F)) + altKm) * sinLat;
-
-        const r = Math.sqrt(pxy * pxy + pz * pz);
-        const geocLat = Math.asin(pz / r);
-
-        return {
-            r: r,           // geocentric radius in km
-            theta: geocLat, // geocentric colatitude in radians
-            latRad: latRad  // original geodetic latitude in radians
-        };
     }
 
     /**
