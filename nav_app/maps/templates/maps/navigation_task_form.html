@@ -374,7 +374,36 @@
             border: 1px solid #c7d2fe; border-radius: 6px;
             font-size: 0.88em; color: #1e3a8a; line-height: 1.45; word-break: break-word;
         }
+
+        /* Markdown editor around meta.content_md (markdown_toolbar.js) */
+        .md-editor { border: 1px solid #d1d5db; border-radius: 6px; background: #fff; overflow: hidden; }
+        .md-tabs { display: flex; background: #f9fafb; border-bottom: 1px solid #d1d5db; }
+        .md-tab {
+            border: none; background: none; padding: 7px 16px; cursor: pointer;
+            font: inherit; font-size: 0.9em; color: #6b7280;
+            border-right: 1px solid transparent; border-left: 1px solid transparent;
+        }
+        .md-tab:first-child { border-left: none; }
+        .md-tab.active {
+            background: #fff; color: #1f2937; font-weight: 600;
+            border-right-color: #d1d5db; border-left-color: #d1d5db; margin-bottom: -1px;
+        }
+        .md-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border-bottom: 1px solid #e5e7eb; }
+        .md-toolbar button {
+            min-width: 30px; padding: 3px 8px; font: inherit; font-size: 0.85em;
+            border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer;
+        }
+        .md-toolbar button:hover { background: #eff6ff; border-color: #93c5fd; }
+        .field .md-editor textarea {
+            display: block; width: 100%; border: none; border-radius: 0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em;
+        }
+        .field .md-editor textarea:focus { box-shadow: none; }
+        .md-toolbar[hidden], .field .md-editor textarea[hidden], .md-preview[hidden] { display: none; }
+        .md-preview { padding: 8px 12px; min-height: 140px; }
+        .md-preview-note { color: #6b7280; font-style: italic; }
     </style>
+    <link rel="stylesheet" href="{% static 'maps/css/task_content.css' %}">
 </head>
 <body>
 <div class="wrap">
@@ -405,7 +434,7 @@
                 </div>
                 <div class="field" style="margin-top:10px">
                     <label>Content (Markdown)</label>
-                    <textarea name="meta.content_md" rows="4"></textarea>
+                    <textarea name="meta.content_md" rows="10" data-md-editor></textarea>
                 </div>
             </div>
         </details>
@@ -645,6 +674,13 @@
 <script src="{% static 'maps/js/navigation/angle_units.js' %}"></script>
 <script src="{% static 'maps/js/navigation/local_datetime.js' %}"></script>
 <script type="module" src="{% static 'maps/js/navigation/navigation_task_form.js' %}"></script>
+<!-- Markdown editor for meta.content_md. The renderer libraries are async on
+     purpose: a slow CDN must never hold up the form; Preview just reports them
+     missing until they arrive. -->
+<script async src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" crossorigin="anonymous"></script>
+<script async src="https://cdn.jsdelivr.net/npm/dompurify@3.2.2/dist/purify.min.js" crossorigin="anonymous"></script>
+<script src="{% static 'maps/js/navigation/task_markdown.js' %}"></script>
+<script src="{% static 'maps/js/navigation/markdown_toolbar.js' %}"></script>
 
 <!-- ============ CALCULATOR SIDEBAR (independent helper tools, not task data) ============ -->
 <button id="calcToggle" type="button" aria-label="Open calculators">🧮 Calculators</button>

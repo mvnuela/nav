@@ -958,7 +958,7 @@ class PlottingTriangle {
         const pivotY = this.y - halfHyp;
         const currentAngle = Math.atan2(localY - pivotY, localX - this.x) * 180 / Math.PI;
         let delta = currentAngle - this.rotationStartAngle;
-        // Normalize to [-180, 180] so crossing the ±180° boundary never causes a jump
+        // Normalize to [-180, 180) so crossing the ±180° boundary never causes a jump
         delta = ((delta + 180) % 360 + 360) % 360 - 180;
         this.rotation += delta;
         this.rotationStartAngle = currentAngle;
