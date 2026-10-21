@@ -1,8 +1,11 @@
-import Ajv2020 from "https://esm.sh/ajv@8.17.1/dist/2020.js";
-
 // minutesToDegrees()/roundTo() come from angle_units.js and formatPositionText()
 // from graticule_formatter.js, both loaded as plain scripts by the template —
 // their globals are in place before this deferred module runs.
+
+// Ajv is vendored (vendor/ajv2020.bundle.min.js, a plain script that sets
+// window.ajv2020) rather than imported from a CDN: a static remote import
+// gates this whole module, so a slow CDN used to leave every button dead.
+const Ajv2020 = window.ajv2020;
 
 const schema = JSON.parse(document.getElementById("ntSchema").textContent);
 // multipleOfPrecision: without it Ajv checks multipleOf by exact float division,

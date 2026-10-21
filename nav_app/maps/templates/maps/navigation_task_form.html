@@ -673,6 +673,8 @@
 <!-- Classic script: runs before the deferred module below, which uses its globals. -->
 <script src="{% static 'maps/js/navigation/angle_units.js' %}"></script>
 <script src="{% static 'maps/js/navigation/local_datetime.js' %}"></script>
+<!-- Ajv 8.17.1 (ajv2020.bundle.min.js from cdnjs), vendored so the form works without network. -->
+<script src="{% static 'maps/js/vendor/ajv2020.bundle.min.js' %}"></script>
 <script type="module" src="{% static 'maps/js/navigation/navigation_task_form.js' %}"></script>
 <!-- Markdown editor for meta.content_md. The renderer libraries are async on
      purpose: a slow CDN must never hold up the form; Preview just reports them
