@@ -13,12 +13,14 @@ const schema = JSON.parse(document.getElementById("ntSchema").textContent);
 const ajv = new Ajv2020({ allErrors: true, strict: false, multipleOfPrecision: 6 });
 const validate = ajv.compile(schema);
 
-// min/max prefill the angle-range inputs
+// min/max prefill the angle-range inputs, value_deg the default leeway.
+// Each band runs up to the next band's min; below the lowest min the wind
+// angle counts as close hauled (CourseChain.leewayFor).
 const POINTS_OF_SAIL = [
-    { key: "close_hauled", label: "Close hauled", min_deg: 23,  max_deg: 67.9 },
-    { key: "beam_reach",   label: "Beam reach",   min_deg: 68,  max_deg: 112.9 },
-    { key: "broad_reach",  label: "Broad reach",  min_deg: 113, max_deg: 157.9 },
-    { key: "running",      label: "Running",      min_deg: 158, max_deg: 180 },
+    { key: "close_hauled", label: "Close hauled", min_deg: 23,  max_deg: 67.9,  value_deg: 10 },
+    { key: "beam_reach",   label: "Beam reach",   min_deg: 68,  max_deg: 112.9, value_deg: 5 },
+    { key: "broad_reach",  label: "Broad reach",  min_deg: 113, max_deg: 157.9, value_deg: 3 },
+    { key: "running",      label: "Running",      min_deg: 158, max_deg: 180,   value_deg: 0 },
 ];
 
 // Hardcoded timezone list feeding the #tzSelect dropdown. Selecting an entry
@@ -230,7 +232,7 @@ function leewayHTML() {
             <div class="grid">
                 ${num(`lw.${p.key}.min_deg`,   "Min angle (°)",  { min: 0, max: 359.9, step: "0.1", value: p.min_deg })}
                 ${num(`lw.${p.key}.max_deg`,   "Max angle (°)",  { min: 0, max: 359.9, step: "0.1", value: p.max_deg })}
-                ${num(`lw.${p.key}.value_deg`, "Leeway value (°)", { step: "0.5" })}
+                ${num(`lw.${p.key}.value_deg`, "Leeway value (°)", { step: "0.5", value: p.value_deg })}
             </div>
         </div>`).join("");
 }

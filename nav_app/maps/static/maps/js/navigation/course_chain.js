@@ -230,31 +230,28 @@
     /**
      * Which leeway band an absolute wind angle falls in.
      *
-     * Bands are half-open (min <= |rel| < max) so overlapping ranges cannot both
-     * claim an angle; the band with the largest max_deg also owns its upper bound
-     * so that dead downwind (180) still matches. First match in POINTS_OF_SAIL
-     * order wins.
+     * A band runs from its min_deg up to the next band's min_deg, and the top
+     * band on to 180 — so a gap between one band's max and the next one's min
+     * (the form's 67.9 / 68) belongs to the band below, and overlapping ranges
+     * cannot both claim an angle. max_deg is not used for matching. Below the
+     * lowest min (head to wind) the close-hauled band applies (teaching rule).
+     * A band without a value lends nothing to its neighbours: null.
      */
     function bandFor(table, absRel) {
         if (!table) return null;
         const bands = [];
         POINTS_OF_SAIL.forEach(function (key) {
             const entry = table[key];
-            if (!entry || !entry.range) return;
-            if (!Number.isFinite(entry.range.min_deg) ||
-                !Number.isFinite(entry.range.max_deg) ||
-                !Number.isFinite(entry.value_deg)) return;
-            bands.push({ key: key, min: entry.range.min_deg, max: entry.range.max_deg, value: entry.value_deg });
+            if (!entry || !entry.range || !Number.isFinite(entry.range.min_deg)) return;
+            bands.push({ key: key, min: entry.range.min_deg, value: entry.value_deg });
         });
-        if (bands.length === 0) return null;
 
-        const widestMax = Math.max.apply(null, bands.map(function (b) { return b.max; }));
-        for (let i = 0; i < bands.length; i++) {
-            const b = bands[i];
-            const withinTop = b.max === widestMax ? absRel <= b.max : absRel < b.max;
-            if (absRel >= b.min && withinTop) return b;
-        }
-        return null;
+        let owner = null;
+        bands.forEach(function (b) {
+            if (b.min <= absRel && (!owner || b.min > owner.min)) owner = b;
+        });
+        if (!owner) owner = bands.find(function (b) { return b.key === 'close_hauled'; });
+        return owner && Number.isFinite(owner.value) ? owner : null;
     }
 
     /**
@@ -262,8 +259,8 @@
      *
      * The boat is pushed downwind, so the sign follows the tack: wind on the
      * starboard side drifts the boat to port (negative), wind on port drifts it
-     * to starboard (positive). A wind angle in no band — head to wind, or a table
-     * with gaps — yields null rather than a guess.
+     * to starboard (positive). Which band applies, including gaps and head to
+     * wind, is bandFor's rule; null when that band has no value.
      *
      * @returns {{deg:number, pointOfSail:string, tack:string}|null}
      */
@@ -327,7 +324,7 @@
 
         const lw = leewayFor(ctx.leewayTable, ctx.windTrueDeg, out.trueDeg);
         if (!lw) {
-            out.missing.push('leeway (needs wind and a point of sail that matches)');
+            out.missing.push('leeway (needs wind and the close-hauled leeway value)');
             return out;
         }
         out.cog = normalize360(out.trueDeg + lw.deg);
@@ -440,7 +437,7 @@
             steps.push('+leeway ' + fmtSigned(lw.deg) + ' (' + lw.pointOfSail + ', wind on ' + lw.tack + ')' +
                        ' = COG ' + fmtDeg(out.cog));
         } else {
-            out.missing.push('leeway (needs wind and a point of sail that matches)');
+            out.missing.push('leeway (needs wind and the close-hauled leeway value)');
         }
 
         upFromTrue(trueDeg, ctx, out, steps);
