@@ -1,0 +1,128 @@
+{
+  "task": {
+    "meta": {
+      "title": "Test task",
+      "desc": "Fixture",
+      "author": "Teacher",
+      "content_md": "# Test"
+    },
+    "navigation": {
+      "timezone": {
+        "name": "CEST",
+        "offset": "+02:00"
+      },
+      "magnetic_variation_main": {
+        "base_deg": 5.5,
+        "base_year": 2020,
+        "annual_change_deg": 0.1
+      },
+      "compass_deviation_table": [
+        {
+          "heading_deg": 0,
+          "deviation_deg": 1.0
+        }
+      ],
+      "leeway": {
+        "close_hauled": {
+          "range": {
+            "min_deg": 0,
+            "max_deg": 90
+          },
+          "value_deg": 2.0
+        },
+        "beam_reach": {
+          "range": {
+            "min_deg": 0,
+            "max_deg": 90
+          },
+          "value_deg": 2.0
+        },
+        "broad_reach": {
+          "range": {
+            "min_deg": 0,
+            "max_deg": 90
+          },
+          "value_deg": 2.0
+        },
+        "running": {
+          "range": {
+            "min_deg": 0,
+            "max_deg": 90
+          },
+          "value_deg": 2.0
+        }
+      }
+    }
+  },
+  "poi": [
+    {
+      "id": "poi-1",
+      "name": "A",
+      "type": "buoy",
+      "description": "",
+      "lat": 54.3721,
+      "lon": 18.7826
+    },
+    {
+      "id": "poi-2",
+      "name": "B",
+      "type": "light",
+      "description": "x",
+      "lat": 54.5,
+      "lon": 18.9
+    }
+  ],
+  "solution": {
+    "trk": [
+      {
+        "id": "trk-1",
+        "time": "2026-06-01T11:00:00+02:00",
+        "position": {
+          "lat": 54.3721,
+          "lon": 18.7826,
+          "position_txt": "54.3721 N 18.7826 E"
+        },
+        "distance_nm": 1.5,
+        "log_nm": 0.0,
+        "course_compass_deg": 92.0,
+        "course_true_deg": 90.0,
+        "course_over_ground_deg": 91.0,
+        "wind_true_deg": 180.0,
+        "speed_kn": 5.0
+      },
+      {
+        "id": "trk-2",
+        "time": "2026-06-01T12:00:00+02:00",
+        "position": {
+          "lat": 54.38,
+          "lon": 18.8,
+          "position_txt": "54.38 N 18.8 E"
+        },
+        "distance_nm": 1.5,
+        "log_nm": 1.5,
+        "course_compass_deg": 92.0,
+        "course_true_deg": 90.0,
+        "course_over_ground_deg": 91.0,
+        "wind_true_deg": 180.0,
+        "speed_kn": 5.0
+      },
+      {
+        "id": "trk-3",
+        "time": "2026-06-01T13:00:00+02:00",
+        "position": {
+          "lat": 54.39,
+          "lon": 18.82,
+          "position_txt": "54.39 N 18.82 E"
+        },
+        "distance_nm": 1.5,
+        "log_nm": 3.0,
+        "course_compass_deg": 92.0,
+        "course_true_deg": 90.0,
+        "course_over_ground_deg": 91.0,
+        "wind_true_deg": 180.0,
+        "speed_kn": 5.0
+      }
+    ],
+    "comment": "Teacher comment"
+  }
+}
