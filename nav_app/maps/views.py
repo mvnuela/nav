@@ -3,17 +3,18 @@ from django.http import JsonResponse, HttpResponseForbidden, FileResponse, Http4
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.conf import settings
 from pathlib import Path
 import io
 import json
-import os
 import base64
 from PIL import Image
 import fitz  # PyMuPDF
-from jsonschema import Draft202012Validator
 
 from .models import Task
+from .student_schema import load_task_schema, make_validator, student_solution_schema
+from .solution_compare import (
+    POI_COLUMNS, TRK_COLUMNS, pair_rows, read_student_upload,
+)
 
 
 # Source directory for the navigation-calculator JavaScript. These scripts live
@@ -23,12 +24,6 @@ from .models import Task
 CALCULATORS_DIR = (
     Path(__file__).resolve().parent / "private_js" / "calculators"
 ).resolve()
-
-
-def _load_task_schema():
-    schema_path = os.path.join(settings.BASE_DIR, "navigation-task.schema.json")
-    with open(schema_path, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 
 def index(request):
@@ -59,7 +54,7 @@ def navigation_task_form(request):
     """Form panel for building a navigation-task JSON from user input."""
     if not request.user.is_teacher:
         return HttpResponseForbidden("Only teachers can access the navigation task builder.")
-    return render(request, "maps/navigation_task_form.html", {"schema": _load_task_schema()})
+    return render(request, "maps/navigation_task_form.html", {"schema": load_task_schema()})
 
 
 @login_required
@@ -88,7 +83,7 @@ def task_upload(request):
             except json.JSONDecodeError as e:
                 error = f"Invalid JSON: {e.msg} (line {e.lineno}, column {e.colno})."
             else:
-                validator = Draft202012Validator(_load_task_schema())
+                validator = make_validator(load_task_schema())
                 schema_errors = sorted(
                     validator.iter_errors(payload), key=lambda err: list(err.path)
                 )
@@ -132,6 +127,68 @@ def task_solve_enhanced_graticule(request, pk):
         return HttpResponseForbidden("Teachers cannot solve tasks.")
     task = get_object_or_404(Task, pk=pk)
     return render(request, "maps/enhanced_graticule.html", {"task": task})
+
+
+@login_required
+def task_student_solution(request, pk):
+    """The student's solution form: POI and track entry, no calculators.
+
+    Only the task's id, title and timezone offset reach the page; the payload
+    (and with it the teacher's solution) is never sent.
+    """
+    if request.user.is_teacher:
+        return HttpResponseForbidden("Teachers cannot solve tasks.")
+    task = get_object_or_404(Task, pk=pk)
+    timezone = (
+        ((task.payload or {}).get("task") or {}).get("navigation") or {}
+    ).get("timezone") or {}
+    return render(request, "maps/student_solution_form.html", {
+        "task": task,
+        "schema": student_solution_schema(),
+        "student_context": {
+            "task_id": task.pk,
+            "task_title": task.title,
+            "tz_offset": timezone.get("offset"),
+            "login": request.user.username,
+        },
+    })
+
+
+@login_required
+def task_compare(request):
+    """Teacher-only: upload a student's file and set it beside the model answer.
+
+    The file is read in memory and never stored.
+    """
+    if not request.user.is_teacher:
+        return HttpResponseForbidden("Only teachers can compare solutions.")
+    errors = []
+    if request.method == "POST":
+        uploaded = request.FILES.get("student_file")
+        if uploaded is None:
+            errors = ["Choose a file to upload."]
+        else:
+            data, errors = read_student_upload(uploaded)
+            if not errors:
+                task = Task.objects.get(pk=data["task_id"])
+                payload = task.payload or {}
+                solution = payload.get("solution") or {}
+                task_data = payload.get("task") or {}
+                return render(request, "maps/task_compare.html", {
+                    "task": task,
+                    "filename": uploaded.name,
+                    "poi_pairs": pair_rows(payload.get("poi") or [], data["poi"]),
+                    "trk_pairs": pair_rows(
+                        solution.get("trk") or [], data["solution"]["trk"]
+                    ),
+                    "teacher_comment": solution.get("comment"),
+                    "student_comment": data["solution"]["comment"],
+                    "navigation": task_data.get("navigation"),
+                    "meta": task_data.get("meta"),
+                    "poi_columns": POI_COLUMNS,
+                    "trk_columns": TRK_COLUMNS,
+                })
+    return render(request, "maps/task_compare.html", {"errors": errors})
 
 
 @login_required

@@ -73,6 +73,8 @@
         td.actions a.solve-sea:hover { background: #155e75; text-decoration: none; }
         td.actions a.solve-grat { background: #15803d; color: #fff; }
         td.actions a.solve-grat:hover { background: #166534; text-decoration: none; }
+        td.actions a.solution { background: #4f46e5; color: #fff; }
+        td.actions a.solution:hover { background: #4338ca; text-decoration: none; }
         td.actions a.download { color: #2563eb; }
         th {
             background: #f9fafb;
@@ -104,6 +106,7 @@
             <a href="{% url 'maps:index' %}">← Home</a>
             {% if user.is_teacher %}
                 <a class="btn" href="{% url 'maps:task_upload' %}">Upload JSON</a>
+                <a class="btn" href="{% url 'maps:task_compare' %}">Compare a student file</a>
             {% endif %}
         </div>
     </header>
@@ -138,6 +141,7 @@
                             {% else %}
                                 <a class="solve-sea" href="{% url 'maps:task_solve_sea_map' task.pk %}">Solve · OpenSeaMap</a>
                                 <a class="solve-grat" href="{% url 'maps:task_solve_enhanced_graticule' task.pk %}">Solve · Enhanced Graticule</a>
+                                <a class="solution" href="{% url 'maps:task_student_solution' task.pk %}">My solution</a>
                             {% endif %}
                         </td>
                     </tr>

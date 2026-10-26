@@ -1,0 +1,214 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My solution — {{ task.title }}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 24px;
+            color: #1f2937;
+        }
+        .wrap { max-width: 1100px; margin: 0 auto; }
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        header h1 { font-size: 1.6em; margin: 0; color: #1e3a8a; }
+        header a { color: #2563eb; text-decoration: none; font-size: 0.95em; }
+
+        details.section {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        details.section > summary {
+            cursor: pointer;
+            padding: 14px 18px;
+            font-weight: 600;
+            color: #1e3a8a;
+            font-size: 1.05em;
+            list-style: none;
+        }
+        details.section > summary::-webkit-details-marker { display: none; }
+        details.section > summary::before {
+            content: "▸";
+            display: inline-block;
+            margin-right: 8px;
+            transition: transform 0.15s;
+        }
+        details.section[open] > summary::before { transform: rotate(90deg); }
+        details.section .body { padding: 0 18px 18px 18px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+        .field { display: flex; flex-direction: column; gap: 4px; }
+        .field label {
+            font-size: 0.85em;
+            color: #4b5563;
+            font-weight: 500;
+        }
+        .field input, .field textarea, .field select {
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.95em;
+            font-family: inherit;
+            background: #fff;
+        }
+        .field input:focus, .field textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .field textarea { resize: vertical; min-height: 70px; }
+        .field input[readonly] {
+            background: #f3f4f6; color: #6b7280; cursor: not-allowed;
+        }
+        .field .hint { font-size: 0.75em; color: #6b7280; }
+
+        .row {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f9fafb;
+            position: relative;
+        }
+        .row .row-title {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .row .remove-btn {
+            background: #fee2e2; color: #b91c1c;
+            border: none; padding: 4px 10px;
+            border-radius: 5px; cursor: pointer;
+            font-size: 0.8em;
+        }
+        .row .remove-btn:hover { background: #fecaca; }
+
+        .field input.invalid { border-color: #dc2626; }
+        .field .hint.err { color: #dc2626; }
+        .add-btn {
+            background: #2563eb; color: #fff;
+            border: none; padding: 8px 14px;
+            border-radius: 6px; cursor: pointer;
+            font-size: 0.9em; margin-top: 6px;
+        }
+        .add-btn:hover { background: #1d4ed8; }
+
+        .actions {
+            position: sticky; bottom: 0;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-top: 20px;
+            display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+        }
+        .actions button.primary {
+            background: #059669; color: #fff;
+            border: none; padding: 10px 20px;
+            border-radius: 6px; cursor: pointer;
+            font-size: 1em; font-weight: 600;
+        }
+        .actions button.primary:hover { background: #047857; }
+        .actions .filename {
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px; font-size: 0.9em;
+        }
+
+        #status {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            display: none;
+        }
+        #status.ok {
+            display: block;
+            background: #d1fae5; color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+        #status.err {
+            display: block;
+            background: #fee2e2; color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        #status ul { margin: 8px 0 0 18px; padding: 0; }
+        #status li { margin: 2px 0; }
+        code.path { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>⚓ {{ task.title }}</h1>
+        <a href="{% url 'maps:task_list' %}">← Back to tasks</a>
+    </header>
+
+    <form id="studentForm" autocomplete="off">
+
+        <details class="section" open>
+            <summary>1. Points of Interest (POI)</summary>
+            <div class="body">
+                <div id="poiList"></div>
+                <button type="button" class="add-btn" data-add="poi">+ Add POI</button>
+            </div>
+        </details>
+
+        <details class="section" open>
+            <summary>2. Solution — Track</summary>
+            <div class="body">
+                <div id="trkList"></div>
+                <button type="button" class="add-btn" data-add="trk">+ Add track point</button>
+                <div class="field" style="margin-top:14px">
+                    <label>Comment</label>
+                    <textarea name="solution.comment" rows="3"></textarea>
+                    <span class="hint">Leave empty for null.</span>
+                </div>
+            </div>
+        </details>
+
+        <div class="actions">
+            <div class="field" style="flex:1">
+                <label for="filePrefix">File name prefix</label>
+                <input type="text" id="filePrefix" placeholder="{{ student_context.login }}">
+                <span class="hint">Saved as &lt;prefix&gt;_task-{{ task.pk }}.json; empty &rarr; your login.</span>
+            </div>
+            <button type="button" id="downloadBtn" class="primary">Download JSON</button>
+        </div>
+
+        <div id="status"></div>
+    </form>
+</div>
+
+{{ schema|json_script:"studentSchema" }}
+{{ student_context|json_script:"studentContext" }}
+<!-- Classic scripts first; the deferred module below uses their globals. -->
+<script src="{% static 'maps/js/navigation/angle_units.js' %}"></script>
+<script src="{% static 'maps/js/navigation/local_datetime.js' %}"></script>
+<!-- Ajv 8.17.1, vendored so the form works without network. -->
+<script src="{% static 'maps/js/vendor/ajv2020.bundle.min.js' %}"></script>
+<script src="{% static 'maps/js/graticule/graticule_formatter.js' %}"></script>
+<script src="{% static 'maps/js/navigation/coordinate_field.js' %}"></script>
+<script src="{% static 'maps/js/navigation/task_json.js' %}"></script>
+<script src="{% static 'maps/js/navigation/student_solution.js' %}"></script>
+<script type="module" src="{% static 'maps/js/navigation/student_solution_form.js' %}"></script>
+</body>
+</html>

@@ -11,6 +11,8 @@ from .views import (
     task_download,
     task_solve_sea_map,
     task_solve_enhanced_graticule,
+    task_student_solution,
+    task_compare,
 )
 
 app_name = 'maps'
@@ -23,8 +25,10 @@ urlpatterns = [
     path('calculators/<path:path>', calculator_js, name='calculator_js'),
     path('tasks/', task_list, name='task_list'),
     path('tasks/upload/', task_upload, name='task_upload'),
+    path('tasks/compare/', task_compare, name='task_compare'),
     path('tasks/<int:pk>/download/', task_download, name='task_download'),
     path('tasks/<int:pk>/solve/sea-map/', task_solve_sea_map, name='task_solve_sea_map'),
     path('tasks/<int:pk>/solve/enhanced-graticule/', task_solve_enhanced_graticule, name='task_solve_enhanced_graticule'),
+    path('tasks/<int:pk>/solution/', task_student_solution, name='task_student_solution'),
     path('api/convert-pdf/', convert_pdf_to_image, name='convert_pdf'),
 ]
