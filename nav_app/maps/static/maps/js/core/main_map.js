@@ -435,7 +435,10 @@
                     panelToggle.style.background = isVisible ? 'white' : '#e8f5e9';
                 };
             }
-            
+
+            attachDegreeButton(document.getElementById('latInput'));
+            attachDegreeButton(document.getElementById('lonInput'));
+
             /**
              * One parser for both buttons: parseLatLon accepts decimals, comma
              * decimals and nautical notation, and rejects a latitude typed into

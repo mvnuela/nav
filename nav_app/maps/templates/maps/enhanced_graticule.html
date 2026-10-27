@@ -78,19 +78,19 @@
                 <h3>3. Geographic Bounds & Grid</h3>
                 <div class="form-group">
                     <label>Min Latitude (South):</label>
-                    <input type="text" id="minLat" placeholder="54.0 or 54°22.1'N">
+                    <input type="text" id="minLat" data-degree-button placeholder="54.0 or 54°22.1'N">
                 </div>
                 <div class="form-group">
                     <label>Min Longitude (West):</label>
-                    <input type="text" id="minLon" placeholder="18.0 or 018°30.0'E">
+                    <input type="text" id="minLon" data-degree-button placeholder="18.0 or 018°30.0'E">
                 </div>
                 <div class="form-group">
                     <label>Max Latitude (North):</label>
-                    <input type="text" id="maxLat" placeholder="55.0 or 55°00.0'N">
+                    <input type="text" id="maxLat" data-degree-button placeholder="55.0 or 55°00.0'N">
                 </div>
                 <div class="form-group">
                     <label>Max Longitude (East):</label>
-                    <input type="text" id="maxLon" placeholder="19.0 or 019°00.0'E">
+                    <input type="text" id="maxLon" data-degree-button placeholder="19.0 or 019°00.0'E">
                 </div>
 
                 <!-- Grid spacing (defined at the geographic bounds step) -->
@@ -386,11 +386,11 @@
 
                 <div class="form-group">
                     <label>Latitude:</label>
-                    <input type="text" id="markCoordsLat" placeholder="54.5 or 54°30.0'N">
+                    <input type="text" id="markCoordsLat" data-degree-button placeholder="54.5 or 54°30.0'N">
                 </div>
                 <div class="form-group">
                     <label>Longitude:</label>
-                    <input type="text" id="markCoordsLon" placeholder="18.5 or 018°30.0'E">
+                    <input type="text" id="markCoordsLon" data-degree-button placeholder="18.5 or 018°30.0'E">
                 </div>
                 <div class="form-group">
                     <label>Mark as:</label>
@@ -558,6 +558,7 @@
     <script src="{% static 'maps/js/nautical/nautical_triangles_canvas.js' %}"></script>
     {# parseLatLon for the Mark from Coordinates panel; needs nauticalToDecimal above #}
     <script src="{% static 'maps/js/navigation/coordinate_field.js' %}"></script>
+    <script src="{% static 'maps/js/core/degree_button.js' %}"></script>
     <!-- Load the shared canvas marker base, then the two kinds built on it -->
     <script src="{% static 'maps/js/core/canvas_marker_manager.js' %}"></script>
     <script src="{% static 'maps/js/observed_position/observed_position_canvas.js' %}"></script>

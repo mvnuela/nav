@@ -140,7 +140,7 @@ function coord(name, label, axis, { star = true } = {}) {
     return `
         <div class="field">
             <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
-            <input type="text" name="${name}" data-coord="${axis}"
+            <input type="text" data-degree-button name="${name}" data-coord="${axis}"
                    placeholder="${COORD_PLACEHOLDER[axis]}" required>
             <span class="hint"></span>
         </div>`;
@@ -154,7 +154,7 @@ function variation(name, label, { star = true } = {}) {
     return `
         <div class="field">
             <label>${label}${star ? ' <span class="req">*</span>' : ""}</label>
-            <input type="text" name="${name}" data-angle="variation"
+            <input type="text" data-degree-button name="${name}" data-angle="variation"
                    placeholder="6°45'E or 6.75" required>
             <span class="hint"></span>
         </div>`;
