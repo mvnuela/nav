@@ -207,6 +207,16 @@ function mvRowHTML(idx) {
 // on export — at least one deviation is required (schema minItems: 1).
 const CD_HEADINGS = Array.from({ length: 36 }, (_, i) => i * 10); // 0,10,…,350
 
+// Sample card for "Fill with default values", one deviation per CD_HEADINGS
+// entry (+E / −W). Taken from a textbook deviation table (Tablica 7.1), whose
+// 360° (000°) row supplies the 0° value.
+const CD_DEFAULT_DEVIATIONS = [
+     5.0,  4.5,  4.0,  3.5,  3.0,  2.5,  2.0,  1.5,  1.0,  0.5,  //   0– 90
+     0.0, -0.5, -1.0, -1.5, -2.0, -2.5, -3.0, -3.5,              // 100–170
+    -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5,  0.0,              // 180–250
+     0.5,  1.0,  1.5,  2.0,  2.5,  3.0,  3.5,  4.0,  4.5,  5.0,  // 260–350
+];
+
 function cdCell(idx) {
     const heading = CD_HEADINGS[idx];
     return `
@@ -915,6 +925,22 @@ document.body.addEventListener("focusout", e => {
 document.body.insertAdjacentHTML("beforeend", windDatalistHTML());
 document.getElementById("leewayList").innerHTML = leewayHTML();
 document.getElementById("cdList").innerHTML = cdCardHTML();
+// Write one value per heading into the card, asking first if that would
+// overwrite something the teacher typed.
+function setCard(valueAt, question) {
+    const inputs = CD_HEADINGS.map((_, i) =>
+        document.querySelector(`[name="cd.${i}.deviation_deg"]`));
+    if (inputs.some(input => input.value !== "") && !confirm(question)) return;
+    inputs.forEach((input, i) => {
+        input.value = valueAt(i);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+}
+document.getElementById("cdFillDefaults").addEventListener("click", () =>
+    setCard(i => String(CD_DEFAULT_DEVIATIONS[i]),
+        "Replace the deviations already entered with the default values?"));
+document.getElementById("cdClear").addEventListener("click", () =>
+    setCard(() => "", "Clear all deviations in the table?"));
 // The main variation always exists; the positioned entries start empty because
 // magnetic_variation_list is optional.
 document.getElementById("mvMain").innerHTML = mvMainHTML();
