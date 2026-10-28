@@ -24,6 +24,16 @@ body {
     margin-top: 40px;
 }
 
+/* The top-left corner is boxed in by both scales: the latitude scale runs
+   down the left edge (x 4-64) and the longitude scale along the top
+   (y 4-38). With the control's own 10px margin this puts the first control
+   at x 68 -- the longitude scale's left margin -- and level with the
+   top-right stack. */
+.leaflet-top.leaflet-left {
+    margin-top: 40px;
+    margin-left: 58px;
+}
+
 /* Coordinate Display Control */
 .leaflet-control-coordinate {
     background: rgba(255, 255, 255, 0.95);
