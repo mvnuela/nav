@@ -55,7 +55,7 @@ function coord(name, label, axis) {
     return `
         <div class="field">
             <label>${label}</label>
-            <input type="text" name="${name}" data-coord="${axis}"
+            <input type="text" data-degree-button name="${name}" data-coord="${axis}"
                    placeholder="${COORD_PLACEHOLDER[axis]}">
             ${hintSpan()}
         </div>`;
