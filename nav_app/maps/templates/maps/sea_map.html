@@ -73,7 +73,8 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         margin-top: 10px;
         width: 200px;
-        max-height: calc(100vh - 32px);
+        /* 50px down to clear the longitude scale, 10px gap at the bottom */
+        max-height: calc(100vh - 60px);
         overflow-y: auto;
         box-sizing: border-box;
     }
@@ -115,19 +116,12 @@
 (function () {
     function dock() {
         const wrap = document.getElementById('seaMapTaskWrap');
-        const corner = document.querySelector('.leaflet-top.leaflet-right');
+        // Top-left, away from the tool stack on the right: the student reads
+        // the task on one side while working the tools on the other.
+        const corner = document.querySelector('.leaflet-top.leaflet-left');
         if (!wrap) return;
         if (!corner) { return setTimeout(dock, 50); }
-        const legend = corner.querySelector('.leaflet-control-legend');
-        if (legend) {
-            // Swap Nautical Symbols and Task: task takes legend's slot,
-            // legend moves to the bottom of the topright stack.
-            corner.insertBefore(wrap, legend);
-            corner.appendChild(legend);
-        } else {
-            // Legend hidden: task panel takes the top slot of the stack.
-            corner.insertBefore(wrap, corner.firstChild);
-        }
+        corner.insertBefore(wrap, corner.firstChild);
         if (window.L && L.DomEvent) {
             L.DomEvent.disableClickPropagation(wrap);
             L.DomEvent.disableScrollPropagation(wrap);
