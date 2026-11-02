@@ -468,6 +468,7 @@
         dividerCanvas.addEventListener('mouseleave', function(e) {
             if (!dividersVisible || !dividerManager) return;
             dividerManager.handleMouseUp();
+            dividerManager.clearPreviewMouse();
             dividerManager.dividers.forEach(d => d.isHovered = false);
             enableMapInteractions();
             renderDividers();

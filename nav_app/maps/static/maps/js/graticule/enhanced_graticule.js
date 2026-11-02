@@ -85,6 +85,12 @@ class EnhancedGraticuleSystem {
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('mouseleave', (e) => this.handleMouseUp(e));
+        this.canvas.addEventListener('mouseleave', () => {
+            if (this.dividerManager && this.dividerManager.placementMode) {
+                this.dividerManager.clearPreviewMouse();
+                this.render();
+            }
+        });
 
         // Mouse wheel for zoom
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });

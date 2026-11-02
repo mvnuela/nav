@@ -432,8 +432,9 @@ class NauticalDividerManager {
         this.placementMode = true;
         this.placementPointA = null;
         this.selectedDivider = null;
+        this.lastMouseScreen = null;
     }
-    
+
     /**
      * Cancel placement mode
      */
@@ -688,11 +689,37 @@ class NauticalDividerManager {
             ctx.arc(screenA.x, screenA.y, 6, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
-            
+
             ctx.restore();
         }
+
+        if (this.placementMode && this.lastMouseScreen) {
+            this.drawPlacementCursor(ctx);
+        }
     }
-    
+
+    /**
+     * Cursor preview ring: trails the mouse while placing either end, so the
+     * user can see exactly where it will land before clicking. Same ring as
+     * the observed position tool, in the divider's color. Divided by the
+     * canvas zoom so the graticule panel shows it at the same on-screen size
+     * as the Leaflet sea map.
+     */
+    drawPlacementCursor(ctx) {
+        const scale = ctx.getTransform().a;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 136, 0, 0.15)';
+        ctx.strokeStyle = 'rgba(255, 136, 0, 0.65)';
+        ctx.lineWidth = 1.5 / scale;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(this.lastMouseScreen.x, this.lastMouseScreen.y, 12 / scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
     /**
      * Store last mouse position for preview
      */
@@ -700,6 +727,14 @@ class NauticalDividerManager {
         if (this.placementMode) {
             this.lastMouseScreen = {x: screenX, y: screenY};
         }
+    }
+
+    /**
+     * Forget the mouse position when the pointer leaves the map, so the
+     * preview does not stay parked at the edge
+     */
+    clearPreviewMouse() {
+        this.lastMouseScreen = null;
     }
     
     /**
